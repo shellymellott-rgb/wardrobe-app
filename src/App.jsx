@@ -1,4 +1,4 @@
-importimport { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const CATEGORIES = ["Tops", "Bottoms", "Dresses", "Outerwear", "Shoes", "Accessories"];
 
