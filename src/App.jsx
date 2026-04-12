@@ -372,7 +372,7 @@ export default function WardrobeApp() {
   const [pendingImageData, setPendingImageData] = useState(null);
   const [scanningImage, setScanningImage] = useState(false);
   const fileInputRef = useRef();
-  const [receiptData, setReceiptData] = useState(null);
+    } catch { setReceiptData(null); alert("Receipt scan failed. Try again."); }
   const [receiptDate, setReceiptDate] = useState("");
   const [scanning, setScanning] = useState(false);
   const [receiptImages, setReceiptImages] = useState({});
