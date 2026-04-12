@@ -473,17 +473,20 @@ export default function WardrobeApp() {
     const file = e.target.files[0]; e.target.value = "";
     if (!file) return;
     setScanning(true); setReceiptData(null); setReceiptImages({});
-    const dataUrl = await readFile(file);
-    try {
+    const dataUrl = await readFile(    try {
       const text = await callClaude(RECEIPT_PROMPT, [
-        { type:"image", source:{ type:"base64", media_type:file.type||"image/jpeg", data:dataUrl.split(",")[1] } },
+        { type:"image", source:{ type:"base64", media_type:"image/jpeg", data:dataUrl.split(",")[1] } },
         { type:"text", text:"Extract all clothing items from this receipt." }
       ], 1000);
-      const parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
+      const clean = text.replace(/```json|```/g,"").trim();
+      const firstBrace = clean.indexOf("{");
+      const lastBrace = clean.lastIndexOf("}");
+      const jsonStr = clean.substring(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(jsonStr);
       setReceiptDate(parsed.purchaseDate || "");
       setReceiptData((parsed.items||[]).map((item,i) => ({ ...item, tempId:i, season:"All Year", sleeveLength:"N/A", length:"N/A", material:"", tags:[], comments:"", price:item.price||"" })));
     } catch { setReceiptData([]); }
-    setScanning(false);
+   setScanning(false);
   }
 
   function updateRI(tempId, field, value) { setReceiptData(prev => prev.map(i => i.tempId===tempId ? { ...i, [field]:value } : i)); }
