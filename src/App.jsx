@@ -16,9 +16,8 @@ const IMAGE_SCAN_PROMPT = `Analyze this clothing product image or order screensh
 const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null});
 function loadFromStorage(){try{const r=localStorage.getItem(STORAGE_KEY);return r?JSON.parse(r):[]}catch{return[]}}
 function saveToStorage(items){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}catch{}}
-async function callClaude(system,userContent,maxTokens=1000){const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,system,messages:[{role:"user",content:userContent}]})});const data=await res.json();return data.content?.[0]?.text||""}
+async function callClaude(system,userContent,maxTokens=1000){const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,system,messages:[{role:"user",content:userContent}]})});const data=await res.json();return data.content?.[0]?.text||""}
 function readFile(file){return new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.readAsDataURL(file)})}
-
 function CropModal({imageSrc,onDone,onCancel}){
   const [mode,setMode]=useState("portrait");
   const [crop,setCrop]=useState({x:0,y:0,w:0,h:0});
