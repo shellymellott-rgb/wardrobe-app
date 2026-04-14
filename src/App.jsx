@@ -45,6 +45,35 @@ function saveToStorage(items){try{localStorage.setItem(STORAGE_KEY,JSON.stringif
 function loadWishlist(){try{const r=localStorage.getItem(WISHLIST_KEY);return r?JSON.parse(r):[]}catch{return[]}}
 function saveWishlist(w){try{localStorage.setItem(WISHLIST_KEY,JSON.stringify(w))}catch{}}
 
+// ── Supabase sync ─────────────────────────────────────────────────────────────
+const SB_URL="https://lkyxzwjsxjjfrhfdohot.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreXh6d2pzeGpqZnJoZmRvaG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDE3NTYsImV4cCI6MjA5MTcxNzc1Nn0.CTGfz6bua_dlsdb-5o2tDT1voQErXZ-LpFZlIcOi_Sg";
+const SB_HDR={apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,"Content-Type":"application/json"};
+function getUserId(){let u=localStorage.getItem("wardrobe-uid");if(!u){u=crypto.randomUUID();localStorage.setItem("wardrobe-uid",u)}return u}
+async function sbUpsert(table,rows){
+  if(!rows.length)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:"POST",headers:{...SB_HDR,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+    if(!r.ok)console.warn("Supabase upsert",r.status,await r.text());
+  }catch(e){console.warn("Supabase upsert error",e)}
+}
+async function sbDel(table,id){
+  try{
+    const uid=getUserId();
+    await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}&user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...SB_HDR,Prefer:"return=minimal"}});
+  }catch(e){console.warn("Supabase delete error",e)}
+}
+async function sbLoad(table){
+  try{
+    const uid=getUserId();
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&select=data&order=created_at.asc`,{headers:SB_HDR});
+    if(!res.ok)return null;
+    const rows=await res.json();
+    return Array.isArray(rows)?rows.map(r=>r.data):null;
+  }catch{return null}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function callClaude(system,userContent,maxTokens=1000){
   try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userContent}]})});const data=await res.json();return data.content?.[0]?.text||""}catch(e){console.error(e);return""}
 }
@@ -168,9 +197,39 @@ export default function WardrobeApp(){
   const chatEndRef=useRef();
   const outfitPhotoRef=useRef();
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"})},[chatHistory]);
+  useEffect(()=>{
+    (async()=>{
+      const uid=getUserId();
+      const [dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
+      // items: use Supabase if it has data; if empty, push localStorage up to Supabase
+      if(dbItems===null){}// Supabase unavailable – keep localStorage
+      else if(dbItems.length>0){setItems(dbItems);saveToStorage(dbItems)}
+      else{const loc=loadFromStorage();if(loc.length)sbUpsert("wardrobe_items",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
+      // wishlist
+      if(dbWish===null){}
+      else if(dbWish.length>0){setWishlist(dbWish);saveWishlist(dbWish)}
+      else{const loc=loadWishlist();if(loc.length)sbUpsert("wardrobe_wishlist",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
+    })();
+  },[]);
 
-  function persist(newItems){setItems(newItems);saveToStorage(newItems)}
-  function persistWishlist(w){setWishlist(w);saveWishlist(w)}
+  function persist(newItems){
+    const newIds=new Set(newItems.map(i=>String(i.id)));
+    const removed=items.filter(i=>!newIds.has(String(i.id)));
+    const upserted=newItems.filter(i=>{const old=items.find(j=>String(j.id)===String(i.id));return !old||JSON.stringify(old)!==JSON.stringify(i)});
+    setItems(newItems);saveToStorage(newItems);
+    const uid=getUserId();
+    removed.forEach(i=>sbDel("wardrobe_items",i.id));
+    if(upserted.length)sbUpsert("wardrobe_items",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));
+  }
+  function persistWishlist(w){
+    const newIds=new Set(w.map(i=>String(i.id)));
+    const removed=wishlist.filter(i=>!newIds.has(String(i.id)));
+    const upserted=w.filter(i=>{const old=wishlist.find(j=>String(j.id)===String(i.id));return !old||JSON.stringify(old)!==JSON.stringify(i)});
+    setWishlist(w);saveWishlist(w);
+    const uid=getUserId();
+    removed.forEach(i=>sbDel("wardrobe_wishlist",i.id));
+    if(upserted.length)sbUpsert("wardrobe_wishlist",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));
+  }
   function addBrand(brand){if(!brand||brands.includes(brand))return;const updated=[...brands,brand].sort();setBrands(updated);try{localStorage.setItem("wardrobe-brands",JSON.stringify(updated))}catch{}}
   function openFilePicker(target){setCropTarget(target);fileInputRef.current.click()}
 
