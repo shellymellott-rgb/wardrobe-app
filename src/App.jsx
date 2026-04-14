@@ -38,7 +38,7 @@ Skip non-clothing. Make names descriptive. Extract brand from product name if pr
 
 const CHAT_SYSTEM=(items)=>`You are Shelly's personal stylist with full knowledge of her wardrobe. Her style: polished but not corporate, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, good fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Real-life elevated — errands, boat, travel. Be direct, opinionated, no fluff.\n\nHer complete wardrobe (${items.length} pieces):\n${items.map(i=>`- [${i.category}] ${i.name}${i.brand?` / ${i.brand}`:""}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}${i.tags?.length?` / Tags: ${i.tags.join(", ")}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items she owns by name. Be concise and direct.`;
 
-const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null});
+const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null,originalImageData:null});
 
 function loadFromStorage(){try{const r=localStorage.getItem(STORAGE_KEY);return r?JSON.parse(r):[]}catch{return[]}}
 function saveToStorage(items){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}catch{}}
@@ -46,7 +46,7 @@ function loadWishlist(){try{const r=localStorage.getItem(WISHLIST_KEY);return r?
 function saveWishlist(w){try{localStorage.setItem(WISHLIST_KEY,JSON.stringify(w))}catch{}}
 
 async function callClaude(system,userContent,maxTokens=1000){
-  try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,system,messages:[{role:"user",content:userContent}]})});const data=await res.json();return data.content?.[0]?.text||""}catch(e){console.error(e);return""}
+  try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userContent}]})});const data=await res.json();return data.content?.[0]?.text||""}catch(e){console.error(e);return""}
 }
 function readFile(file){return new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.readAsDataURL(file)})}
 
@@ -70,7 +70,7 @@ function CropModal({imageSrc,onDone,onCancel}){
   function applyCrop(){const img=imgRef.current;const container=containerRef.current;const ia=img.naturalWidth/img.naturalHeight;const ca=container.offsetWidth/container.offsetHeight;let iW,iH,iX,iY;if(ia>ca){iW=container.offsetWidth;iH=iW/ia;iX=0;iY=(container.offsetHeight-iH)/2}else{iH=container.offsetHeight;iW=iH*ia;iX=(container.offsetWidth-iW)/2;iY=0}const cx=(crop.x-iX)*(img.naturalWidth/iW);const cy=(crop.y-iY)*(img.naturalHeight/iH);const cw=crop.w*(img.naturalWidth/iW);const ch=crop.h*(img.naturalHeight/iH);const canvas=document.createElement("canvas");canvas.width=Math.max(1,cw);canvas.height=Math.max(1,ch);canvas.getContext("2d").drawImage(img,cx,cy,cw,ch,0,0,cw,ch);onDone(canvas.toDataURL("image/jpeg",0.92))}
   const HANDLES=["nw","n","ne","e","se","s","sw","w"];const hSize=14;
   function hStyle(h){const p={nw:{left:crop.x-hSize/2,top:crop.y-hSize/2},n:{left:crop.x+crop.w/2-hSize/2,top:crop.y-hSize/2},ne:{left:crop.x+crop.w-hSize/2,top:crop.y-hSize/2},e:{left:crop.x+crop.w-hSize/2,top:crop.y+crop.h/2-hSize/2},se:{left:crop.x+crop.w-hSize/2,top:crop.y+crop.h-hSize/2},s:{left:crop.x+crop.w/2-hSize/2,top:crop.y+crop.h-hSize/2},sw:{left:crop.x-hSize/2,top:crop.y+crop.h-hSize/2},w:{left:crop.x-hSize/2,top:crop.y+crop.h/2-hSize/2}};const c={nw:"nwse-resize",n:"ns-resize",ne:"nesw-resize",e:"ew-resize",se:"nwse-resize",s:"ns-resize",sw:"nesw-resize",w:"ew-resize"};return{position:"absolute",width:hSize,height:hSize,background:"#e8e2d8",borderRadius:2,zIndex:10,cursor:c[h],touchAction:"none",...p[h]}}
-  return(<div style={{position:"fixed",inset:0,background:"#000",zIndex:200,display:"flex",flexDirection:"column"}}><div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1a1a1a",flexShrink:0}}><button onClick={onCancel} style={{background:"transparent",border:"none",color:"#888",fontSize:11,cursor:"pointer"}}>Cancel</button><div style={{display:"flex",gap:6}}>{[["portrait","3:4"],["square","1:1"],["free","Free"]].map(([m,label])=>(<button key={m} onClick={()=>setMode(m)} style={{background:mode===m?"#e8e2d8":"#1a1a1a",color:mode===m?"#111":"#666",border:`1px solid ${mode===m?"#e8e2d8":"#2a2a2a"}`,borderRadius:20,padding:"4px 12px",fontSize:10,cursor:"pointer"}}>{label}</button>))}</div><button onClick={applyCrop} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"6px 16px",fontSize:11,fontWeight:600,cursor:"pointer"}}>Apply</button></div><div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0}}><div ref={containerRef} style={{flex:1,position:"relative",overflow:"hidden",userSelect:"none",touchAction:"none",cursor:"crosshair"}} onMouseDown={onPD} onMouseMove={onPM} onMouseUp={onPU} onMouseLeave={onPU} onTouchStart={onPD} onTouchMove={onPM} onTouchEnd={onPU}><img ref={imgRef} src={imageSrc} onLoad={()=>setImgLoaded(true)} style={{width:"100%",height:"100%",objectFit:"contain",display:"block",pointerEvents:"none"}}/>{imgLoaded&&crop.w>10&&<><svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}><defs><mask id="cm"><rect width="100%" height="100%" fill="white"/><rect x={crop.x} y={crop.y} width={crop.w} height={crop.h} fill="black"/></mask></defs><rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cm)"/><rect x={crop.x} y={crop.y} width={crop.w} height={crop.h} fill="none" stroke="#e8e2d8" strokeWidth="1.5"/></svg>{HANDLES.map(h=><div key={h} data-handle={h} style={hStyle(h)}/>)}</>}{!imgLoaded&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#555",fontSize:11}}>Loading...</div>}</div><div style={{width:100,background:"#080808",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:10,borderLeft:"1px solid #1a1a1a",flexShrink:0}}><div style={{fontSize:8,letterSpacing:2,textTransform:"uppercase",color:"#444"}}>Preview</div>{previewUrl?<img src={previewUrl} style={{width:80,height:mode==="portrait"?80*(4/3):80,objectFit:"cover",borderRadius:2,border:"1px solid #222",maxHeight:120}}/>:<div style={{width:80,height:80,background:"#111",borderRadius:2}}/>}</div></div><div style={{padding:"8px 0",textAlign:"center",color:"#333",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>Drag · Handles to resize</div></div>);
+  return(<div style={{position:"fixed",inset:0,background:"#000",zIndex:200,display:"flex",flexDirection:"column"}}><div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1a1a1a",flexShrink:0}}><button onClick={onCancel} style={{background:"transparent",border:"none",color:"#888",fontSize:11,cursor:"pointer"}}>Cancel</button><div style={{display:"flex",gap:6}}>{[["portrait","3:4"],["square","1:1"],["free","Free"]].map(([m,label])=>(<button key={m} onClick={()=>setMode(m)} style={{background:mode===m?"#e8e2d8":"#1a1a1a",color:mode===m?"#111":"#666",border:`1px solid ${mode===m?"#e8e2d8":"#2a2a2a"}`,borderRadius:20,padding:"4px 12px",fontSize:10,cursor:"pointer"}}>{label}</button>))}</div></div><div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0}}><div ref={containerRef} style={{flex:1,position:"relative",overflow:"hidden",userSelect:"none",touchAction:"none",cursor:"crosshair"}} onMouseDown={onPD} onMouseMove={onPM} onMouseUp={onPU} onMouseLeave={onPU} onTouchStart={onPD} onTouchMove={onPM} onTouchEnd={onPU}><img ref={imgRef} src={imageSrc} onLoad={()=>setImgLoaded(true)} style={{width:"100%",height:"100%",objectFit:"contain",display:"block",pointerEvents:"none"}}/>{imgLoaded&&crop.w>10&&<><svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}><defs><mask id="cm"><rect width="100%" height="100%" fill="white"/><rect x={crop.x} y={crop.y} width={crop.w} height={crop.h} fill="black"/></mask></defs><rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cm)"/><rect x={crop.x} y={crop.y} width={crop.w} height={crop.h} fill="none" stroke="#e8e2d8" strokeWidth="1.5"/></svg>{HANDLES.map(h=><div key={h} data-handle={h} style={hStyle(h)}/>)}</>}{!imgLoaded&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#555",fontSize:11}}>Loading...</div>}</div><div style={{width:100,background:"#080808",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:10,borderLeft:"1px solid #1a1a1a",flexShrink:0}}><div style={{fontSize:8,letterSpacing:2,textTransform:"uppercase",color:"#444"}}>Preview</div>{previewUrl?<img src={previewUrl} style={{width:80,height:mode==="portrait"?80*(4/3):80,objectFit:"cover",borderRadius:2,border:"1px solid #222",maxHeight:120}}/>:<div style={{width:80,height:80,background:"#111",borderRadius:2}}/>}</div></div><div style={{padding:"12px 16px",borderTop:"1px solid #1a1a1a",flexShrink:0}}><div style={{textAlign:"center",color:"#444",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Drag to crop · Handles to resize</div><button onClick={applyCrop} style={{width:"100%",background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"14px",fontSize:11,fontWeight:600,cursor:"pointer",letterSpacing:2,textTransform:"uppercase"}}>Apply</button></div></div>);
 }
 
 const ghostBtn={background:"transparent",border:"none",color:"#888",fontSize:11,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",padding:"4px 0"};
@@ -79,14 +79,14 @@ const inputStyle={width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",c
 const labelStyle={fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#666",display:"block",marginBottom:5,marginTop:10};
 function navBtn(label,active,onClick){return<button onClick={onClick} style={{background:active?"#e8e2d8":"transparent",color:active?"#111":"#888",border:`1px solid ${active?"#e8e2d8":"#333"}`,borderRadius:20,padding:"6px 16px",fontSize:11,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",fontWeight:active?600:400,whiteSpace:"nowrap"}}>{label}</button>}
 
-function FormFields({form,setForm,onImageClick,brands=[],onAddBrand}){
+function FormFields({form,setForm,onImageClick,onRecrop,brands=[],onAddBrand}){
   const showSleeve=["Tops","Dresses"].includes(form.category);
   const showLength=["Bottoms","Dresses"].includes(form.category);
   function toggleTag(tag){setForm(f=>({...f,tags:f.tags.includes(tag)?f.tags.filter(t=>t!==tag):[...f.tags,tag]}))}
   function addCustomTag(){if(!form.customTag?.trim())return;const tag=form.customTag.trim();if(!form.tags.includes(tag))setForm(f=>({...f,tags:[...f.tags,tag],customTag:""}));else setForm(f=>({...f,customTag:""}))}
   return(<div>
     <div onClick={onImageClick} style={{aspectRatio:"3/4",background:"#1a1a1a",border:"1px dashed #333",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginBottom:16,overflow:"hidden"}}>{form.imageData?<img src={form.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#444"}}><div style={{fontSize:28,marginBottom:8}}>+</div><div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase"}}>Upload & Crop Photo</div></div>}</div>
-    {form.imageData&&<button onClick={onImageClick} style={{...ghostBtn,color:"#666",fontSize:10,letterSpacing:1,marginBottom:12,display:"block"}}>↺ Change / Recrop</button>}
+    {form.imageData&&<button onClick={form.originalImageData&&onRecrop?onRecrop:onImageClick} style={{...ghostBtn,color:"#666",fontSize:10,letterSpacing:1,marginBottom:12,display:"block"}}>↺ Change / Recrop</button>}
     <label style={labelStyle}>Name *</label>
     <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Black Wide-Leg Trousers" style={inputStyle}/>
     <label style={labelStyle}>Brand</label>
@@ -114,9 +114,9 @@ function FormFields({form,setForm,onImageClick,brands=[],onAddBrand}){
       <button onClick={addCustomTag} style={{...chipStyle(false),padding:"4px 14px"}}>+</button>
     </div>
     {form.tags.filter(t=>!Object.values(PRESET_TAGS).flat().includes(t)).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{form.tags.filter(t=>!Object.values(PRESET_TAGS).flat().includes(t)).map(t=>(<span key={t} style={{...chipStyle(true),display:"inline-flex",alignItems:"center",gap:4}}>{t}<span onClick={()=>setForm(f=>({...f,tags:f.tags.filter(x=>x!==t)}))} style={{cursor:"pointer",opacity:0.7}}>×</span></span>))}</div>}
-    <div style={{display:"flex",gap:10,marginTop:10}}>
-      <div style={{flex:1}}><label style={labelStyle}>Date Purchased</label><input type="date" value={form.datePurchased} onChange={e=>setForm(f=>({...f,datePurchased:e.target.value}))} style={inputStyle}/></div>
-      <div style={{flex:1}}><label style={labelStyle}>Price ($)</label><input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" style={inputStyle}/></div>
+    <div style={{marginTop:10}}>
+      <div><label style={labelStyle}>Date Purchased</label><input type="date" value={form.datePurchased} onChange={e=>setForm(f=>({...f,datePurchased:e.target.value}))} style={inputStyle}/></div>
+      <div><label style={labelStyle}>Price ($)</label><input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" style={inputStyle}/></div>
     </div>
     <label style={labelStyle}>Comments</label>
     <textarea value={form.comments} onChange={e=>setForm(f=>({...f,comments:e.target.value}))} placeholder="Fit notes, styling ideas, where to wear..." style={{...inputStyle,height:80,resize:"none"}}/>
@@ -160,6 +160,7 @@ export default function WardrobeApp(){
   const inspoRef=useRef();
   const [wishForm,setWishForm]=useState({type:"general",note:"",url:"",targetPrice:"",name:"",brand:""});
   const [addingWish,setAddingWish]=useState(false);
+  const [fetchingWishUrl,setFetchingWishUrl]=useState(false);
   const importRef=useRef();
   const [chatHistory,setChatHistory]=useState([]);
   const [chatInput,setChatInput]=useState("");
@@ -191,10 +192,11 @@ export default function WardrobeApp(){
     const file=e.target.files[0];e.target.value="";if(!file)return;
     const dataUrl=await readFile(file);setPendingImageData(dataUrl);
     if(cropTarget==="add"){
+      setAddForm(f=>({...f,originalImageData:dataUrl}));
       setScanningImage(true);
       try{const base64=dataUrl.split(",")[1];const text=await callClaude(IMAGE_SCAN_PROMPT,[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"Analyze this clothing item."}],500);const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:parsed.price||f.price,datePurchased:parsed.datePurchased||f.datePurchased}));if(parsed.brand)addBrand(parsed.brand)}catch{}
       setScanningImage(false);
-    }
+    }else if(cropTarget==="edit"){setEditForm(f=>({...f,originalImageData:dataUrl}))}
     setCropSrc(dataUrl);
   }
 
@@ -217,7 +219,7 @@ export default function WardrobeApp(){
 
   function markWorn(id){const today=new Date().toISOString().split("T")[0];const updated=items.map(i=>i.id===id?{...i,wornDates:[...(i.wornDates||[]),today]}:i);persist(updated);if(selectedItem?.id===id)setSelectedItem(updated.find(i=>i.id===id))}
   function removeItem(id){persist(items.filter(i=>i.id!==id));setSelectedItem(null);setItemEval("");setEditing(false)}
-  function saveEdit(){const updated=items.map(i=>i.id===editForm.id?{...editForm,color:editForm.color==="Other"?editForm.customColor:editForm.color,material:editForm.material==="Other"?editForm.customMaterial:editForm.material}:i);if(editForm.brand)addBrand(editForm.brand);persist(updated);setSelectedItem(updated.find(i=>i.id===editForm.id));setEditing(false)}
+  function saveEdit(){const {originalImageData,...ef}=editForm;const updated=items.map(i=>i.id===ef.id?{...ef,color:ef.color==="Other"?ef.customColor:ef.color,material:ef.material==="Other"?ef.customMaterial:ef.material}:i);if(ef.brand)addBrand(ef.brand);persist(updated);setSelectedItem(updated.find(i=>i.id===ef.id));setEditing(false)}
 
   async function evaluateItem(item){setSelectedItem(item);setItemEval("");setLoadingEval(true);setEditing(false);try{setItemEval(await callClaude(STYLE_SYSTEM,EVALUATE_PROMPT(item),500))}catch{setItemEval("Error. Try again.")}setLoadingEval(false)}
 
@@ -249,6 +251,21 @@ export default function WardrobeApp(){
     setLoadingInspo(false);
   }
 
+  async function fetchWishUrl(){
+    if(!wishForm.url.trim())return;
+    setFetchingWishUrl(true);
+    try{
+      const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:wishForm.url.trim()})});
+      const pageData=await pageRes.json();
+      const text=await callClaude(URL_PROMPT,[{type:"text",text:`Extract product details from this page content:\n\n${pageData.pageText||"URL: "+wishForm.url}`}],400);
+      const clean=text.replace(/```json|```/g,"").trim();
+      const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
+      const parsed=JSON.parse(clean.substring(start,end+1));
+      setWishForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,note:pageData.price||parsed.price||f.note}));
+    }catch{}
+    setFetchingWishUrl(false);
+  }
+
   async function addWishItem(){
     if(!wishForm.note&&!wishForm.url)return;
     const item={id:Date.now()+Math.random(),type:wishForm.type,note:wishForm.note,url:wishForm.url,targetPrice:wishForm.targetPrice?parseFloat(wishForm.targetPrice):null,name:wishForm.name,brand:wishForm.brand,addedAt:new Date().toISOString()};
@@ -261,14 +278,14 @@ export default function WardrobeApp(){
   function importWardrobe(e){const file=e.target.files[0];e.target.value="";if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(Array.isArray(imp)){persist([...items,...imp]);alert(`Imported ${imp.length} items.`)}}catch{alert("Invalid file.")}};reader.readAsText(file)}
 
   function compressImage(dataUrl,maxW=600){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",0.65))};img.src=dataUrl})}
-  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:CHAT_SYSTEM(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setChatHistory(h=>[...h,{role:"assistant",content:reply}])}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
+  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:CHAT_SYSTEM(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setChatHistory(h=>[...h,{role:"assistant",content:reply}])}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
   async function addOutfitPhoto(e){const file=e.target.files[0];e.target.value="";if(!file)return;const dataUrl=await readFile(file);const compressed=await compressImage(dataUrl);const updated=items.map(i=>i.id===selectedItem.id?{...i,outfitPhotos:[...(i.outfitPhotos||[]),compressed]}:i);persist(updated);setSelectedItem(updated.find(i=>i.id===selectedItem.id))}
 
   const filtered=items.filter(i=>{if(activeCategory!=="All"&&i.category!==activeCategory)return false;if(activeFilters.color&&i.color!==activeFilters.color)return false;if(activeFilters.season&&i.season!==activeFilters.season)return false;if(activeFilters.material&&i.material!==activeFilters.material)return false;if(activeFilters.brand&&i.brand!==activeFilters.brand)return false;if(activeFilters.tag&&!(i.tags||[]).includes(activeFilters.tag))return false;return true});
   const underloved=items.filter(i=>!i.wornDates?.length);
   const allTags=[...new Set(items.flatMap(i=>i.tags||[]))];
 
-  return(<div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:480,margin:"0 auto"}}>
+  return(<div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:900,margin:"0 auto"}}>
     {cropSrc&&<CropModal imageSrc={cropSrc} onDone={onCropDone} onCancel={onCropCancel}/>}
     <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileSelected} style={{display:"none"}}/>
     <input ref={receiptFileRef} type="file" accept="image/*" onChange={scanReceipt} style={{display:"none"}}/>
@@ -303,7 +320,7 @@ export default function WardrobeApp(){
         <button onClick={()=>importRef.current.click()} style={{...ghostBtn,fontSize:9,letterSpacing:1.5,color:"#555"}}>↑ Import</button>
       </div>
       {filtered.length===0?(<div style={{textAlign:"center",padding:"60px 24px",color:"#444",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>{items.length>0?"No matches":"Nothing here yet"}</div><div style={{fontSize:11,color:"#333"}}>{items.length>0?"Try different filters":"Add your first piece"}</div></div>):(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:1}}>
           {filtered.map(item=>(<div key={item.id} onClick={()=>evaluateItem(item)} style={{position:"relative",aspectRatio:"3/4",background:"#1a1a1a",cursor:"pointer",overflow:"hidden"}}>
             {item.imageData?<img src={item.imageData} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:8,boxSizing:"border-box"}}>{item.color&&<div style={{fontSize:8,color:"#555"}}>{item.color}</div>}<div style={{fontSize:9,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div></div>}
             <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent, rgba(8,8,8,0.95))",padding:"14px 6px 6px",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
@@ -384,7 +401,7 @@ export default function WardrobeApp(){
           <label style={labelStyle}>Brand</label>
           <input value={wishForm.brand} onChange={e=>setWishForm(f=>({...f,brand:e.target.value}))} placeholder="Brand" style={inputStyle}/>
           <label style={labelStyle}>URL</label>
-          <input value={wishForm.url} onChange={e=>setWishForm(f=>({...f,url:e.target.value}))} placeholder="https://..." style={inputStyle}/>
+          <div style={{display:"flex",gap:8,marginBottom:10}}><input value={wishForm.url} onChange={e=>setWishForm(f=>({...f,url:e.target.value}))} placeholder="https://..." style={{...inputStyle,marginBottom:0,flex:1}}/><button onClick={fetchWishUrl} disabled={fetchingWishUrl||!wishForm.url} style={{...chipStyle(false),padding:"4px 12px",flexShrink:0,opacity:fetchingWishUrl||!wishForm.url?0.5:1}}>{fetchingWishUrl?"...":"Fetch"}</button></div>
           <label style={labelStyle}>Current Price ($)</label>
           <input value={wishForm.note} onChange={e=>setWishForm(f=>({...f,note:e.target.value}))} placeholder="Current price" style={inputStyle}/>
           <label style={labelStyle}>Alert me when price drops to ($)</label>
@@ -414,14 +431,14 @@ export default function WardrobeApp(){
     </div>)}
 
     {/* CHAT */}
-    {view==="chat"&&(<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
-      <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12}}>
+    {view==="chat"&&(<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",paddingBottom:80}}>
+      <div style={{padding:"16px 24px",display:"flex",flexDirection:"column",gap:12,minHeight:"60vh"}}>
         {chatHistory.length===0&&(<div style={{textAlign:"center",padding:"40px 24px",color:"#444"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>Ask anything</div><div style={{fontSize:11,color:"#333",lineHeight:1.8}}>What am I missing? · What shoes go with my cream jeans? · Build a capsule for a weekend trip</div></div>)}
         {chatHistory.map((msg,i)=>(<div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{msg.content}</div></div>))}
         {chatLoading&&(<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#1a1a1a",color:"#555",fontSize:13,fontStyle:"italic"}}>Thinking...</div></div>)}
         <div ref={chatEndRef}/>
       </div>
-      <div style={{padding:"12px 16px",borderTop:"1px solid #1a1a1a",display:"flex",gap:8,flexShrink:0}}>
+      <div style={{position:"sticky",bottom:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,zIndex:10}}>
         <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
         <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
       </div>
@@ -437,7 +454,7 @@ export default function WardrobeApp(){
 
       {addMode==="photo"&&(<>
         {scanningImage&&<div style={{textAlign:"center",padding:"16px 0",color:"#b8976a"}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading image...</div><div style={{fontSize:10,color:"#555",marginTop:4}}>Extracting brand, color, details</div></div>}
-        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} brands={brands} onAddBrand={addBrand}/>
+        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData)}} brands={brands} onAddBrand={addBrand}/>
         <button onClick={addItem} disabled={!addForm.name||scanningImage} style={{width:"100%",background:addForm.name&&!scanningImage?"#e8e2d8":"#1a1a1a",color:addForm.name&&!scanningImage?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name&&!scanningImage?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
       </>)}
 
@@ -448,7 +465,7 @@ export default function WardrobeApp(){
           <button onClick={fetchUrl} disabled={fetchingUrl||!urlInput} style={{...chipStyle(false),padding:"4px 14px",flexShrink:0,opacity:fetchingUrl||!urlInput?0.5:1}}>{fetchingUrl?"...":"Go"}</button>
         </div>
         {fetchingUrl&&<div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}
-        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} brands={brands} onAddBrand={addBrand}/>
+        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData)}} brands={brands} onAddBrand={addBrand}/>
         <button onClick={addItem} disabled={!addForm.name} style={{width:"100%",background:addForm.name?"#e8e2d8":"#1a1a1a",color:addForm.name?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
       </>)}
 
@@ -459,12 +476,12 @@ export default function WardrobeApp(){
     </div>)}
 
     {/* ITEM DETAIL */}
-    {selectedItem&&!editing&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:480,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}><button onClick={()=>{setSelectedItem(null);setItemEval("")}} style={ghostBtn}>← Back</button><button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:""})}} style={{...chipStyle(false),fontSize:10}}>Edit</button></div>{selectedItem.imageData?<img src={selectedItem.imageData} style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:3,marginBottom:14}}/>:<div style={{width:"100%",aspectRatio:"3/4",background:"#1a1a1a",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:"#333",fontSize:12}}>No Photo</div>}
+    {selectedItem&&!editing&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}><button onClick={()=>{setSelectedItem(null);setItemEval("")}} style={ghostBtn}>← Back</button><button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:""})}} style={{...chipStyle(false),fontSize:10}}>Edit</button></div>{selectedItem.imageData?<img src={selectedItem.imageData} style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:3,marginBottom:14}}/>:<div style={{width:"100%",aspectRatio:"3/4",background:"#1a1a1a",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:"#333",fontSize:12}}>No Photo</div>}
 {(selectedItem.outfitPhotos||[]).length>0&&(<div style={{marginBottom:14}}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Worn Photos</div><div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>{(selectedItem.outfitPhotos||[]).map((p,i)=>(<div key={i} style={{position:"relative",flexShrink:0}}><img src={p} style={{width:90,height:120,objectFit:"cover",borderRadius:3,display:"block"}}/><button onClick={()=>{const upd=items.map(it=>it.id===selectedItem.id?{...it,outfitPhotos:(it.outfitPhotos||[]).filter((_,j)=>j!==i)}:it);persist(upd);setSelectedItem(upd.find(it=>it.id===selectedItem.id))}} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,0.75)",border:"none",color:"#aaa",fontSize:12,borderRadius:2,cursor:"pointer",padding:"1px 5px",lineHeight:1}}>×</button></div>))}</div></div>)}
 <button onClick={()=>outfitPhotoRef.current.click()} style={{width:"100%",background:"transparent",border:"1px dashed #2a2a2a",color:"#666",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:14}}>+ Add Outfit Photo</button>
 <div style={{fontFamily:"Georgia, serif",fontSize:20,fontStyle:"italic",marginBottom:3}}>{selectedItem.name||"Unnamed"}</div>{selectedItem.brand&&<div style={{fontSize:11,color:"#777",marginBottom:8}}>{selectedItem.brand}</div>}<div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>{selectedItem.color&&<span style={chipStyle(false)}>{selectedItem.color}</span>}{selectedItem.material&&<span style={chipStyle(false)}>{selectedItem.material}</span>}{selectedItem.season&&selectedItem.season!=="All Year"&&<span style={chipStyle(false)}>{selectedItem.season}</span>}{selectedItem.sleeveLength&&selectedItem.sleeveLength!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.sleeveLength}</span>}{selectedItem.length&&selectedItem.length!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.length}</span>}{(selectedItem.tags||[]).map(t=><span key={t} style={chipStyle(true)}>{t}</span>)}</div>{selectedItem.comments&&<div style={{fontSize:12,color:"#777",fontStyle:"italic",lineHeight:1.6,marginBottom:12}}>{selectedItem.comments}</div>}<div style={{fontSize:10,color:"#555",lineHeight:1.8,marginBottom:14}}>{selectedItem.price&&<span>Paid ${selectedItem.price.toFixed(2)}{selectedItem.wornDates?.length>0?` · $${(selectedItem.price/selectedItem.wornDates.length).toFixed(2)}/wear`:""} · </span>}{selectedItem.datePurchased&&<span>Purchased {selectedItem.datePurchased} · </span>}Worn {selectedItem.wornDates?.length||0}×{selectedItem.wornDates?.length>0&&` · Last worn ${selectedItem.wornDates[selectedItem.wornDates.length-1]}`}</div><div style={{display:"flex",gap:8,marginBottom:16}}><button onClick={()=>markWorn(selectedItem.id)} style={{flex:1,background:"transparent",border:"1px solid #333",color:"#e8e2d8",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Mark Worn Today</button><button onClick={()=>removeItem(selectedItem.id)} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button></div>{selectedItem.wornDates?.length>0&&(<div style={{marginBottom:18}}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Wear History</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{[...selectedItem.wornDates].reverse().slice(0,12).map((d,i)=><span key={i} style={{fontSize:10,color:"#666",background:"#1a1a1a",padding:"3px 8px",borderRadius:2}}>{d}</span>)}</div></div>)}<div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Style Verdict</div>{loadingEval?<div style={{color:"#444",fontSize:12,padding:"16px 0",fontStyle:"italic"}}>Evaluating...</div>:<div style={{background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:16,fontSize:13,lineHeight:1.8,color:"#c8c0b0",whiteSpace:"pre-wrap"}}>{itemEval}</div>}</div></div>)}
 
     {/* EDIT */}
-    {selectedItem&&editing&&editForm&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:480,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}><button onClick={()=>setEditing(false)} style={ghostBtn}>← Cancel</button><button onClick={saveEdit} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Save</button></div><FormFields form={editForm} setForm={setEditForm} onImageClick={()=>openFilePicker("edit")} brands={brands} onAddBrand={addBrand}/></div></div>)}
+    {selectedItem&&editing&&editForm&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}><button onClick={()=>setEditing(false)} style={ghostBtn}>← Cancel</button><button onClick={saveEdit} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Save</button></div><FormFields form={editForm} setForm={setEditForm} onImageClick={()=>openFilePicker("edit")} onRecrop={()=>{setCropTarget("edit");setCropSrc(editForm?.originalImageData)}} brands={brands} onAddBrand={addBrand}/></div></div>)}
   </div>);
 }
