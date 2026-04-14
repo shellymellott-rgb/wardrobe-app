@@ -14,7 +14,19 @@ export default async function handler(req, res) {
         const imageUrl = ogImageMatch ? ogImageMatch[1] : null;
         const priceMatch = html.match(/["']price["'][^>]*["'](\d+\.?\d*)["']/i)||html.match(/\$(\d+\.?\d*)/);
         const price = priceMatch ? priceMatch[1] : null;
-        return res.status(200).json({pageText:stripped,imageUrl,price});
+        let imageData = null;
+        if (imageUrl) {
+          try {
+            const imgRes = await fetch(imageUrl, {
+              headers: {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15'},
+              signal: AbortSignal.timeout(5000),
+            });
+            const contentType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+            const buf = await imgRes.arrayBuffer();
+            imageData = `data:${contentType};base64,${Buffer.from(buf).toString('base64')}`;
+          } catch {}
+        }
+        return res.status(200).json({pageText:stripped,imageUrl,imageData,price});
       } catch(err) {
         return res.status(200).json({pageText:'',imageUrl:null,price:null,error:err.message});
       }

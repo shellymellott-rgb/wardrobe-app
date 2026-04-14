@@ -237,11 +237,16 @@ export default function WardrobeApp(){
     if(!urlInput.trim())return;
     setFetchingUrl(true);
     try{
-      const text=await callClaude(URL_PROMPT,[{type:"text",text:`Extract product details from this URL. The URL is: ${urlInput}\n\nPlease extract the clothing item details based on what you know about this product or URL.`}],500);
+      // Step 1: fetch real page content + og:image via proxy
+      const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})});
+      const pageData=await pageRes.json();
+      // Step 2: ask Claude to extract item details from page text
+      const text=await callClaude(URL_PROMPT,[{type:"text",text:`Extract product details from this page content:\n\n${pageData.pageText||"URL: "+urlInput}`}],500);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
       const parsed=JSON.parse(clean.substring(start,end+1));
-      setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:parsed.price||f.price}));
+      // Step 3: populate form including image from og:image
+      setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:pageData.price||parsed.price||f.price,imageData:pageData.imageData||f.imageData,originalImageData:pageData.imageData||f.originalImageData}));
       if(parsed.brand)addBrand(parsed.brand);
     }catch{}
     setFetchingUrl(false);
@@ -520,7 +525,7 @@ export default function WardrobeApp(){
       {addMode==="url"&&(<>
         <label style={labelStyle}>Product URL</label>
         <div style={{display:"flex",gap:8,marginBottom:16}}>
-          <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} placeholder="https://..." style={{...inputStyle,marginBottom:0,flex:1}}/>
+          <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")fetchUrl()}} placeholder="https://..." style={{...inputStyle,marginBottom:0,flex:1}}/>
           <button onClick={fetchUrl} disabled={fetchingUrl||!urlInput} style={{...chipStyle(false),padding:"4px 14px",flexShrink:0,opacity:fetchingUrl||!urlInput?0.5:1}}>{fetchingUrl?"...":"Go"}</button>
         </div>
         {fetchingUrl&&<div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}
