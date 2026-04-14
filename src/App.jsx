@@ -528,29 +528,29 @@ export default function WardrobeApp(){
     </div>)}
 
     {/* CHAT */}
-    {view==="chat"&&(<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",paddingBottom:80}}>
-      {styleNotes.length>0&&(<div style={{padding:"12px 24px",borderBottom:"1px solid #1a1a1a"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+    {view==="chat"&&(<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",height:"calc(100vh - 160px)",display:"flex",flexDirection:"column"}}>
+      {styleNotes.length>0&&(<div style={{flexShrink:0,padding:"10px 24px",borderBottom:"1px solid #1a1a1a"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555"}}>Your style notes</div>
           <button onClick={()=>{setStyleNotes([]);try{localStorage.removeItem("wardrobe-style-notes")}catch{}}} style={{...ghostBtn,fontSize:9,color:"#444",letterSpacing:1}}>clear all</button>
         </div>
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <div style={{display:"flex",flexDirection:"column",gap:3}}>
           {styleNotes.map((n,i)=>(
             <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-              <div style={{fontSize:11,color:"#888",lineHeight:1.4}}>· {n}</div>
-              <button onClick={()=>{const u=styleNotes.filter((_,j)=>j!==i);setStyleNotes(u);try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}}} style={{...ghostBtn,fontSize:13,color:"#444",padding:0,flexShrink:0}}>×</button>
+              <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>· {n}</div>
+              <button onClick={()=>{const u=styleNotes.filter((_,j)=>j!==i);setStyleNotes(u);try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}}} style={{...ghostBtn,fontSize:13,color:"#3a3a3a",padding:0,flexShrink:0}}>×</button>
             </div>
           ))}
         </div>
       </div>)}
-      <div style={{padding:"16px 24px",display:"flex",flexDirection:"column",gap:12,minHeight:"50vh"}}>
-        {chatHistory.length===0&&(<div style={{textAlign:"center",padding:"40px 24px",color:"#444"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>Ask anything</div><div style={{fontSize:11,color:"#333",lineHeight:1.8}}>What am I missing? · What shoes go with my cream jeans? · Build a capsule for a weekend trip</div></div>)}
+      <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12}}>
+        {chatHistory.length===0&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",color:"#444"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>Ask anything</div><div style={{fontSize:11,color:"#333",lineHeight:1.8}}>What am I missing? · What shoes go with my cream jeans? · Build a capsule for a weekend trip</div></div>)}
         {chatHistory.map((msg,i)=>(<div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{msg.content}</div></div>))}
         {chatLoading&&(<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#1a1a1a",color:"#555",fontSize:13,fontStyle:"italic"}}>Thinking...</div></div>)}
         <div ref={chatEndRef}/>
       </div>
-      <div style={{position:"sticky",bottom:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,zIndex:10,alignItems:"center"}}>
-        {learnedIndicator&&<div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0,animation:"fadeIn 0.2s"}}>✦ noted</div>}
+      <div style={{flexShrink:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,alignItems:"center"}}>
+        {learnedIndicator&&<div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
         <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
         <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
       </div>
