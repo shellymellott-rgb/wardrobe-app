@@ -12,8 +12,17 @@ export default async function handler(req, res) {
         const stripped = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,8000);
         const ogImageMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)||html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
         const imageUrl = ogImageMatch ? ogImageMatch[1] : null;
-        const priceMatch = html.match(/["']price["'][^>]*["'](\d+\.?\d*)["']/i)||html.match(/\$(\d+\.?\d*)/);
-        const price = priceMatch ? priceMatch[1] : null;
+        const pricePatterns=[
+          /"price":\s*"(\d+\.?\d*)"/i,
+          /"price":\s*(\d+\.?\d*)(?:[,\s}])/i,
+          /data-price="(\d+\.?\d*)"/i,
+          /itemprop="price"[^>]*content="([^"]+)"/i,
+          /content="([^"]+)"[^>]*itemprop="price"/i,
+          /["']price["'][^>]*["'](\d+\.?\d*)["']/i,
+          /\$\s*(\d{1,4}(?:\.\d{2})?)/,
+        ];
+        let price=null;
+        for(const p of pricePatterns){const m=html.match(p);if(m&&parseFloat(m[1])>0&&parseFloat(m[1])<10000){price=m[1];break}}
         let imageData = null;
         if (imageUrl) {
           try {
