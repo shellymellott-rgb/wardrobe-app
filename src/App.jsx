@@ -254,18 +254,37 @@ export default function WardrobeApp(){
     if(!urlInput.trim())return;
     setFetchingUrl(true);
     try{
-      // Step 1: fetch real page content + og:image via proxy
+      // Step 1: fetch page content + og:image via proxy
+      console.log("[fetchUrl] Step 1: fetching page via proxy for", urlInput.trim());
       const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})});
+      console.log("[fetchUrl] Step 1: proxy response status", pageRes.status);
       const pageData=await pageRes.json();
-      // Step 2: ask Claude to extract item details from page text
-      const text=await callClaude(URL_PROMPT,[{type:"text",text:`Extract product details from this page content:\n\n${pageData.pageText||"URL: "+urlInput}`}],500);
+      console.log("[fetchUrl] Step 1: pageData =", {
+        pageTextLength: pageData.pageText?.length||0,
+        imageUrl: pageData.imageUrl,
+        hasImageData: !!pageData.imageData,
+        price: pageData.price,
+        error: pageData.error
+      });
+      // Step 2: ask Claude to extract item details
+      const promptContent=pageData.pageText&&pageData.pageText.length>50
+        ?`Extract product details from this page content:\n\n${pageData.pageText}`
+        :`Extract product details from this URL (no page text available): ${urlInput.trim()}`;
+      console.log("[fetchUrl] Step 2: calling Claude, content length", promptContent.length);
+      const text=await callClaude(URL_PROMPT,[{type:"text",text:promptContent}],500);
+      console.log("[fetchUrl] Step 2: Claude raw response:", text);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
+      if(start===-1||end===-1){console.error("[fetchUrl] Step 2: no JSON found in Claude response");setFetchingUrl(false);return;}
       const parsed=JSON.parse(clean.substring(start,end+1));
-      // Step 3: populate form including image from og:image
+      console.log("[fetchUrl] Step 3: parsed fields:", parsed);
+      // Step 3: populate form
       setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:pageData.price||parsed.price||f.price,imageData:pageData.imageData||f.imageData,originalImageData:pageData.imageData||f.originalImageData}));
       if(parsed.brand)addBrand(parsed.brand);
-    }catch{}
+      console.log("[fetchUrl] Step 3: form updated, name=", parsed.name, "brand=", parsed.brand);
+    }catch(err){
+      console.error("[fetchUrl] ERROR:", err);
+    }
     setFetchingUrl(false);
   }
 

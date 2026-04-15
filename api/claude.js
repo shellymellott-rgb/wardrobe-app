@@ -27,24 +27,33 @@ export default async function handler(req, res) {
   try {
     const { fetchUrl, ...claudeBody } = req.body;
     if (fetchUrl) {
+      console.log('[api/claude] fetchUrl branch: fetching', fetchUrl);
       try {
         const pageRes = await fetch(fetchUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
           },
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(10000),
         });
+        console.log('[api/claude] page fetch status:', pageRes.status, pageRes.headers.get('content-type'));
         const html = await pageRes.text();
+        console.log('[api/claude] html length:', html.length);
+
         const stripped = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
-          .substring(0, 8000);
+          .substring(0, 10000);
+        console.log('[api/claude] stripped text length:', stripped.length, '| preview:', stripped.substring(0, 200));
 
         const imageUrl = extractImageUrl(html);
+        console.log('[api/claude] imageUrl:', imageUrl);
 
         const pricePatterns = [
           /"price":\s*"(\d+\.?\d*)"/i,
@@ -60,40 +69,55 @@ export default async function handler(req, res) {
           const m = html.match(p);
           if (m && parseFloat(m[1]) > 0 && parseFloat(m[1]) < 10000) { price = m[1]; break; }
         }
+        console.log('[api/claude] price:', price);
 
         let imageData = null;
         if (imageUrl) {
           try {
             const imgRes = await fetch(imageUrl, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' },
-              signal: AbortSignal.timeout(5000),
+              headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+              signal: AbortSignal.timeout(6000),
             });
+            console.log('[api/claude] image fetch status:', imgRes.status, imgRes.headers.get('content-type'));
             if (imgRes.ok) {
               const contentType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
               if (contentType.startsWith('image/')) {
                 const buf = await imgRes.arrayBuffer();
                 imageData = `data:${contentType};base64,${Buffer.from(buf).toString('base64')}`;
+                console.log('[api/claude] imageData base64 length:', imageData.length);
+              } else {
+                console.log('[api/claude] image skipped — content-type:', contentType);
               }
             }
-          } catch {}
+          } catch (imgErr) {
+            console.log('[api/claude] image fetch error:', imgErr.message);
+          }
         }
+        console.log('[api/claude] returning: pageTextLen=', stripped.length, 'imageUrl=', imageUrl, 'hasImageData=', !!imageData, 'price=', price);
         return res.status(200).json({ pageText: stripped, imageUrl, imageData, price });
       } catch (err) {
+        console.error('[api/claude] fetchUrl error:', err.message);
         return res.status(200).json({ pageText: '', imageUrl: null, imageData: null, price: null, error: err.message });
       }
     }
+    // Claude API proxy
+    const apiKey = process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+    console.log('[api/claude] Claude call, model:', claudeBody.model, 'apiKey set:', !!apiKey);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.VITE_ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(claudeBody),
     });
+    console.log('[api/claude] Anthropic response status:', response.status);
     const data = await response.json();
+    if (data.error) console.error('[api/claude] Anthropic error:', data.error);
     res.status(200).json(data);
   } catch (err) {
+    console.error('[api/claude] top-level error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
