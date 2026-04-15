@@ -49,6 +49,8 @@ const SB_URL="https://lkyxzwjsxjjfrhfdohot.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreXh6d2pzeGpqZnJoZmRvaG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDE3NTYsImV4cCI6MjA5MTcxNzc1Nn0.CTGfz6bua_dlsdb-5o2tDT1voQErXZ-LpFZlIcOi_Sg";
 const SB_HDR={apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,"Content-Type":"application/json"};
 function getUserId(){let u=localStorage.getItem("wardrobe-uid");if(!u){u=crypto.randomUUID();localStorage.setItem("wardrobe-uid",u)}return u}
+function getShortCode(){return getUserId().replace(/-/g,"").slice(0,8).toUpperCase()}
+async function sbFindUidByShortCode(code){try{const r=await fetch(`${SB_URL}/rest/v1/wardrobe_items?user_id=ilike.${encodeURIComponent(code.toLowerCase())}%25&select=user_id&limit=1`,{headers:SB_HDR});if(!r.ok)return null;const rows=await r.json();return rows[0]?.user_id||null}catch{return null}}
 async function sbUpsert(table,rows){
   if(!rows.length)return;
   try{
@@ -196,6 +198,7 @@ export default function WardrobeApp(){
   const [syncCopied,setSyncCopied]=useState(false);
   const [syncLoading,setSyncLoading]=useState(false);
   const [syncStatus,setSyncStatus]=useState(null);
+  const [syncDone,setSyncDone]=useState(false);
   const [styleProfile,setStyleProfile]=useState(()=>{try{return localStorage.getItem("wardrobe-style-profile")||DEFAULT_STYLE_SYSTEM}catch{return DEFAULT_STYLE_SYSTEM}});
   const [extraInstructions,setExtraInstructions]=useState(()=>{try{return localStorage.getItem("wardrobe-extra-instructions")||""}catch{return""}});
   const [customCategories,setCustomCategories]=useState(()=>{try{const p=JSON.parse(localStorage.getItem("wardrobe-custom-categories")||"[]");return Array.isArray(p)?p:[]}catch{return[]}});
@@ -216,10 +219,9 @@ export default function WardrobeApp(){
   const outfitPhotoRef=useRef();
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"})},[chatHistory]);
   useEffect(()=>{itemChatEndRef.current?.scrollIntoView({behavior:"smooth"})},[itemChatHistory]);
-  async function syncFromSupabase(){
+  async function syncFromSupabase(markDone=false){
     const uid=getUserId();
     const [dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
-    // items: merge Supabase with any local-only items not yet uploaded
     if(dbItems!==null){
       if(dbItems.length>0){
         const sbIds=new Set(dbItems.map(i=>String(i.id)));
@@ -236,10 +238,11 @@ export default function WardrobeApp(){
       if(dbWish.length>0){setWishlist(dbWish);saveWishlist(dbWish)}
       else{const loc=loadWishlist();if(loc.length)sbUpsert("wardrobe_wishlist",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
     }
+    if(markDone)setSyncDone(true);
   }
 
   useEffect(()=>{
-    syncFromSupabase();
+    syncFromSupabase(true);
     // Re-sync whenever the app is foregrounded (switching tabs or back from phone sleep)
     const onVisible=()=>{if(document.visibilityState==="visible")syncFromSupabase()};
     document.addEventListener("visibilitychange",onVisible);
@@ -424,8 +427,28 @@ export default function WardrobeApp(){
   const allCategories=[...CATEGORIES,...(Array.isArray(customCategories)?customCategories:[])];
   async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
   async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nThis conversation is specifically about:\n[${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.tags?.length?` / Tags: ${itemChatModal.tags.join(", ")}`:""} (worn ${itemChatModal.wornDates?.length||0}x)${itemChatModal.comments?`\nNotes: ${itemChatModal.comments}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items)+focusCtx,messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
-  function copySyncCode(){const uid=getUserId();navigator.clipboard?.writeText(uid).then(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}).catch(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)})}
-  async function connectSyncCode(){const code=syncCodeInput.trim();if(!code||code.length<10)return;setSyncLoading(true);setSyncStatus(null);const prevUid=getUserId();try{localStorage.setItem("wardrobe-uid",code);const[dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);if(dbItems===null){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}else if(dbItems.length===0&&(!dbWish||dbWish.length===0)){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("notfound")}else{if(dbItems.length){setItems(dbItems);saveToStorage(dbItems)}if(dbWish?.length){setWishlist(dbWish);saveWishlist(dbWish)}setSyncCodeInput("");setSyncStatus("success")}}catch{localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}setSyncLoading(false)}
+  function copySyncCode(){const sc=getShortCode();navigator.clipboard?.writeText(sc).catch(()=>{});setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}
+  async function connectSyncCode(){
+    const code=syncCodeInput.trim().toUpperCase();
+    if(!code||code.length<4)return;
+    setSyncLoading(true);setSyncStatus(null);
+    const prevUid=getUserId();
+    try{
+      // Short code (≤8 chars): look up full UUID from Supabase prefix search
+      let targetUid=code;
+      if(code.length<=8){
+        const found=await sbFindUidByShortCode(code);
+        if(!found){setSyncStatus("notfound");setSyncLoading(false);return;}
+        targetUid=found;
+      }
+      localStorage.setItem("wardrobe-uid",targetUid);
+      const[dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
+      if(dbItems===null){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
+      else if(dbItems.length===0&&(!dbWish||dbWish.length===0)){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("notfound")}
+      else{if(dbItems.length){setItems(dbItems);saveToStorage(dbItems)}if(dbWish?.length){setWishlist(dbWish);saveWishlist(dbWish)}setSyncCodeInput("");setSyncStatus("success")}
+    }catch{localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
+    setSyncLoading(false);
+  }
 
   async function addOutfitPhoto(e){const file=e.target.files[0];e.target.value="";if(!file)return;const dataUrl=await readFile(file);const compressed=await compressImage(dataUrl);const updated=items.map(i=>i.id===selectedItem.id?{...i,outfitPhotos:[...(i.outfitPhotos||[]),compressed]}:i);persist(updated);setSelectedItem(updated.find(i=>i.id===selectedItem.id))}
 
@@ -463,6 +486,11 @@ export default function WardrobeApp(){
         <button onClick={()=>setShowFilters(f=>!f)} style={{...ghostBtn,fontSize:10,letterSpacing:1.5}}>{showFilters?"▲ Hide":"▼ Filter"}{Object.keys(activeFilters).length>0&&<span style={{color:"#b8976a",marginLeft:6}}>({Object.keys(activeFilters).length})</span>}</button>
         {showFilters&&(<div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{key:"color",opts:COLORS},{key:"season",opts:SEASONS},{key:"material",opts:MATERIALS},...(brands.length?[{key:"brand",opts:brands}]:[]),...(allTags.length?[{key:"tag",opts:allTags}]:[])].map(({key,opts})=>(<div key={key}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>{key}</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{opts.map(o=><button key={o} onClick={()=>setActiveFilters(f=>f[key]===o?Object.fromEntries(Object.entries(f).filter(([k])=>k!==key)):{...f,[key]:o})} style={chipStyle(activeFilters[key]===o)}>{o}</button>)}</div></div>))}{Object.keys(activeFilters).length>0&&<button onClick={()=>setActiveFilters({})} style={{...ghostBtn,color:"#8a4a4a",fontSize:10}}>Clear filters</button>}</div>)}
       </div>
+      {syncDone&&items.length===0&&(<div style={{margin:"16px 24px",background:"#161616",border:"1px solid #3a3a2a",borderRadius:4,padding:16,fontFamily:"'DM Sans', system-ui, sans-serif"}}>
+        <div style={{fontSize:11,color:"#b8976a",letterSpacing:1,marginBottom:6}}>Already have a wardrobe on another device?</div>
+        <div style={{fontSize:11,color:"#666",marginBottom:12}}>Go to Settings → enter the 8-character code from your other device to sync.</div>
+        <button type="button" onClick={()=>setShowSettings(true)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"9px 18px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Open Settings</button>
+      </div>)}
       {filtered.length===0?(<div style={{textAlign:"center",padding:"60px 24px",color:"#444",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>{items.length>0?"No matches":"Nothing here yet"}</div><div style={{fontSize:11,color:"#333"}}>{items.length>0?"Try different filters":"Add your first piece"}</div></div>):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:1}}>
           {filtered.map(item=>(<div key={item.id} onClick={()=>evaluateItem(item)} style={{position:"relative",aspectRatio:"3/4",background:"#1a1a1a",cursor:"pointer",overflow:"hidden"}}>
@@ -665,18 +693,18 @@ export default function WardrobeApp(){
         {/* E. Sync */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:14}}>Sync Across Devices</div>
-          <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16,marginBottom:12}}>
-            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>Your sync code — share with your other device</div>
-            <div style={{fontFamily:"monospace",fontSize:11,color:"#e8e2d8",background:"#111",padding:"9px 12px",borderRadius:3,letterSpacing:1,marginBottom:10,wordBreak:"break-all"}}>{getUserId()}</div>
-            <button onClick={copySyncCode} style={{...chipStyle(syncCopied),fontSize:10,letterSpacing:1.5}}>{syncCopied?"✓ Copied!":"Copy Sync Code"}</button>
+          <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16,marginBottom:12}}>
+            <div style={{fontSize:10,color:"#888",letterSpacing:1,marginBottom:10}}>YOUR SYNC CODE — type this on your other device</div>
+            <div style={{fontFamily:"monospace",fontSize:32,fontWeight:700,color:"#e8e2d8",letterSpacing:6,textAlign:"center",padding:"14px 0",marginBottom:12}}>{getShortCode()}</div>
+            <button type="button" onClick={copySyncCode} style={{width:"100%",background:syncCopied?"#2a3a2a":"#222",color:syncCopied?"#6a9a6a":"#aaa",border:`1px solid ${syncCopied?"#3a6a3a":"#333"}`,borderRadius:3,padding:"10px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>{syncCopied?"✓ Copied!":"Copy Code"}</button>
           </div>
           <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16}}>
-            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>Paste another device's sync code to connect</div>
-            <input value={syncCodeInput} onChange={e=>{setSyncCodeInput(e.target.value);setSyncStatus(null)}} placeholder="Paste sync code..." style={{...inputStyle,marginBottom:10,fontFamily:"monospace",fontSize:11}} onKeyDown={e=>{if(e.key==="Enter")connectSyncCode()}}/>
-            {syncStatus==="success"&&<div style={{fontSize:11,color:"#6a9a6a",marginBottom:8}}>✓ Connected — wardrobe data loaded</div>}
-            {syncStatus==="notfound"&&<div style={{fontSize:11,color:"#b8976a",marginBottom:8}}>No wardrobe found for that code.</div>}
+            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>On your other device, go to Settings and enter this code</div>
+            <input value={syncCodeInput} onChange={e=>{setSyncCodeInput(e.target.value);setSyncStatus(null)}} placeholder="Enter code from other device..." style={{...inputStyle,marginBottom:10,fontFamily:"monospace",fontSize:14,textTransform:"uppercase",letterSpacing:3}} onKeyDown={e=>{if(e.key==="Enter")connectSyncCode()}}/>
+            {syncStatus==="success"&&<div style={{fontSize:11,color:"#6a9a6a",marginBottom:8}}>✓ Connected — wardrobe loaded</div>}
+            {syncStatus==="notfound"&&<div style={{fontSize:11,color:"#b8976a",marginBottom:8}}>Code not found. Check for typos.</div>}
             {syncStatus==="error"&&<div style={{fontSize:11,color:"#8a4a4a",marginBottom:8}}>Connection failed. Check your internet.</div>}
-            <div style={{fontSize:10,color:"#444",marginBottom:10}}>⚠ Replaces current wardrobe with data from the other device.</div>
+            <div style={{fontSize:10,color:"#444",marginBottom:10}}>Loads the other device's wardrobe onto this device.</div>
             <button onClick={connectSyncCode} disabled={syncLoading||!syncCodeInput.trim()} style={{background:syncCodeInput.trim()&&!syncLoading?"#e8e2d8":"#1a1a1a",color:syncCodeInput.trim()&&!syncLoading?"#111":"#444",border:"none",borderRadius:3,padding:"11px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:syncCodeInput.trim()&&!syncLoading?"pointer":"not-allowed",fontWeight:600}}>{syncLoading?"Connecting...":"Connect"}</button>
           </div>
         </div>
