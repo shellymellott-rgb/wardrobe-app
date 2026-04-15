@@ -216,19 +216,34 @@ export default function WardrobeApp(){
   const outfitPhotoRef=useRef();
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"})},[chatHistory]);
   useEffect(()=>{itemChatEndRef.current?.scrollIntoView({behavior:"smooth"})},[itemChatHistory]);
-  useEffect(()=>{
-    (async()=>{
-      const uid=getUserId();
-      const [dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
-      // items: use Supabase if it has data; if empty, push localStorage up to Supabase
-      if(dbItems===null){}// Supabase unavailable – keep localStorage
-      else if(dbItems.length>0){setItems(dbItems);saveToStorage(dbItems)}
-      else{const loc=loadFromStorage();if(loc.length)sbUpsert("wardrobe_items",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
-      // wishlist
-      if(dbWish===null){}
-      else if(dbWish.length>0){setWishlist(dbWish);saveWishlist(dbWish)}
+  async function syncFromSupabase(){
+    const uid=getUserId();
+    const [dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
+    // items: merge Supabase with any local-only items not yet uploaded
+    if(dbItems!==null){
+      if(dbItems.length>0){
+        const sbIds=new Set(dbItems.map(i=>String(i.id)));
+        const localOnly=loadFromStorage().filter(i=>!sbIds.has(String(i.id)));
+        const merged=[...dbItems,...localOnly];
+        if(localOnly.length)sbUpsert("wardrobe_items",localOnly.map(i=>({id:String(i.id),user_id:uid,data:i})));
+        setItems(merged);saveToStorage(merged);
+      }else{
+        const loc=loadFromStorage();
+        if(loc.length)sbUpsert("wardrobe_items",loc.map(i=>({id:String(i.id),user_id:uid,data:i})));
+      }
+    }
+    if(dbWish!==null){
+      if(dbWish.length>0){setWishlist(dbWish);saveWishlist(dbWish)}
       else{const loc=loadWishlist();if(loc.length)sbUpsert("wardrobe_wishlist",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
-    })();
+    }
+  }
+
+  useEffect(()=>{
+    syncFromSupabase();
+    // Re-sync whenever the app is foregrounded (switching tabs or back from phone sleep)
+    const onVisible=()=>{if(document.visibilityState==="visible")syncFromSupabase()};
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>document.removeEventListener("visibilitychange",onVisible);
   },[]);
 
   function persist(newItems){
