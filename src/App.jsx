@@ -123,7 +123,7 @@ function FormFields({form,setForm,onImageClick,onRecrop,brands=[],onAddBrand,cat
       <input value={form.brand} onChange={e=>setForm(f=>({...f,brand:e.target.value}))} placeholder={brands.length>0?"Or type new brand...":"e.g. Everlane, Madewell"} style={{...inputStyle,marginBottom:0,flex:1}} onKeyDown={e=>{if(e.key==="Enter"&&form.brand.trim()&&onAddBrand)onAddBrand(form.brand.trim())}}/>
       {form.brand&&!brands.includes(form.brand)&&onAddBrand&&<button onClick={()=>onAddBrand(form.brand.trim())} style={{...chipStyle(false),padding:"4px 12px",flexShrink:0}}>Save</button>}
     </div>
-    <label style={labelStyle}>Category</label>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,marginBottom:5}}><label style={{...labelStyle,marginTop:0,marginBottom:0}}>Category</label></div>
     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>{categories.map(c=><button key={c} type="button" onClick={()=>setForm(f=>({...f,category:c}))} style={chipStyle(form.category===c)}>{c}</button>)}</div>
     <label style={labelStyle}>Color</label>
     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{COLORS.map(c=><button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>)}</div>
@@ -599,7 +599,25 @@ export default function WardrobeApp(){
           <button onClick={()=>setShowSettings(false)} style={ghostBtn}>✕ Close</button>
         </div>
 
-        {/* A. Style Profile */}
+        {/* A. Custom Categories — first so it's immediately visible */}
+        <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:12}}>Categories</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+            {CATEGORIES.map(c=><span key={c} style={{display:"inline-flex",alignItems:"center",background:"#111",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 12px"}}><span style={{fontSize:11,color:"#555"}}>{c}</span></span>)}
+            {customCategories.map((c,i)=>(
+              <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#e8e2d820",border:"1px solid #e8e2d840",borderRadius:20,padding:"5px 10px 5px 12px"}}>
+                <span style={{fontSize:11,color:"#e8e2d8"}}>{c}</span>
+                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}return u})}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+              </span>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input value={newCatInput} onChange={e=>setNewCatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomCategory()}} placeholder="Add category: Loungewear, Jumpsuits..." style={{...inputStyle,marginBottom:0,flex:1}}/>
+            <button onClick={addCustomCategory} disabled={!newCatInput.trim()} style={{background:newCatInput.trim()?"#e8e2d8":"#1a1a1a",color:newCatInput.trim()?"#111":"#444",border:"none",borderRadius:3,padding:"0 16px",fontSize:11,letterSpacing:1,cursor:newCatInput.trim()?"pointer":"not-allowed",fontWeight:600,flexShrink:0}}>Add</button>
+          </div>
+        </div>
+
+        {/* B. Style Profile */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Style Profile</div>
           <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Describe your style in your own words. This replaces the default on every Claude call.</div>
@@ -607,14 +625,14 @@ export default function WardrobeApp(){
           {styleProfile!==DEFAULT_STYLE_SYSTEM&&<button onClick={()=>{setStyleProfile(DEFAULT_STYLE_SYSTEM);try{localStorage.setItem("wardrobe-style-profile",DEFAULT_STYLE_SYSTEM)}catch{}}} style={{...ghostBtn,fontSize:10,color:"#555",letterSpacing:1}}>Reset to default</button>}
         </div>
 
-        {/* B. Extra Instructions */}
+        {/* C. Extra Instructions */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Current Instructions</div>
           <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Temporary context appended to every prompt — packing for a trip, trying to shop less, etc.</div>
           <textarea value={extraInstructions} onChange={e=>{setExtraInstructions(e.target.value);try{localStorage.setItem("wardrobe-extra-instructions",e.target.value)}catch{}}} style={{...inputStyle,height:72,resize:"none",lineHeight:1.6}} placeholder="e.g. Packing for 10 days in Italy in June. Carry-on only."/>
         </div>
 
-        {/* C. Style Notes */}
+        {/* D. Style Notes */}
         <div style={{marginBottom:28}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888"}}>Learned Style Notes</div>
@@ -630,26 +648,6 @@ export default function WardrobeApp(){
               ))}
             </div>
           )}
-        </div>
-
-        {/* D. Custom Categories */}
-        <div style={{marginBottom:28}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888"}}>Custom Categories</div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-            {CATEGORIES.map(c=><span key={c} style={{display:"inline-flex",alignItems:"center",background:"#111",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 12px"}}><span style={{fontSize:11,color:"#555"}}>{c}</span></span>)}
-            {customCategories.map((c,i)=>(
-              <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 10px 5px 12px"}}>
-                <span style={{fontSize:11,color:"#c8c0b0"}}>{c}</span>
-                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}return u})}} style={{background:"none",border:"none",color:"#555",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
-              </span>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <input value={newCatInput} onChange={e=>setNewCatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomCategory()}} placeholder="e.g. Loungewear, Swimwear" style={{...inputStyle,marginBottom:0,flex:1}}/>
-            <button onClick={addCustomCategory} disabled={!newCatInput.trim()} style={{...chipStyle(false),padding:"4px 14px",flexShrink:0,opacity:newCatInput.trim()?1:0.4}}>Add</button>
-          </div>
         </div>
 
         {/* E. Sync */}
