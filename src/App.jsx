@@ -272,35 +272,27 @@ export default function WardrobeApp(){
     setFetchingUrl(true);
     setUrlError("");
     try{
-      // Step 1: fetch page content + og:image via proxy
-      let pageData;
-      try{
-        const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})});
-        if(!pageRes.ok){setUrlError(`Step 1 failed: server returned ${pageRes.status}`);setFetchingUrl(false);return;}
-        pageData=await pageRes.json();
-        if(pageData.error&&!pageData.pageText){setUrlError(`Page fetch error: ${pageData.error}`);setFetchingUrl(false);return;}
-      }catch(e){setUrlError(`Step 1 failed: ${e.message}`);setFetchingUrl(false);return;}
-      // Step 2: ask Claude to extract item details
-      let promptContent;
-      if(pageData.pageText&&pageData.pageText.length>50){
-        promptContent=`Extract product details from this page content:\n\n${pageData.pageText}`;
-      }else{
-        // Page fetch failed or was blocked — ask Claude directly from URL
-        promptContent=`Product URL: ${urlInput.trim()}\n\nThe page could not be fetched (status: ${pageData.fetchStatus||'unknown'}). Using your knowledge of this retailer/brand from the URL, extract what you can. Even a best guess is better than nothing.`;
-      }
-      let text;
-      try{text=await callClaude(URL_PROMPT,[{type:"text",text:promptContent}],500);}
-      catch(e){setUrlError(`Step 2 failed: ${e.message}`);setFetchingUrl(false);return;}
-      if(!text){setUrlError("Step 2 failed: no response from Claude — check VITE_ANTHROPIC_API_KEY in Vercel env vars");setFetchingUrl(false);return;}
+      // Step 1: ask Claude directly from URL — fast, no server fetch needed
+      const text=await callClaude(URL_PROMPT,[{type:"text",text:`Product URL: ${urlInput.trim()}\n\nExtract product details using your knowledge of this retailer/brand from the URL. Make your best guess even if uncertain.`}],500);
+      if(!text){setUrlError("No response from Claude — check VITE_ANTHROPIC_API_KEY in Vercel env vars");setFetchingUrl(false);return;}
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
-      if(start===-1||end===-1){setUrlError("Step 2 failed: Claude didn't return JSON — response: "+text.substring(0,100));setFetchingUrl(false);return;}
+      if(start===-1||end===-1){setUrlError("Claude didn't return product data. Try adding manually.");setFetchingUrl(false);return;}
       let parsed;
       try{parsed=JSON.parse(clean.substring(start,end+1));}
-      catch(e){setUrlError("Step 3 failed: JSON parse error — "+e.message);setFetchingUrl(false);return;}
-      // Step 3: populate form
-      setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:pageData.price||parsed.price||f.price,imageData:pageData.imageData||f.imageData,originalImageData:pageData.imageData||f.originalImageData}));
+      catch(e){setUrlError("Parse error — "+e.message);setFetchingUrl(false);return;}
+      // Populate form immediately
+      setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:parsed.price||f.price}));
       if(parsed.brand)addBrand(parsed.brand);
+      // Step 2: try to get image + price from page in background (non-blocking)
+      fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})})
+        .then(r=>r.json())
+        .then(pageData=>{
+          if(pageData.imageData||pageData.price){
+            setAddForm(f=>({...f,price:pageData.price||f.price,imageData:pageData.imageData||f.imageData,originalImageData:pageData.imageData||f.originalImageData}));
+          }
+        })
+        .catch(()=>{});
     }catch(err){
       setUrlError(`Error: ${err.message}`);
     }
