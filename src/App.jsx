@@ -266,13 +266,17 @@ export default function WardrobeApp(){
         if(pageData.error&&!pageData.pageText){setUrlError(`Page fetch error: ${pageData.error}`);setFetchingUrl(false);return;}
       }catch(e){setUrlError(`Step 1 failed: ${e.message}`);setFetchingUrl(false);return;}
       // Step 2: ask Claude to extract item details
-      const promptContent=pageData.pageText&&pageData.pageText.length>50
-        ?`Extract product details from this page content:\n\n${pageData.pageText}`
-        :`Extract product details from this URL (no page text available): ${urlInput.trim()}`;
+      let promptContent;
+      if(pageData.pageText&&pageData.pageText.length>50){
+        promptContent=`Extract product details from this page content:\n\n${pageData.pageText}`;
+      }else{
+        // Page fetch failed or was blocked — ask Claude directly from URL
+        promptContent=`Product URL: ${urlInput.trim()}\n\nThe page could not be fetched (status: ${pageData.fetchStatus||'unknown'}). Using your knowledge of this retailer/brand from the URL, extract what you can. Even a best guess is better than nothing.`;
+      }
       let text;
       try{text=await callClaude(URL_PROMPT,[{type:"text",text:promptContent}],500);}
       catch(e){setUrlError(`Step 2 failed: ${e.message}`);setFetchingUrl(false);return;}
-      if(!text){setUrlError("Step 2 failed: Claude returned no response (check API key in Vercel env vars)");setFetchingUrl(false);return;}
+      if(!text){setUrlError("Step 2 failed: no response from Claude — check VITE_ANTHROPIC_API_KEY in Vercel env vars");setFetchingUrl(false);return;}
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
       if(start===-1||end===-1){setUrlError("Step 2 failed: Claude didn't return JSON — response: "+text.substring(0,100));setFetchingUrl(false);return;}

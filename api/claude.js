@@ -37,6 +37,9 @@ export default async function handler(req, res) {
           signal: AbortSignal.timeout(4000),
         });
         console.log('[api/claude] page fetch status:', pageRes.status, pageRes.headers.get('content-type'));
+        if (!pageRes.ok) {
+          return res.status(200).json({ pageText: '', imageUrl: null, imageData: null, price: null, fetchStatus: pageRes.status });
+        }
         const html = await pageRes.text();
         console.log('[api/claude] html length:', html.length);
 
