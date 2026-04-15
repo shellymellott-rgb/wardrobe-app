@@ -197,7 +197,7 @@ export default function WardrobeApp(){
   const [syncStatus,setSyncStatus]=useState(null);
   const [styleProfile,setStyleProfile]=useState(()=>{try{return localStorage.getItem("wardrobe-style-profile")||DEFAULT_STYLE_SYSTEM}catch{return DEFAULT_STYLE_SYSTEM}});
   const [extraInstructions,setExtraInstructions]=useState(()=>{try{return localStorage.getItem("wardrobe-extra-instructions")||""}catch{return""}});
-  const [customCategories,setCustomCategories]=useState(()=>{try{return JSON.parse(localStorage.getItem("wardrobe-custom-categories")||"[]")}catch{return[]}});
+  const [customCategories,setCustomCategories]=useState(()=>{try{const p=JSON.parse(localStorage.getItem("wardrobe-custom-categories")||"[]");return Array.isArray(p)?p:[]}catch{return[]}});
   const [newCatInput,setNewCatInput]=useState("");
   const [showSettings,setShowSettings]=useState(false);
   const [chatHistory,setChatHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem("wardrobe-chat-history")||localStorage.getItem("wardrobe-chat")||"[]")}catch{return[]}});
@@ -396,8 +396,20 @@ export default function WardrobeApp(){
   function compressImage(dataUrl,maxW=600){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",0.65))};img.src=dataUrl})}
   async function extractStyleNote(userMsg,assistantReply){try{const combined=`Shelly said: "${userMsg}"\nStylist replied: "${assistantReply.substring(0,400)}"`;const note=await callClaude(`Read this chat exchange and extract any explicit style preference or dislike that Shelly expressed — things like "I hate X", "I never wear Y", "I love Z", "I prefer A over B". Return ONLY a brief factual note under 15 words (e.g. "Dislikes cropped tops", "Prefers wide-leg pants over skinny"). If no clear preference was stated, return exactly: none`,combined,80);const c=note.trim();return(c&&c.toLowerCase()!=="none"&&!c.toLowerCase().startsWith("no ")&&c.length>4&&c.length<130)?c:null}catch{return null}}
   function saveLearnedNote(note){setStyleNotes(prev=>{const u=[...prev,note];try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}return u});setLearnedIndicator(true);setTimeout(()=>setLearnedIndicator(false),2000)}
-  function addCustomCategory(){const c=newCatInput.trim();if(!c)return;const all=[...CATEGORIES,...customCategories];if(all.map(x=>x.toLowerCase()).includes(c.toLowerCase()))return;const u=[...customCategories,c];setCustomCategories(u);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}setNewCatInput("")}
-  const allCategories=[...CATEGORIES,...customCategories];
+  function addCustomCategory(){
+    const c=newCatInput.trim();
+    if(!c)return;
+    setCustomCategories(prev=>{
+      const safe=Array.isArray(prev)?prev:[];
+      const all=[...CATEGORIES,...safe];
+      if(all.map(x=>x.toLowerCase()).includes(c.toLowerCase()))return safe;
+      const u=[...safe,c];
+      try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}
+      return u;
+    });
+    setNewCatInput("");
+  }
+  const allCategories=[...CATEGORIES,...(Array.isArray(customCategories)?customCategories:[])];
   async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
   async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nThis conversation is specifically about:\n[${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.tags?.length?` / Tags: ${itemChatModal.tags.join(", ")}`:""} (worn ${itemChatModal.wornDates?.length||0}x)${itemChatModal.comments?`\nNotes: ${itemChatModal.comments}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items)+focusCtx,messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
   function copySyncCode(){const uid=getUserId();navigator.clipboard?.writeText(uid).then(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}).catch(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)})}
@@ -630,7 +642,7 @@ export default function WardrobeApp(){
             {customCategories.map((c,i)=>(
               <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 10px 5px 12px"}}>
                 <span style={{fontSize:11,color:"#c8c0b0"}}>{c}</span>
-                <button onClick={()=>{const u=customCategories.filter((_,j)=>j!==i);setCustomCategories(u);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}}} style={{background:"none",border:"none",color:"#555",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}return u})}} style={{background:"none",border:"none",color:"#555",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
               </span>
             ))}
           </div>
