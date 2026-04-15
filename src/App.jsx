@@ -168,6 +168,7 @@ export default function WardrobeApp(){
   const [scanningImage,setScanningImage]=useState(false);
   const [urlInput,setUrlInput]=useState("");
   const [fetchingUrl,setFetchingUrl]=useState(false);
+  const [urlError,setUrlError]=useState("");
   const fileInputRef=useRef();
   const [receiptData,setReceiptData]=useState(null);
   const [receiptDate,setReceiptDate]=useState("");
@@ -254,37 +255,35 @@ export default function WardrobeApp(){
   async function fetchUrl(){
     if(!urlInput.trim())return;
     setFetchingUrl(true);
+    setUrlError("");
     try{
       // Step 1: fetch page content + og:image via proxy
-      console.log("[fetchUrl] Step 1: fetching page via proxy for", urlInput.trim());
-      const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})});
-      console.log("[fetchUrl] Step 1: proxy response status", pageRes.status);
-      const pageData=await pageRes.json();
-      console.log("[fetchUrl] Step 1: pageData =", {
-        pageTextLength: pageData.pageText?.length||0,
-        imageUrl: pageData.imageUrl,
-        hasImageData: !!pageData.imageData,
-        price: pageData.price,
-        error: pageData.error
-      });
+      let pageData;
+      try{
+        const pageRes=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fetchUrl:urlInput.trim()})});
+        if(!pageRes.ok){setUrlError(`Step 1 failed: server returned ${pageRes.status}`);setFetchingUrl(false);return;}
+        pageData=await pageRes.json();
+        if(pageData.error&&!pageData.pageText){setUrlError(`Page fetch error: ${pageData.error}`);setFetchingUrl(false);return;}
+      }catch(e){setUrlError(`Step 1 failed: ${e.message}`);setFetchingUrl(false);return;}
       // Step 2: ask Claude to extract item details
       const promptContent=pageData.pageText&&pageData.pageText.length>50
         ?`Extract product details from this page content:\n\n${pageData.pageText}`
         :`Extract product details from this URL (no page text available): ${urlInput.trim()}`;
-      console.log("[fetchUrl] Step 2: calling Claude, content length", promptContent.length);
-      const text=await callClaude(URL_PROMPT,[{type:"text",text:promptContent}],500);
-      console.log("[fetchUrl] Step 2: Claude raw response:", text);
+      let text;
+      try{text=await callClaude(URL_PROMPT,[{type:"text",text:promptContent}],500);}
+      catch(e){setUrlError(`Step 2 failed: ${e.message}`);setFetchingUrl(false);return;}
+      if(!text){setUrlError("Step 2 failed: Claude returned no response (check API key in Vercel env vars)");setFetchingUrl(false);return;}
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
-      if(start===-1||end===-1){console.error("[fetchUrl] Step 2: no JSON found in Claude response");setFetchingUrl(false);return;}
-      const parsed=JSON.parse(clean.substring(start,end+1));
-      console.log("[fetchUrl] Step 3: parsed fields:", parsed);
+      if(start===-1||end===-1){setUrlError("Step 2 failed: Claude didn't return JSON — response: "+text.substring(0,100));setFetchingUrl(false);return;}
+      let parsed;
+      try{parsed=JSON.parse(clean.substring(start,end+1));}
+      catch(e){setUrlError("Step 3 failed: JSON parse error — "+e.message);setFetchingUrl(false);return;}
       // Step 3: populate form
       setAddForm(f=>({...f,name:parsed.name||f.name,brand:parsed.brand||f.brand,color:parsed.color||f.color,material:parsed.material||f.material,category:parsed.category||f.category,season:parsed.season||f.season,sleeveLength:parsed.sleeveLength||f.sleeveLength,length:parsed.length||f.length,price:pageData.price||parsed.price||f.price,imageData:pageData.imageData||f.imageData,originalImageData:pageData.imageData||f.originalImageData}));
       if(parsed.brand)addBrand(parsed.brand);
-      console.log("[fetchUrl] Step 3: form updated, name=", parsed.name, "brand=", parsed.brand);
     }catch(err){
-      console.error("[fetchUrl] ERROR:", err);
+      setUrlError(`Error: ${err.message}`);
     }
     setFetchingUrl(false);
   }
@@ -703,6 +702,7 @@ export default function WardrobeApp(){
           <button onClick={fetchUrl} disabled={fetchingUrl||!urlInput} style={{...chipStyle(false),padding:"4px 14px",flexShrink:0,opacity:fetchingUrl||!urlInput?0.5:1}}>{fetchingUrl?"...":"Go"}</button>
         </div>
         {fetchingUrl&&<div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}
+        {urlError&&<div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{urlError}</div>}
         <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData)}} brands={brands} onAddBrand={addBrand} categories={allCategories}/>
         <button onClick={addItem} disabled={!addForm.name} style={{width:"100%",background:addForm.name?"#e8e2d8":"#1a1a1a",color:addForm.name?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
       </>)}
