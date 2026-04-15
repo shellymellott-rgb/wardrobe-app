@@ -96,13 +96,26 @@ async function sbLoad(table){
   const uid=getUserId();
   console.log(`[sb] load ${table} uid=${uid.slice(0,8)} url=${SB_URL.slice(8,40)}`);
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&select=data&order=created_at.asc`,{headers:SB_HDR});
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&id=neq.__settings__&select=data&order=created_at.asc`,{headers:SB_HDR});
     console.log(`[sb] load ${table} status=${res.status}`);
     if(!res.ok){const txt=await res.text();console.error(`[sb] load ${table} FAILED:`,txt);return null;}
     const rows=await res.json();
     console.log(`[sb] load ${table} rows=${rows.length}`);
     return Array.isArray(rows)?rows.map(r=>r.data):null;
   }catch(e){console.error("[sb] load error:",e.message);return null}
+}
+async function sbSaveSettings(settings){
+  const uid=getUserId();
+  await sbUpsert("wardrobe_items",[{id:"__settings__",user_id:uid,data:settings}]);
+}
+async function sbLoadSettings(){
+  const uid=getUserId();
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/wardrobe_items?id=eq.__settings__&user_id=eq.${encodeURIComponent(uid)}&select=data`,{headers:SB_HDR});
+    if(!res.ok)return null;
+    const rows=await res.json();
+    return rows[0]?.data||null;
+  }catch{return null}
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -256,7 +269,11 @@ export default function WardrobeApp(){
   useEffect(()=>{if(selectedItem)setStylingNotesInput(selectedItem.stylingNotes||"")},[selectedItem?.id]);
   async function syncFromSupabase(markDone=false){
     const uid=getUserId();
-    const [dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
+    const [dbItems,dbWish,dbSettings]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist"),sbLoadSettings()]);
+    if(dbSettings?.customCategories){
+      setCustomCategories(dbSettings.customCategories);
+      try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(dbSettings.customCategories))}catch{}
+    }
     if(dbItems!==null){
       if(dbItems.length>0){
         const sbIds=new Set(dbItems.map(i=>String(i.id)));
@@ -462,6 +479,7 @@ export default function WardrobeApp(){
       if(all.map(x=>x.toLowerCase()).includes(c.toLowerCase()))return safe;
       const u=[...safe,c];
       try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}
+      sbSaveSettings({customCategories:u});
       return u;
     });
     setNewCatInput("");
@@ -493,10 +511,10 @@ export default function WardrobeApp(){
         if(!found){setSyncStatus("notfound");setSyncLoading(false);return;}
         targetUid=found;
       }
+      // Set UID permanently — don't revert just because items are empty yet
       localStorage.setItem("wardrobe-uid",targetUid);
       const[dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
       if(dbItems===null){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
-      else if(dbItems.length===0&&(!dbWish||dbWish.length===0)){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("notfound")}
       else{if(dbItems.length){setItems(dbItems);saveToStorage(dbItems)}if(dbWish?.length){setWishlist(dbWish);saveWishlist(dbWish)}setSyncCodeInput("");setSyncStatus("success")}
     }catch{localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
     setSyncLoading(false);
@@ -520,7 +538,7 @@ export default function WardrobeApp(){
     <div style={{padding:"28px 24px 18px",borderBottom:"1px solid #222"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,letterSpacing:5,color:"#555",textTransform:"uppercase",marginBottom:5}}>Personal Closet</div><div style={{fontSize:28,fontStyle:"italic",letterSpacing:-0.5}}>Wardrobe</div></div>
-        <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{items.length}</div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:"#555",textTransform:"uppercase"}}>pieces</div>{underloved.length>0&&<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}<button onClick={()=>setShowSettings(true)} style={{background:"transparent",border:"none",color:showSettings?"#e8e2d8":"#555",fontSize:16,cursor:"pointer",padding:"2px 0",marginTop:4,lineHeight:1}}>⚙</button></div>
+        <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{items.length}</div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:"#555",textTransform:"uppercase"}}>pieces</div>{underloved.length>0&&<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}<button onClick={()=>setShowSettings(true)} style={{background:showSettings?"#e8e2d820":"transparent",border:`1px solid ${showSettings?"#e8e2d840":"#2a2a2a"}`,color:showSettings?"#e8e2d8":"#888",fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:4,borderRadius:3,letterSpacing:1,fontFamily:"'DM Sans', system-ui, sans-serif"}}>⚙ Settings</button></div>
       </div>
       <div style={{display:"flex",gap:6,marginTop:18,fontFamily:"'DM Sans', system-ui, sans-serif",flexWrap:"wrap"}}>
         {navBtn("Closet",view==="closet",()=>setView("closet"))}
@@ -670,17 +688,30 @@ export default function WardrobeApp(){
           ))}
         </div>
       </div>)}
-      <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12}}>
-        {chatHistory.length===0&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",color:"#444"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>Ask anything</div><div style={{fontSize:11,color:"#333",lineHeight:1.8}}>What am I missing? · What shoes go with my cream jeans? · Build a capsule for a weekend trip</div></div>)}
-        {chatHistory.map((msg,i)=>(<div key={i}><div style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{msg.content}</div></div>{msg.role==="assistant"&&!chatLoading&&(correctingIdx===i?(<div style={{display:"flex",gap:6,marginTop:4,paddingLeft:4}}><input autoFocus value={correctionInput} onChange={e=>setCorrectionInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submitCorrection(i);if(e.key==="Escape")setCorrectingIdx(null)}} placeholder="What was wrong?" style={{...inputStyle,marginBottom:0,flex:1,fontSize:11}}/><button type="button" onClick={()=>submitCorrection(i)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"0 12px",fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>Save</button><button type="button" onClick={()=>setCorrectingIdx(null)} style={{...ghostBtn,fontSize:16,padding:"0 6px",flexShrink:0}}>✕</button></div>):(<div style={{paddingLeft:4,marginTop:2}}><button type="button" onClick={()=>{setCorrectingIdx(i);setCorrectionInput("")}} style={{background:"none",border:"none",color:"#3a3a3a",fontSize:10,cursor:"pointer",padding:"2px 4px",letterSpacing:1}}>✗ correct this</button></div>))}</div>))}
-        {chatLoading&&(<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#1a1a1a",color:"#555",fontSize:13,fontStyle:"italic"}}>Thinking...</div></div>)}
-        <div ref={chatEndRef}/>
-      </div>
-      <div style={{flexShrink:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,alignItems:"center"}}>
-        {learnedIndicator&&<div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
-        <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
-        <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
-      </div>
+      {chatHistory.length===0&&!chatLoading?(
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 24px 40px"}}>
+          <div style={{fontSize:22,fontStyle:"italic",letterSpacing:-0.5,color:"#e8e2d8",marginBottom:6}}>Ask anything</div>
+          <div style={{fontSize:12,color:"#444",lineHeight:2,textAlign:"center",marginBottom:32}}>What am I missing? · What shoes go with my cream jeans?<br/>Build a capsule for a weekend trip</div>
+          <div style={{width:"100%",maxWidth:480,display:"flex",gap:8,alignItems:"center"}}>
+            {learnedIndicator&&<div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
+            <input autoFocus value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1,fontSize:15,padding:"14px 16px"}} disabled={chatLoading}/>
+            <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"14px 20px",fontSize:13,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+          </div>
+        </div>
+      ):(
+        <div>
+          <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12}}>
+            {chatHistory.map((msg,i)=>(<div key={i}><div style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{msg.content}</div></div>{msg.role==="assistant"&&!chatLoading&&(correctingIdx===i?(<div style={{display:"flex",gap:6,marginTop:4,paddingLeft:4}}><input autoFocus value={correctionInput} onChange={e=>setCorrectionInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submitCorrection(i);if(e.key==="Escape")setCorrectingIdx(null)}} placeholder="What was wrong?" style={{...inputStyle,marginBottom:0,flex:1,fontSize:11}}/><button type="button" onClick={()=>submitCorrection(i)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"0 12px",fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>Save</button><button type="button" onClick={()=>setCorrectingIdx(null)} style={{...ghostBtn,fontSize:16,padding:"0 6px",flexShrink:0}}>✕</button></div>):(<div style={{paddingLeft:4,marginTop:2}}><button type="button" onClick={()=>{setCorrectingIdx(i);setCorrectionInput("")}} style={{background:"none",border:"none",color:"#3a3a3a",fontSize:10,cursor:"pointer",padding:"2px 4px",letterSpacing:1}}>✗ correct this</button></div>))}</div>))}
+            {chatLoading&&(<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#1a1a1a",color:"#555",fontSize:13,fontStyle:"italic"}}>Thinking...</div></div>)}
+            <div ref={chatEndRef}/>
+          </div>
+          <div style={{flexShrink:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,alignItems:"center"}}>
+            {learnedIndicator&&<div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
+            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
+            <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+          </div>
+        </div>
+      )}
     </div>)}
 
     {/* SETTINGS MODAL */}
@@ -699,7 +730,7 @@ export default function WardrobeApp(){
             {customCategories.map((c,i)=>(
               <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#e8e2d820",border:"1px solid #e8e2d840",borderRadius:20,padding:"5px 10px 5px 12px"}}>
                 <span style={{fontSize:11,color:"#e8e2d8"}}>{c}</span>
-                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}return u})}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}sbSaveSettings({customCategories:u});return u})}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
               </span>
             ))}
           </div>
@@ -789,7 +820,7 @@ export default function WardrobeApp(){
       {addMode==="url"&&(<>
         <label style={labelStyle}>Product URL</label>
         <div style={{display:"flex",gap:8,marginBottom:16}}>
-          <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")fetchUrl()}} placeholder="https://..." style={{...inputStyle,marginBottom:0,flex:1}}/>
+          <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();fetchUrl()}}} placeholder="https://..." style={{...inputStyle,marginBottom:0,flex:1}}/>
           <button onClick={fetchUrl} disabled={fetchingUrl||!urlInput} style={{...chipStyle(false),padding:"4px 14px",flexShrink:0,opacity:fetchingUrl||!urlInput?0.5:1}}>{fetchingUrl?"...":"Go"}</button>
         </div>
         {fetchingUrl&&<div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}

@@ -22,6 +22,50 @@ function extractImageUrl(html) {
   return null;
 }
 
+async function fetchPageHtml(url) {
+  // 1. Direct fetch with mobile UA
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(2500),
+    });
+    console.log('[api/claude] direct fetch status:', r.status);
+    if (r.ok) return await r.text();
+  } catch (e) {
+    console.log('[api/claude] direct failed:', e.message);
+  }
+
+  // 2. corsproxy.io
+  try {
+    const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), {
+      signal: AbortSignal.timeout(2500),
+    });
+    console.log('[api/claude] corsproxy status:', r.status);
+    if (r.ok) return await r.text();
+  } catch (e) {
+    console.log('[api/claude] corsproxy failed:', e.message);
+  }
+
+  // 3. allorigins.win
+  try {
+    const r = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), {
+      signal: AbortSignal.timeout(2500),
+    });
+    console.log('[api/claude] allorigins status:', r.status);
+    if (r.ok) {
+      const j = await r.json();
+      if (j.contents) return j.contents;
+    }
+  } catch (e) {
+    console.log('[api/claude] allorigins failed:', e.message);
+  }
+
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   try {
@@ -29,18 +73,10 @@ export default async function handler(req, res) {
     if (fetchUrl) {
       console.log('[api/claude] fetchUrl branch: fetching', fetchUrl);
       try {
-        const pageRes = await fetch(fetchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-          signal: AbortSignal.timeout(4000),
-        });
-        console.log('[api/claude] page fetch status:', pageRes.status, pageRes.headers.get('content-type'));
-        if (!pageRes.ok) {
-          return res.status(200).json({ pageText: '', imageUrl: null, imageData: null, price: null, fetchStatus: pageRes.status });
+        const html = await fetchPageHtml(fetchUrl);
+        if (!html) {
+          return res.status(200).json({ pageText: '', imageUrl: null, imageData: null, price: null, fetchStatus: 0 });
         }
-        const html = await pageRes.text();
         console.log('[api/claude] html length:', html.length);
 
         const stripped = html
