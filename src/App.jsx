@@ -38,39 +38,71 @@ Skip non-clothing. Make names descriptive. Extract brand from product name if pr
 
 const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null,originalImageData:null});
 
+// ── Claude context helpers ─────────────────────────────────────────────────────
+function stripForClaude({imageData,originalImageData,outfitPhotos,...rest}){return rest}
+function buildWardrobeSummary(items){
+  const byCat={};items.forEach(i=>{byCat[i.category]=(byCat[i.category]||0)+1});
+  const catStr=Object.entries(byCat).filter(([,n])=>n>0).map(([c,n])=>`${n} ${c.toLowerCase()}`).join(", ");
+  const brandCounts={};items.forEach(i=>{if(i.brand)brandCounts[i.brand]=(brandCounts[i.brand]||0)+1});
+  const topBrands=Object.entries(brandCounts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([b])=>b).join(", ");
+  const colorCounts={};items.forEach(i=>{if(i.color)colorCounts[i.color]=(colorCounts[i.color]||0)+1});
+  const topColors=Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([c,n])=>`${c}(${n})`).join(", ");
+  const mostWorn=[...items].sort((a,b)=>(b.wornDates?.length||0)-(a.wornDates?.length||0)).slice(0,5).map(i=>i.name).join(", ");
+  return `Shelly owns ${items.length} pieces: ${catStr}.\nTop brands: ${topBrands||"none listed"}.\nColors: ${topColors||"mixed"}.\nMost worn: ${mostWorn||"none yet"}.`;
+}
+const CAT_KEYWORDS={'Tops':['top','shirt','blouse','tee','sweater','knit','tank','cami','tunic'],'Bottoms':['pant','pants','jean','jeans','skirt','short','trouser','bottom','legging'],'Dresses':['dress','gown','jumpsuit','romper'],'Outerwear':['jacket','coat','blazer','cardigan','vest','outerwear'],'Shoes':['shoe','shoes','boot','boots','sandal','sneaker','heel','flat','loafer','mule','pump'],'Accessories':['bag','belt','scarf','hat','jewelry','accessory','accessories','purse']};
+function filterRelevantItems(items,question){
+  const q=question.toLowerCase();
+  const cats=new Set();
+  Object.entries(CAT_KEYWORDS).forEach(([cat,kws])=>{if(kws.some(k=>q.includes(k)))cats.add(cat)});
+  items.filter(i=>i.name&&q.includes(i.name.toLowerCase().slice(0,8))).forEach(i=>cats.add(i.category));
+  const comp={'Tops':['Bottoms','Shoes'],'Bottoms':['Tops','Shoes'],'Dresses':['Shoes','Outerwear'],'Shoes':['Tops','Bottoms','Dresses'],'Outerwear':['Tops','Bottoms']};
+  [...cats].forEach(c=>(comp[c]||[]).forEach(x=>cats.add(x)));
+  const pool=cats.size>0?items.filter(i=>cats.has(i.category)):items;
+  return [...pool].sort((a,b)=>(b.wornDates?.length||0)-(a.wornDates?.length||0)).slice(0,80);
+}
+function buildContextHistory(history){return history.length>20?history.slice(-20):history}
+// ─────────────────────────────────────────────────────────────────────────────
 function loadFromStorage(){try{const r=localStorage.getItem(STORAGE_KEY);return r?JSON.parse(r):[]}catch{return[]}}
 function saveToStorage(items){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}catch{}}
 function loadWishlist(){try{const r=localStorage.getItem(WISHLIST_KEY);return r?JSON.parse(r):[]}catch{return[]}}
 function saveWishlist(w){try{localStorage.setItem(WISHLIST_KEY,JSON.stringify(w))}catch{}}
 
 // ── Supabase sync ─────────────────────────────────────────────────────────────
-const SB_URL="https://lkyxzwjsxjjfrhfdohot.supabase.co";
-const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreXh6d2pzeGpqZnJoZmRvaG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDE3NTYsImV4cCI6MjA5MTcxNzc1Nn0.CTGfz6bua_dlsdb-5o2tDT1voQErXZ-LpFZlIcOi_Sg";
+const SB_URL=import.meta.env.VITE_SUPABASE_URL||"https://lkyxzwjsxjjfrhfdohot.supabase.co";
+const SB_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreXh6d2pzeGpqZnJoZmRvaG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDE3NTYsImV4cCI6MjA5MTcxNzc1Nn0.CTGfz6bua_dlsdb-5o2tDT1voQErXZ-LpFZlIcOi_Sg";
 const SB_HDR={apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,"Content-Type":"application/json"};
 function getUserId(){let u=localStorage.getItem("wardrobe-uid");if(!u){u=crypto.randomUUID();localStorage.setItem("wardrobe-uid",u)}return u}
 function getShortCode(){return getUserId().replace(/-/g,"").slice(0,8).toUpperCase()}
 async function sbFindUidByShortCode(code){try{const r=await fetch(`${SB_URL}/rest/v1/wardrobe_items?user_id=ilike.${encodeURIComponent(code.toLowerCase())}%25&select=user_id&limit=1`,{headers:SB_HDR});if(!r.ok)return null;const rows=await r.json();return rows[0]?.user_id||null}catch{return null}}
 async function sbUpsert(table,rows){
   if(!rows.length)return;
+  console.log(`[sb] upsert ${table}: ${rows.length} rows uid=${rows[0]?.user_id?.slice(0,8)}`);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:"POST",headers:{...SB_HDR,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
-    if(!r.ok)console.warn("Supabase upsert",r.status,await r.text());
-  }catch(e){console.warn("Supabase upsert error",e)}
+    if(!r.ok){const txt=await r.text();console.error(`[sb] upsert ${table} FAILED ${r.status}:`,txt);}
+    else console.log(`[sb] upsert ${table} ok`);
+  }catch(e){console.error("[sb] upsert error:",e.message)}
 }
 async function sbDel(table,id){
+  const uid=getUserId();
+  console.log(`[sb] delete ${table} id=${String(id).slice(0,10)} uid=${uid.slice(0,8)}`);
   try{
-    const uid=getUserId();
-    await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}&user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...SB_HDR,Prefer:"return=minimal"}});
-  }catch(e){console.warn("Supabase delete error",e)}
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}&user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...SB_HDR,Prefer:"return=minimal"}});
+    if(!r.ok)console.error(`[sb] delete ${table} FAILED ${r.status}`);
+  }catch(e){console.error("[sb] delete error:",e.message)}
 }
 async function sbLoad(table){
+  const uid=getUserId();
+  console.log(`[sb] load ${table} uid=${uid.slice(0,8)} url=${SB_URL.slice(8,40)}`);
   try{
-    const uid=getUserId();
     const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&select=data&order=created_at.asc`,{headers:SB_HDR});
-    if(!res.ok)return null;
+    console.log(`[sb] load ${table} status=${res.status}`);
+    if(!res.ok){const txt=await res.text();console.error(`[sb] load ${table} FAILED:`,txt);return null;}
     const rows=await res.json();
+    console.log(`[sb] load ${table} rows=${rows.length}`);
     return Array.isArray(rows)?rows.map(r=>r.data):null;
-  }catch{return null}
+  }catch(e){console.error("[sb] load error:",e.message);return null}
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -358,13 +390,13 @@ export default function WardrobeApp(){
     if(items.length<2)return;
     setLoadingOutfit(true);setOutfits([]);setOutfitText("");
     try{
-      const text=await callClaude(buildStyleSystem(),OUTFIT_PROMPT(items,occasion),1000);
+      const text=await callClaude(buildStyleSystem(),OUTFIT_PROMPT(items.map(stripForClaude),occasion),1000);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("[");const end=clean.lastIndexOf("]");
       const parsed=JSON.parse(clean.substring(start,end+1));
       setOutfits(parsed);
     }catch(e){
-      setOutfitText(await callClaude(buildStyleSystem(),`Shelly's wardrobe:\n${items.map(i=>`- [${i.category}] ${i.name}`).join("\n")}\n${occasion?`Occasion: ${occasion}`:"Everyday outfits."}\nGive 3 outfit combos. Direct, editorial.`,1000));
+      setOutfitText(await callClaude(buildStyleSystem(),`Shelly's wardrobe:\n${items.map(stripForClaude).map(i=>`- [${i.category}] ${i.name}`).join("\n")}\n${occasion?`Occasion: ${occasion}`:"Everyday outfits."}\nGive 3 outfit combos. Direct, editorial.`,1000));
     }
     setLoadingOutfit(false);
   }
@@ -374,7 +406,7 @@ export default function WardrobeApp(){
     const dataUrl=await readFile(file);setInspoImage(dataUrl);setInspoResult(null);setLoadingInspo(true);
     try{
       const base64=dataUrl.split(",")[1];
-      const text=await callClaude(buildStyleSystem(),[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:INSPO_PROMPT(items)}],800);
+      const text=await callClaude(buildStyleSystem(),[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:INSPO_PROMPT(items.map(stripForClaude))}],800);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
       setInspoResult(JSON.parse(clean.substring(start,end+1)));
@@ -409,7 +441,14 @@ export default function WardrobeApp(){
   function importWardrobe(e){const file=e.target.files[0];e.target.value="";if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(Array.isArray(imp)){persist([...items,...imp]);alert(`Imported ${imp.length} items.`)}}catch{alert("Invalid file.")}};reader.readAsText(file)}
 
   function buildStyleSystem(){const profile=styleProfile.trim()||DEFAULT_STYLE_SYSTEM;const parts=[profile];if(styleNotes.length)parts.push(`Learned preferences:\n${styleNotes.map(n=>`- ${n}`).join("\n")}`);if(extraInstructions.trim())parts.push(`Current instructions:\n${extraInstructions.trim()}`);return parts.join("\n\n")}
-  function buildChatSystem(wardrobeItems){return `${buildStyleSystem()}\n\nHer complete wardrobe (${wardrobeItems.length} pieces):\n${wardrobeItems.map(i=>`- [${i.category}] ${i.name}${i.brand?` / ${i.brand}`:""}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}${i.tags?.length?` / Tags: ${i.tags.join(", ")}`:""} (worn ${i.wornDates?.length||0}x)${i.stylingNotes?` [Styling: ${i.stylingNotes}]`:""}${i.keepNote?` [${i.keepNote}]`:""}`).join("\n")}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items she owns by name. Be concise and direct.`}
+  function fmtItem(i){return`- [${i.category}] ${i.name}${i.brand?` / ${i.brand}`:""}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}${i.tags?.length?` / Tags: ${i.tags.join(", ")}`:""} (worn ${i.wornDates?.length||0}x)${i.stylingNotes?` [Styling: ${i.stylingNotes}]`:""}${i.keepNote?` [${i.keepNote}]`:""}`}
+  function buildChatSystem(wardrobeItems,question=""){
+    const stripped=wardrobeItems.map(stripForClaude);
+    let ctx;
+    if(stripped.length<=50||!question){ctx=`Her complete wardrobe (${stripped.length} pieces):\n${stripped.map(fmtItem).join("\n")}`;}
+    else{const rel=filterRelevantItems(stripped,question);ctx=`${buildWardrobeSummary(stripped)}\n\nMost relevant items (${rel.length} of ${stripped.length} shown):\n${rel.map(fmtItem).join("\n")}`;}
+    return`${buildStyleSystem()}\n\n${ctx}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Be concise and direct.`;
+  }
 
   function compressImage(dataUrl,maxW=600){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",0.65))};img.src=dataUrl})}
   async function extractStyleNote(userMsg,assistantReply){try{const combined=`Shelly said: "${userMsg}"\nStylist replied: "${assistantReply.substring(0,400)}"`;const note=await callClaude(`Read this chat exchange and extract any explicit style preference or dislike that Shelly expressed — things like "I hate X", "I never wear Y", "I love Z", "I prefer A over B". Return ONLY a brief factual note under 15 words (e.g. "Dislikes cropped tops", "Prefers wide-leg pants over skinny"). If no clear preference was stated, return exactly: none`,combined,80);const c=note.trim();return(c&&c.toLowerCase()!=="none"&&!c.toLowerCase().startsWith("no ")&&c.length>4&&c.length<130)?c:null}catch{return null}}
@@ -435,11 +474,11 @@ export default function WardrobeApp(){
     const newHistory=[...chatHistory,{role:"user",content:correction}];
     setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}
     setCorrectingIdx(null);setCorrectionInput("");setChatLoading(true);
-    try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}
+    try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,correction),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}
     setChatLoading(false);
   }
-  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
-  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nThis conversation is specifically about:\n[${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.tags?.length?` / Tags: ${itemChatModal.tags.join(", ")}`:""} (worn ${itemChatModal.wornDates?.length||0}x)${itemChatModal.comments?`\nNotes: ${itemChatModal.comments}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items)+focusCtx,messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
+  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
+  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nFocus item: [${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.stylingNotes?`\nStyling notes: ${itemChatModal.stylingNotes}`:""}${itemChatModal.keepNote?`\nNote: ${itemChatModal.keepNote}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg)+focusCtx,messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
   function copySyncCode(){const sc=getShortCode();navigator.clipboard?.writeText(sc).catch(()=>{});setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}
   async function connectSyncCode(){
     const code=syncCodeInput.trim().toUpperCase();
