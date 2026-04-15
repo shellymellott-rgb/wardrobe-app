@@ -31,11 +31,10 @@ export default async function handler(req, res) {
       try {
         const pageRes = await fetch(fetchUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
           },
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(4000),
         });
         console.log('[api/claude] page fetch status:', pageRes.status, pageRes.headers.get('content-type'));
         const html = await pageRes.text();
@@ -73,8 +72,8 @@ export default async function handler(req, res) {
         if (imageUrl) {
           try {
             const imgRes = await fetch(imageUrl, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-              signal: AbortSignal.timeout(3000),
+              headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' },
+              signal: AbortSignal.timeout(2000),
             });
             console.log('[api/claude] image fetch status:', imgRes.status, imgRes.headers.get('content-type'));
             if (imgRes.ok) {
