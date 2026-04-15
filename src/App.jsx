@@ -9,7 +9,7 @@ const PRESET_TAGS = {"Style":["Casual","Dressy","Work","Beach/Boat","Travel"],"P
 const STORAGE_KEY = "wardrobe-v3";
 const WISHLIST_KEY = "wardrobe-wishlist";
 
-const STYLE_SYSTEM = `You are Shelly's personal stylist. Her style: polished but not corporate, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, good fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Real-life elevated — errands, boat, travel. Be direct, opinionated, no fluff.`;
+const DEFAULT_STYLE_SYSTEM = `You are Shelly's personal stylist. She works from home and her life is real-life elevated — errands, boat trips, casual dining out, travel. Not corporate, ever. Style: polished but not stiff, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, quality fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Be direct, opinionated, no fluff.`;
 
 const OUTFIT_PROMPT = (items, occasion) => `Shelly's wardrobe:
 ${items.map(i => `- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}
@@ -36,12 +36,6 @@ const RECEIPT_PROMPT = `Extract clothing items from this receipt or order confir
 {"purchaseDate":"YYYY-MM-DD or null","items":[{"name":"descriptive name with color+style","brand":"brand name or null","color":"Black/White/Cream/Tan/Camel/Navy/Grey/Brown/Olive/Blush/Red/Blue/Green/Other or null","category":"Tops/Bottoms/Dresses/Outerwear/Shoes/Accessories","price":"numeric string or null"}]}
 Skip non-clothing. Make names descriptive. Extract brand from product name if present.`;
 
-const CHAT_SYSTEM=(items,styleNotes=[])=>`You are Shelly's personal stylist with full knowledge of her wardrobe. Her style: polished but not corporate, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, good fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Real-life elevated — errands, boat, travel. Be direct, opinionated, no fluff.${styleNotes.length?`\n\nLearned style preferences:\n${styleNotes.map(n=>`- ${n}`).join("\n")}`:""}
-
-Her complete wardrobe (${items.length} pieces):
-${items.map(i=>`- [${i.category}] ${i.name}${i.brand?` / ${i.brand}`:""}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}${i.tags?.length?` / Tags: ${i.tags.join(", ")}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}
-
-Answer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items she owns by name. Be concise and direct.`;
 
 const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null,originalImageData:null});
 
@@ -201,6 +195,9 @@ export default function WardrobeApp(){
   const [syncCopied,setSyncCopied]=useState(false);
   const [syncLoading,setSyncLoading]=useState(false);
   const [syncStatus,setSyncStatus]=useState(null);
+  const [styleProfile,setStyleProfile]=useState(()=>{try{return localStorage.getItem("wardrobe-style-profile")||DEFAULT_STYLE_SYSTEM}catch{return DEFAULT_STYLE_SYSTEM}});
+  const [extraInstructions,setExtraInstructions]=useState(()=>{try{return localStorage.getItem("wardrobe-extra-instructions")||""}catch{return""}});
+  const [showSettings,setShowSettings]=useState(false);
   const [chatHistory,setChatHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem("wardrobe-chat-history")||localStorage.getItem("wardrobe-chat")||"[]")}catch{return[]}});
   const [chatInput,setChatInput]=useState("");
   const [chatLoading,setChatLoading]=useState(false);
@@ -316,19 +313,19 @@ export default function WardrobeApp(){
   function removeItem(id){persist(items.filter(i=>i.id!==id));setSelectedItem(null);setItemEval("");setEditing(false)}
   function saveEdit(){const {originalImageData,...ef}=editForm;const updated=items.map(i=>i.id===ef.id?{...ef,color:ef.color==="Other"?ef.customColor:ef.color,material:ef.material==="Other"?ef.customMaterial:ef.material}:i);if(ef.brand)addBrand(ef.brand);persist(updated);setSelectedItem(updated.find(i=>i.id===ef.id));setEditing(false)}
 
-  async function evaluateItem(item){setSelectedItem(item);setItemEval("");setLoadingEval(true);setEditing(false);try{setItemEval(await callClaude(STYLE_SYSTEM,EVALUATE_PROMPT(item),500))}catch{setItemEval("Error. Try again.")}setLoadingEval(false)}
+  async function evaluateItem(item){setSelectedItem(item);setItemEval("");setLoadingEval(true);setEditing(false);try{setItemEval(await callClaude(buildStyleSystem(),EVALUATE_PROMPT(item),500))}catch{setItemEval("Error. Try again.")}setLoadingEval(false)}
 
   async function generateOutfits(){
     if(items.length<2)return;
     setLoadingOutfit(true);setOutfits([]);setOutfitText("");
     try{
-      const text=await callClaude(STYLE_SYSTEM,OUTFIT_PROMPT(items,occasion),1000);
+      const text=await callClaude(buildStyleSystem(),OUTFIT_PROMPT(items,occasion),1000);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("[");const end=clean.lastIndexOf("]");
       const parsed=JSON.parse(clean.substring(start,end+1));
       setOutfits(parsed);
     }catch(e){
-      setOutfitText(await callClaude(STYLE_SYSTEM,`Shelly's wardrobe:\n${items.map(i=>`- [${i.category}] ${i.name}`).join("\n")}\n${occasion?`Occasion: ${occasion}`:"Everyday outfits."}\nGive 3 outfit combos. Direct, editorial.`,1000));
+      setOutfitText(await callClaude(buildStyleSystem(),`Shelly's wardrobe:\n${items.map(i=>`- [${i.category}] ${i.name}`).join("\n")}\n${occasion?`Occasion: ${occasion}`:"Everyday outfits."}\nGive 3 outfit combos. Direct, editorial.`,1000));
     }
     setLoadingOutfit(false);
   }
@@ -338,7 +335,7 @@ export default function WardrobeApp(){
     const dataUrl=await readFile(file);setInspoImage(dataUrl);setInspoResult(null);setLoadingInspo(true);
     try{
       const base64=dataUrl.split(",")[1];
-      const text=await callClaude(STYLE_SYSTEM,[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:INSPO_PROMPT(items)}],800);
+      const text=await callClaude(buildStyleSystem(),[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:INSPO_PROMPT(items)}],800);
       const clean=text.replace(/```json|```/g,"").trim();
       const start=clean.indexOf("{");const end=clean.lastIndexOf("}");
       setInspoResult(JSON.parse(clean.substring(start,end+1)));
@@ -372,11 +369,14 @@ export default function WardrobeApp(){
   function exportWardrobe(){const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`wardrobe-${new Date().toISOString().split("T")[0]}.json`;a.click()}
   function importWardrobe(e){const file=e.target.files[0];e.target.value="";if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(Array.isArray(imp)){persist([...items,...imp]);alert(`Imported ${imp.length} items.`)}}catch{alert("Invalid file.")}};reader.readAsText(file)}
 
+  function buildStyleSystem(){const profile=styleProfile.trim()||DEFAULT_STYLE_SYSTEM;const parts=[profile];if(styleNotes.length)parts.push(`Learned preferences:\n${styleNotes.map(n=>`- ${n}`).join("\n")}`);if(extraInstructions.trim())parts.push(`Current instructions:\n${extraInstructions.trim()}`);return parts.join("\n\n")}
+  function buildChatSystem(wardrobeItems){return `${buildStyleSystem()}\n\nHer complete wardrobe (${wardrobeItems.length} pieces):\n${wardrobeItems.map(i=>`- [${i.category}] ${i.name}${i.brand?` / ${i.brand}`:""}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}${i.tags?.length?` / Tags: ${i.tags.join(", ")}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items she owns by name. Be concise and direct.`}
+
   function compressImage(dataUrl,maxW=600){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",0.65))};img.src=dataUrl})}
   async function extractStyleNote(userMsg,assistantReply){try{const combined=`Shelly said: "${userMsg}"\nStylist replied: "${assistantReply.substring(0,400)}"`;const note=await callClaude(`Read this chat exchange and extract any explicit style preference or dislike that Shelly expressed — things like "I hate X", "I never wear Y", "I love Z", "I prefer A over B". Return ONLY a brief factual note under 15 words (e.g. "Dislikes cropped tops", "Prefers wide-leg pants over skinny"). If no clear preference was stated, return exactly: none`,combined,80);const c=note.trim();return(c&&c.toLowerCase()!=="none"&&!c.toLowerCase().startsWith("no ")&&c.length>4&&c.length<130)?c:null}catch{return null}}
   function saveLearnedNote(note){setStyleNotes(prev=>{const u=[...prev,note];try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}return u});setLearnedIndicator(true);setTimeout(()=>setLearnedIndicator(false),2000)}
-  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:CHAT_SYSTEM(items,styleNotes),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
-  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nThis conversation is specifically about:\n[${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.tags?.length?` / Tags: ${itemChatModal.tags.join(", ")}`:""} (worn ${itemChatModal.wornDates?.length||0}x)${itemChatModal.comments?`\nNotes: ${itemChatModal.comments}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:CHAT_SYSTEM(items,styleNotes)+focusCtx,messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
+  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
+  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nThis conversation is specifically about:\n[${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.tags?.length?` / Tags: ${itemChatModal.tags.join(", ")}`:""} (worn ${itemChatModal.wornDates?.length||0}x)${itemChatModal.comments?`\nNotes: ${itemChatModal.comments}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items)+focusCtx,messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
   function copySyncCode(){const uid=getUserId();navigator.clipboard?.writeText(uid).then(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}).catch(()=>{setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)})}
   async function connectSyncCode(){const code=syncCodeInput.trim();if(!code||code.length<10)return;setSyncLoading(true);setSyncStatus(null);const prevUid=getUserId();try{localStorage.setItem("wardrobe-uid",code);const[dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);if(dbItems===null){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}else if(dbItems.length===0&&(!dbWish||dbWish.length===0)){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("notfound")}else{if(dbItems.length){setItems(dbItems);saveToStorage(dbItems)}if(dbWish?.length){setWishlist(dbWish);saveWishlist(dbWish)}setSyncCodeInput("");setSyncStatus("success")}}catch{localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}setSyncLoading(false)}
 
@@ -398,7 +398,7 @@ export default function WardrobeApp(){
     <div style={{padding:"28px 24px 18px",borderBottom:"1px solid #222"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,letterSpacing:5,color:"#555",textTransform:"uppercase",marginBottom:5}}>Personal Closet</div><div style={{fontSize:28,fontStyle:"italic",letterSpacing:-0.5}}>Wardrobe</div></div>
-        <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{items.length}</div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:"#555",textTransform:"uppercase"}}>pieces</div>{underloved.length>0&&<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}<button onClick={()=>setView("settings")} style={{background:"transparent",border:"none",color:view==="settings"?"#e8e2d8":"#444",fontSize:14,cursor:"pointer",padding:"2px 0",marginTop:4,lineHeight:1}}>⚙</button></div>
+        <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{items.length}</div><div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:"#555",textTransform:"uppercase"}}>pieces</div>{underloved.length>0&&<div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}<button onClick={()=>setShowSettings(true)} style={{background:"transparent",border:"none",color:showSettings?"#e8e2d8":"#555",fontSize:16,cursor:"pointer",padding:"2px 0",marginTop:4,lineHeight:1}}>⚙</button></div>
       </div>
       <div style={{display:"flex",gap:6,marginTop:18,fontFamily:"'DM Sans', system-ui, sans-serif",flexWrap:"wrap"}}>
         {navBtn("Closet",view==="closet",()=>setView("closet"))}
@@ -556,45 +556,73 @@ export default function WardrobeApp(){
       </div>
     </div>)}
 
-    {/* SETTINGS */}
-    {view==="settings"&&(<div style={{padding:24,fontFamily:"'DM Sans', system-ui, sans-serif"}}>
-      <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#666",marginBottom:24}}>Settings</div>
-
-      {/* Sync */}
-      <div style={{marginBottom:32}}>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:16}}>Sync Across Devices</div>
-        <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16,marginBottom:16}}>
-          <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:10}}>Your sync code — share this with your other device</div>
-          <div style={{fontFamily:"monospace",fontSize:12,color:"#e8e2d8",background:"#111",padding:"10px 12px",borderRadius:3,letterSpacing:1,marginBottom:10,wordBreak:"break-all"}}>{getUserId()}</div>
-          <button onClick={copySyncCode} style={{...chipStyle(syncCopied),fontSize:10,letterSpacing:1.5}}>{syncCopied?"✓ Copied!":"Copy Sync Code"}</button>
+    {/* SETTINGS MODAL */}
+    {showSettings&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:180,overflowY:"auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
+      <div style={{padding:24,maxWidth:680,margin:"0 auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
+          <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#666"}}>Settings</div>
+          <button onClick={()=>setShowSettings(false)} style={ghostBtn}>✕ Close</button>
         </div>
 
-        <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16}}>
-          <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:10}}>Connect to another device — paste its sync code here</div>
-          <input value={syncCodeInput} onChange={e=>{setSyncCodeInput(e.target.value);setSyncStatus(null)}} placeholder="Paste sync code..." style={{...inputStyle,marginBottom:10,fontFamily:"monospace",fontSize:11}} onKeyDown={e=>{if(e.key==="Enter")connectSyncCode()}}/>
-          {syncStatus==="success"&&<div style={{fontSize:11,color:"#6a9a6a",marginBottom:8}}>✓ Connected — wardrobe data loaded from other device</div>}
-          {syncStatus==="notfound"&&<div style={{fontSize:11,color:"#b8976a",marginBottom:8}}>No wardrobe found for that code. Double-check and try again.</div>}
-          {syncStatus==="error"&&<div style={{fontSize:11,color:"#8a4a4a",marginBottom:8}}>Connection failed. Check your internet and try again.</div>}
-          <div style={{fontSize:10,color:"#444",marginBottom:10}}>⚠ This replaces your current wardrobe with data from the other device.</div>
-          <button onClick={connectSyncCode} disabled={syncLoading||!syncCodeInput.trim()} style={{background:syncCodeInput.trim()&&!syncLoading?"#e8e2d8":"#1a1a1a",color:syncCodeInput.trim()&&!syncLoading?"#111":"#444",border:"none",borderRadius:3,padding:"11px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:syncCodeInput.trim()&&!syncLoading?"pointer":"not-allowed",fontWeight:600}}>{syncLoading?"Connecting...":"Connect"}</button>
+        {/* A. Style Profile */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Style Profile</div>
+          <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Describe your style in your own words. This replaces the default on every Claude call.</div>
+          <textarea value={styleProfile} onChange={e=>{setStyleProfile(e.target.value);try{localStorage.setItem("wardrobe-style-profile",e.target.value)}catch{}}} style={{...inputStyle,height:130,resize:"vertical",lineHeight:1.6}} placeholder={DEFAULT_STYLE_SYSTEM}/>
+          {styleProfile!==DEFAULT_STYLE_SYSTEM&&<button onClick={()=>{setStyleProfile(DEFAULT_STYLE_SYSTEM);try{localStorage.setItem("wardrobe-style-profile",DEFAULT_STYLE_SYSTEM)}catch{}}} style={{...ghostBtn,fontSize:10,color:"#555",letterSpacing:1}}>Reset to default</button>}
         </div>
-      </div>
 
-      {/* Style notes */}
-      {styleNotes.length>0&&(<div style={{marginBottom:32}}>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:12}}>Learned Style Notes</div>
-        <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:14,marginBottom:10}}>
-          {styleNotes.map((n,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:i<styleNotes.length-1?"1px solid #222":"none"}}><div style={{fontSize:12,color:"#c8c0b0"}}>· {n}</div><button onClick={()=>{const u=styleNotes.filter((_,j)=>j!==i);setStyleNotes(u);try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}}} style={{...ghostBtn,fontSize:14,color:"#444",padding:"0 0 0 12px"}}>×</button></div>)}
+        {/* B. Extra Instructions */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Current Instructions</div>
+          <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Temporary context appended to every prompt — packing for a trip, trying to shop less, etc.</div>
+          <textarea value={extraInstructions} onChange={e=>{setExtraInstructions(e.target.value);try{localStorage.setItem("wardrobe-extra-instructions",e.target.value)}catch{}}} style={{...inputStyle,height:72,resize:"none",lineHeight:1.6}} placeholder="e.g. Packing for 10 days in Italy in June. Carry-on only."/>
         </div>
-        <button onClick={()=>{setStyleNotes([]);try{localStorage.removeItem("wardrobe-style-notes")}catch{}}} style={{...ghostBtn,fontSize:10,color:"#555",letterSpacing:1}}>Clear all notes</button>
-      </div>)}
 
-      {/* Export/Import */}
-      <div>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:12}}>Data</div>
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={exportWardrobe} style={{...chipStyle(false),fontSize:10}}>↓ Export JSON</button>
-          <button onClick={()=>importRef.current.click()} style={{...chipStyle(false),fontSize:10}}>↑ Import JSON</button>
+        {/* C. Style Notes */}
+        <div style={{marginBottom:28}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888"}}>Learned Style Notes</div>
+            {styleNotes.length>0&&<button onClick={()=>{setStyleNotes([]);try{localStorage.removeItem("wardrobe-style-notes")}catch{}}} style={{...ghostBtn,fontSize:10,color:"#555"}}>Clear all</button>}
+          </div>
+          {styleNotes.length===0?(<div style={{fontSize:11,color:"#444",fontStyle:"italic"}}>None yet — auto-saved from your chat conversations.</div>):(
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {styleNotes.map((n,i)=>(
+                <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 10px 5px 12px"}}>
+                  <span style={{fontSize:11,color:"#c8c0b0"}}>{n}</span>
+                  <button onClick={()=>{const u=styleNotes.filter((_,j)=>j!==i);setStyleNotes(u);try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}}} style={{background:"none",border:"none",color:"#555",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* D. Sync */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:14}}>Sync Across Devices</div>
+          <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16,marginBottom:12}}>
+            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>Your sync code — share with your other device</div>
+            <div style={{fontFamily:"monospace",fontSize:11,color:"#e8e2d8",background:"#111",padding:"9px 12px",borderRadius:3,letterSpacing:1,marginBottom:10,wordBreak:"break-all"}}>{getUserId()}</div>
+            <button onClick={copySyncCode} style={{...chipStyle(syncCopied),fontSize:10,letterSpacing:1.5}}>{syncCopied?"✓ Copied!":"Copy Sync Code"}</button>
+          </div>
+          <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16}}>
+            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>Paste another device's sync code to connect</div>
+            <input value={syncCodeInput} onChange={e=>{setSyncCodeInput(e.target.value);setSyncStatus(null)}} placeholder="Paste sync code..." style={{...inputStyle,marginBottom:10,fontFamily:"monospace",fontSize:11}} onKeyDown={e=>{if(e.key==="Enter")connectSyncCode()}}/>
+            {syncStatus==="success"&&<div style={{fontSize:11,color:"#6a9a6a",marginBottom:8}}>✓ Connected — wardrobe data loaded</div>}
+            {syncStatus==="notfound"&&<div style={{fontSize:11,color:"#b8976a",marginBottom:8}}>No wardrobe found for that code.</div>}
+            {syncStatus==="error"&&<div style={{fontSize:11,color:"#8a4a4a",marginBottom:8}}>Connection failed. Check your internet.</div>}
+            <div style={{fontSize:10,color:"#444",marginBottom:10}}>⚠ Replaces current wardrobe with data from the other device.</div>
+            <button onClick={connectSyncCode} disabled={syncLoading||!syncCodeInput.trim()} style={{background:syncCodeInput.trim()&&!syncLoading?"#e8e2d8":"#1a1a1a",color:syncCodeInput.trim()&&!syncLoading?"#111":"#444",border:"none",borderRadius:3,padding:"11px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:syncCodeInput.trim()&&!syncLoading?"pointer":"not-allowed",fontWeight:600}}>{syncLoading?"Connecting...":"Connect"}</button>
+          </div>
+        </div>
+
+        {/* E. Data */}
+        <div>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:12}}>Data</div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={exportWardrobe} style={{...chipStyle(false),fontSize:10}}>↓ Export JSON</button>
+            <button onClick={()=>importRef.current.click()} style={{...chipStyle(false),fontSize:10}}>↑ Import JSON</button>
+          </div>
         </div>
       </div>
     </div>)}
