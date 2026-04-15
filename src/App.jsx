@@ -12,15 +12,15 @@ const WISHLIST_KEY = "wardrobe-wishlist";
 const DEFAULT_STYLE_SYSTEM = `You are Shelly's personal stylist. She works from home and her life is real-life elevated — errands, boat trips, casual dining out, travel. Not corporate, ever. Style: polished but not stiff, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, quality fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Be direct, opinionated, no fluff.`;
 
 const OUTFIT_PROMPT = (items, occasion) => `Shelly's wardrobe:
-${items.map(i => `- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}
+${items.map(i => `- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${fmtMaterials(i)?` / ${fmtMaterials(i)}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}
 ${occasion?`Occasion: ${occasion}`:"Everyday outfits."}
 Give 3 outfit combos using ONLY items listed above. For each outfit return JSON with this exact structure. Return ONLY a JSON array, nothing else:
 [{"name":"Outfit name","pieces":["exact item name 1","exact item name 2","exact item name 3"],"why":"one sentence why it works","tip":"one concrete styling tip"},...]`;
 
-const EVALUATE_PROMPT = (item) => `Evaluate for Shelly:\n${item.name} / ${item.category}${item.brand?` / ${item.brand}`:""}${item.color?` / ${item.color}`:""}${item.material?` / ${item.material}`:""}${item.tags?.length?` / Tags: ${item.tags.join(", ")}`:""}\n${item.keepNote?`Note: ${item.keepNote}\n`:""}${item.stylingNotes?`Styling notes: ${item.stylingNotes}\n`:""}1. Verdict: KEEP/USE DIFFERENTLY\n2. What works\n3. What doesn't\n4. Best outfit formula\nTwo sentences max per point. Direct.`;
+const EVALUATE_PROMPT = (item) => `Evaluate for Shelly:\n${item.name} / ${item.category}${item.brand?` / ${item.brand}`:""}${item.color?` / ${item.color}`:""}${fmtMaterials(item)?` / ${fmtMaterials(item)}`:""}${item.tags?.length?` / Tags: ${item.tags.join(", ")}`:""}\n${item.keepNote?`Note: ${item.keepNote}\n`:""}${item.stylingNotes?`Styling notes: ${item.stylingNotes}\n`:""}1. Verdict: KEEP/USE DIFFERENTLY\n2. What works\n3. What doesn't\n4. Best outfit formula\nTwo sentences max per point. Direct.`;
 
 const INSPO_PROMPT = (items) => `Shelly uploaded an outfit inspiration photo. Her wardrobe:
-${items.map(i=>`- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${i.material?` / ${i.material}`:""}`).join("\n")}
+${items.map(i=>`- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${fmtMaterials(i)?` / ${fmtMaterials(i)}`:""}`).join("\n")}
 Based on what you see in the inspiration photo, suggest how to recreate this look using ONLY items from her wardrobe above. Return JSON:
 {"outfitName":"name","pieces":["exact item name"],"why":"why this recreates the vibe","tip":"styling tip","gaps":["items she'd need to buy to complete this look"]}`;
 
@@ -36,7 +36,9 @@ const RECEIPT_PROMPT = `Extract clothing items from this receipt or order confir
 Skip non-clothing. Make names descriptive. Extract brand from product name if present.`;
 
 
-const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",material:"",customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null,originalImageData:null});
+const emptyForm = () => ({name:"",brand:"",category:"Tops",color:"",customColor:"",season:"All Year",sleeveLength:"N/A",length:"N/A",materials:[],customMaterial:"",tags:[],customTag:"",comments:"",datePurchased:"",price:"",imageData:null,originalImageData:null});
+function getMaterials(item){return item.materials?.length?item.materials:(item.material?[item.material]:[])}
+function fmtMaterials(item){return getMaterials(item).join(" / ")}
 
 // ── Claude context helpers ─────────────────────────────────────────────────────
 function stripForClaude({imageData,originalImageData,outfitPhotos,...rest}){return rest}
@@ -174,9 +176,10 @@ function FormFields({form,setForm,onImageClick,onRecrop,brands=[],onAddBrand,cat
     <label style={labelStyle}>Color</label>
     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{COLORS.map(c=><button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>)}</div>
     {form.color==="Other"&&<input value={form.customColor} onChange={e=>setForm(f=>({...f,customColor:e.target.value}))} placeholder="Enter color" style={inputStyle}/>}
-    <label style={labelStyle}>Material</label>
-    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{MATERIALS.map(m=><button key={m} onClick={()=>setForm(f=>({...f,material:f.material===m?"":m}))} style={chipStyle(form.material===m)}>{m}</button>)}</div>
-    {form.material==="Other"&&<input value={form.customMaterial} onChange={e=>setForm(f=>({...f,customMaterial:e.target.value}))} placeholder="Enter material" style={inputStyle}/>}
+    <label style={labelStyle}>Material (select all that apply)</label>
+    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{MATERIALS.filter(m=>m!=="Other").map(m=>{const mats=Array.isArray(form.materials)?form.materials:(form.material?[form.material]:[]);return<button key={m} onClick={()=>setForm(f=>{const cur=Array.isArray(f.materials)?f.materials:(f.material?[f.material]:[]);return{...f,materials:cur.includes(m)?cur.filter(x=>x!==m):[...cur,m]}})} style={chipStyle(mats.includes(m))}>{m}</button>})}</div>
+    <div style={{display:"flex",gap:8,marginBottom:8}}><input value={form.customMaterial||""} onChange={e=>setForm(f=>({...f,customMaterial:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&form.customMaterial?.trim()){const v=form.customMaterial.trim();setForm(f=>{const cur=Array.isArray(f.materials)?f.materials:[];return{...f,materials:cur.includes(v)?cur:[...cur,v],customMaterial:""}});}}} placeholder="Custom (e.g. Spandex, Modal)..." style={{...inputStyle,marginBottom:0,flex:1}}/><button onClick={()=>{const v=form.customMaterial?.trim();if(!v)return;setForm(f=>{const cur=Array.isArray(f.materials)?f.materials:[];return{...f,materials:cur.includes(v)?cur:[...cur,v],customMaterial:""}});}} style={{...chipStyle(false),padding:"4px 14px"}}>+</button></div>
+    {(Array.isArray(form.materials)?form.materials:[]).filter(m=>!MATERIALS.filter(x=>x!=="Other").includes(m)).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{(Array.isArray(form.materials)?form.materials:[]).filter(m=>!MATERIALS.filter(x=>x!=="Other").includes(m)).map(m=><span key={m} style={{...chipStyle(true),display:"inline-flex",alignItems:"center",gap:4}}>{m}<span onClick={()=>setForm(f=>({...f,materials:(f.materials||[]).filter(x=>x!==m)}))} style={{cursor:"pointer",opacity:0.7}}>×</span></span>)}</div>}
     <label style={labelStyle}>Season</label>
     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{SEASONS.map(s=><button key={s} onClick={()=>setForm(f=>({...f,season:s}))} style={chipStyle(form.season===s)}>{s}</button>)}</div>
     {showSleeve&&<><label style={labelStyle}>Sleeve Length</label><div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{SLEEVE_LENGTHS.map(s=><button key={s} onClick={()=>setForm(f=>({...f,sleeveLength:s}))} style={chipStyle(form.sleeveLength===s)}>{s}</button>)}</div></>}
@@ -381,7 +384,7 @@ export default function WardrobeApp(){
     setSavedOriginalImageData(null);
     setCropSrc(null);setCropTarget(null);setPendingImageData(null);
   }
-  function buildItem(form){return{id:Date.now()+Math.random(),name:form.name,brand:form.brand,category:form.category,color:form.color==="Other"?form.customColor:form.color,material:form.material==="Other"?form.customMaterial:form.material,season:form.season,sleeveLength:form.sleeveLength,length:form.length,tags:form.tags,comments:form.comments,datePurchased:form.datePurchased,price:form.price?parseFloat(form.price):null,imageData:form.imageData,wornDates:[],addedAt:new Date().toISOString()}}
+  function buildItem(form){return{id:Date.now()+Math.random(),name:form.name,brand:form.brand,category:form.category,color:form.color==="Other"?form.customColor:form.color,materials:Array.isArray(form.materials)?form.materials:(form.material?[form.material]:[]),season:form.season,sleeveLength:form.sleeveLength,length:form.length,tags:form.tags,comments:form.comments,datePurchased:form.datePurchased,price:form.price?parseFloat(form.price):null,imageData:form.imageData,wornDates:[],addedAt:new Date().toISOString()}}
   function addItem(){if(!addForm.name)return;if(addForm.brand)addBrand(addForm.brand);persist([...items,buildItem(addForm)]);setAddForm(emptyForm());setUrlInput("");setView("closet")}
 
   async function scanReceipt(e){
@@ -399,7 +402,8 @@ export default function WardrobeApp(){
   function markWorn(id,date){const d=date||new Date().toISOString().split("T")[0];const updated=items.map(i=>i.id===id?{...i,wornDates:[...(i.wornDates||[]),d]}:i);persist(updated);if(selectedItem?.id===id)setSelectedItem(updated.find(i=>i.id===id))}
   function removeWornDate(id,idx){const updated=items.map(i=>{if(i.id!==id)return i;const d=[...(i.wornDates||[])];d.splice(idx,1);return{...i,wornDates:d}});persist(updated);setSelectedItem(updated.find(i=>i.id===id))}
   function removeItem(id){persist(items.filter(i=>i.id!==id));setSelectedItem(null);setItemEval("");setEditing(false);setWornDateInput(null)}
-  function saveEdit(){const {originalImageData,...ef}=editForm;const updated=items.map(i=>i.id===ef.id?{...ef,color:ef.color==="Other"?ef.customColor:ef.color,material:ef.material==="Other"?ef.customMaterial:ef.material}:i);if(ef.brand)addBrand(ef.brand);persist(updated);setSelectedItem(updated.find(i=>i.id===ef.id));setEditing(false)}
+  function saveEdit(){const {originalImageData,...ef}=editForm;const updated=items.map(i=>i.id===ef.id?{...ef,color:ef.color==="Other"?ef.customColor:ef.color,materials:Array.isArray(ef.materials)?ef.materials:(ef.material?[ef.material]:[])}:i);if(ef.brand)addBrand(ef.brand);persist(updated);setSelectedItem(updated.find(i=>i.id===ef.id));setEditing(false)}
+  function setItemStatus(id,status){const upd=items.map(i=>i.id===id?{...i,status:status||null}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===id))}
 
   async function evaluateItem(item){setSelectedItem(item);setItemEval("");setLoadingEval(true);setEditing(false);try{setItemEval(await callClaude(buildStyleSystem(),EVALUATE_PROMPT(item),500))}catch{setItemEval("Error. Try again.")}setLoadingEval(false)}
 
@@ -522,7 +526,7 @@ export default function WardrobeApp(){
 
   async function addOutfitPhoto(e){const file=e.target.files[0];e.target.value="";if(!file)return;const dataUrl=await readFile(file);const compressed=await compressImage(dataUrl);const updated=items.map(i=>i.id===selectedItem.id?{...i,outfitPhotos:[...(i.outfitPhotos||[]),compressed]}:i);persist(updated);setSelectedItem(updated.find(i=>i.id===selectedItem.id))}
 
-  const filtered=items.filter(i=>{if(activeCategory!=="All"&&i.category!==activeCategory)return false;if(activeFilters.color&&i.color!==activeFilters.color)return false;if(activeFilters.season&&i.season!==activeFilters.season)return false;if(activeFilters.material&&i.material!==activeFilters.material)return false;if(activeFilters.brand&&i.brand!==activeFilters.brand)return false;if(activeFilters.tag&&!(i.tags||[]).includes(activeFilters.tag))return false;return true});
+  const filtered=items.filter(i=>{if(activeCategory==="To Go")return i.status==="donate"||i.status==="sell";if(activeCategory!=="All"&&i.category!==activeCategory)return false;if(activeFilters.color&&i.color!==activeFilters.color)return false;if(activeFilters.season&&i.season!==activeFilters.season)return false;if(activeFilters.material&&!getMaterials(i).includes(activeFilters.material))return false;if(activeFilters.brand&&i.brand!==activeFilters.brand)return false;if(activeFilters.tag&&!(i.tags||[]).includes(activeFilters.tag))return false;return true});
   const underloved=items.filter(i=>!i.wornDates?.length);
   const allTags=[...new Set(items.flatMap(i=>i.tags||[]))];
 
@@ -551,7 +555,7 @@ export default function WardrobeApp(){
 
     {/* CLOSET */}
     {view==="closet"&&(<div>
-      <div style={{display:"flex",gap:6,padding:"14px 24px 6px",overflowX:"auto",scrollbarWidth:"none",fontFamily:"'DM Sans', system-ui, sans-serif"}}>{["All",...allCategories].map(cat=>navBtn(cat,activeCategory===cat,()=>setActiveCategory(cat)))}</div>
+      <div style={{display:"flex",gap:6,padding:"14px 24px 6px",overflowX:"auto",scrollbarWidth:"none",fontFamily:"'DM Sans', system-ui, sans-serif"}}>{["All",...allCategories,"To Go"].map(cat=>navBtn(cat,activeCategory===cat,()=>setActiveCategory(cat)))}</div>
       <div style={{padding:"8px 24px 12px",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
         <button onClick={()=>setShowFilters(f=>!f)} style={{...ghostBtn,fontSize:10,letterSpacing:1.5}}>{showFilters?"▲ Hide":"▼ Filter"}{Object.keys(activeFilters).length>0&&<span style={{color:"#b8976a",marginLeft:6}}>({Object.keys(activeFilters).length})</span>}</button>
         {showFilters&&(<div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{key:"color",opts:COLORS},{key:"season",opts:SEASONS},{key:"material",opts:MATERIALS},...(brands.length?[{key:"brand",opts:brands}]:[]),...(allTags.length?[{key:"tag",opts:allTags}]:[])].map(({key,opts})=>(<div key={key}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>{key}</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{opts.map(o=><button key={o} onClick={()=>setActiveFilters(f=>f[key]===o?Object.fromEntries(Object.entries(f).filter(([k])=>k!==key)):{...f,[key]:o})} style={chipStyle(activeFilters[key]===o)}>{o}</button>)}</div></div>))}{Object.keys(activeFilters).length>0&&<button onClick={()=>setActiveFilters({})} style={{...ghostBtn,color:"#8a4a4a",fontSize:10}}>Clear filters</button>}</div>)}
@@ -569,7 +573,9 @@ export default function WardrobeApp(){
               {item.name&&<div style={{fontSize:9,fontWeight:500,marginBottom:1,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>}
               <div style={{fontSize:8,color:"#666",letterSpacing:0.5,textTransform:"uppercase"}}>{item.brand||item.category}</div>
             </div>
-            {!item.wornDates?.length&&<div style={{position:"absolute",top:4,right:4,background:"#b8976a",color:"#111",borderRadius:2,padding:"1px 4px",fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>New</div>}
+            {item.status==="donate"&&<div style={{position:"absolute",top:4,right:4,background:"#c86010",color:"#fff",borderRadius:2,padding:"1px 5px",fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Donate</div>}
+            {item.status==="sell"&&<div style={{position:"absolute",top:4,right:4,background:"#3a7a4a",color:"#fff",borderRadius:2,padding:"1px 5px",fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Sell</div>}
+            {!item.status&&!item.wornDates?.length&&<div style={{position:"absolute",top:4,right:4,background:"#b8976a",color:"#111",borderRadius:2,padding:"1px 4px",fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>New</div>}
             {item.wornDates?.length>0&&<div style={{position:"absolute",top:4,left:4,background:"#ffffff12",color:"#ffffff55",borderRadius:2,padding:"1px 5px",fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:8}}>×{item.wornDates.length}</div>}
           </div>))}
         </div>
@@ -606,17 +612,43 @@ export default function WardrobeApp(){
       {/* Outfit Inspiration */}
       <div style={{marginTop:28,borderTop:"1px solid #222",paddingTop:20}}>
         <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#666",marginBottom:12}}>Outfit Inspiration</div>
-        <div onClick={()=>inspoRef.current.click()} style={{background:"#1a1a1a",border:"1px dashed #333",borderRadius:3,padding:"24px",display:"flex",flexDirection:"column",alignItems:"center",cursor:"pointer",marginBottom:12}}>
+        {!inspoResult&&(<div onClick={()=>inspoRef.current.click()} style={{background:"#1a1a1a",border:"1px dashed #333",borderRadius:3,padding:"24px",display:"flex",flexDirection:"column",alignItems:"center",cursor:"pointer",marginBottom:12}}>
           {inspoImage?<img src={inspoImage} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:2,marginBottom:8}}/>:<><div style={{fontSize:24,marginBottom:8}}>📸</div><div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#666"}}>Upload Inspo Photo</div><div style={{fontSize:10,color:"#444",marginTop:4,textAlign:"center"}}>I'll build this look from your wardrobe</div></>}
-        </div>
-        {loadingInspo&&<div style={{textAlign:"center",color:"#666",fontSize:11,letterSpacing:1,padding:"12px 0"}}>Analyzing look...</div>}
-        {inspoResult&&(<div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16}}>
-          <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>{inspoResult.outfitName}</div>
-          {inspoResult.pieces?.length>0&&(<div style={{display:"flex",gap:1,marginBottom:12}}>{inspoResult.pieces.map(name=>items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase())).filter(Boolean).map((item,i)=>(<div key={i} style={{flex:1,aspectRatio:"3/4",background:"#111",overflow:"hidden",borderRadius:2}}>{item.imageData?<img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:4}}><div style={{fontSize:8,color:"#555",textAlign:"center"}}>{item.name}</div></div>}</div>))}</div>)}
-          <div style={{fontSize:11,color:"#888",lineHeight:1.6,marginBottom:8}}>{inspoResult.why}</div>
-          {inspoResult.tip&&<div style={{fontSize:10,color:"#b8976a",marginBottom:8}}>✦ {inspoResult.tip}</div>}
-          {inspoResult.gaps?.length>0&&(<div><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>To complete this look:</div>{inspoResult.gaps.map((g,i)=><div key={i} style={{fontSize:11,color:"#666",marginBottom:3}}>· {g}</div>)}</div>)}
         </div>)}
+        {loadingInspo&&<div style={{textAlign:"center",color:"#666",fontSize:11,letterSpacing:1,padding:"12px 0"}}>Analyzing look...</div>}
+        {inspoResult&&(()=>{
+          const matched=(inspoResult.pieces||[]).map(name=>items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase())).filter(Boolean);
+          return(<div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:4,overflow:"hidden",marginBottom:12}}>
+            {/* Inspo photo with name overlay */}
+            <div style={{position:"relative"}}>
+              <img src={inspoImage} style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block"}}/>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.85))",padding:"24px 14px 12px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#e8e2d8"}}>{inspoResult.outfitName}</div>
+                <button onClick={()=>{setInspoResult(null);setInspoImage(null)}} style={{background:"none",border:"1px solid #ffffff33",color:"#ffffff88",borderRadius:3,padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer"}}>New photo</button>
+              </div>
+            </div>
+            {/* Matched wardrobe pieces */}
+            {matched.length>0&&(<div>
+              <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",padding:"10px 14px 6px"}}>Recreate with your wardrobe</div>
+              <div style={{display:"flex",gap:1,padding:"0 1px 1px"}}>
+                {matched.map((item,i)=>(
+                  <div key={i} style={{flex:1,overflow:"hidden"}}>
+                    <div style={{aspectRatio:"3/4",background:"#111",position:"relative"}}>
+                      {item.imageData?<img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:4}}><div style={{fontSize:8,color:"#555",textAlign:"center",lineHeight:1.3}}>{item.name}</div></div>}
+                    </div>
+                    <div style={{background:"rgba(0,0,0,0.7)",padding:"4px 4px 4px"}}><div style={{fontSize:7,color:"#e8e2d8aa",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div></div>
+                  </div>
+                ))}
+              </div>
+            </div>)}
+            <div style={{padding:"12px 14px 14px"}}>
+              {inspoResult.why&&<div style={{fontSize:11,color:"#888",lineHeight:1.6,marginBottom:8}}>{inspoResult.why}</div>}
+              {inspoResult.tip&&<div style={{fontSize:10,color:"#b8976a",marginBottom:8}}>✦ {inspoResult.tip}</div>}
+              {inspoResult.gaps?.length>0&&(<div><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>To complete this look:</div>{inspoResult.gaps.map((g,i)=><div key={i} style={{fontSize:11,color:"#666",marginBottom:3}}>· {g}</div>)}</div>)}
+            </div>
+          </div>);
+        })()}
+        {inspoResult&&<button onClick={()=>inspoRef.current.click()} style={{...ghostBtn,fontSize:10,letterSpacing:1,marginBottom:4}}>📸 Try different photo</button>}
       </div>
 
       {underloved.length>0&&(<div style={{marginTop:24}}><div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#b8976a",marginBottom:12}}>Never worn</div>{underloved.map(item=>(<div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"#1a1a1a",border:"1px solid #b8976a22",borderRadius:3,padding:"9px 12px",marginBottom:7}}>{item.imageData&&<img src={item.imageData} style={{width:32,height:42,objectFit:"cover",borderRadius:2,flexShrink:0}}/>}<div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name||"Unnamed"}</div><div style={{fontSize:9,color:"#666",letterSpacing:1,textTransform:"uppercase"}}>{item.brand||item.category}</div></div><button onClick={()=>markWorn(item.id)} style={{...chipStyle(false),flexShrink:0}}>worn</button></div>))}</div>)}
@@ -836,15 +868,19 @@ export default function WardrobeApp(){
     </div>)}
 
     {/* ITEM DETAIL */}
-    {selectedItem&&!editing&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}><button onClick={()=>{setSelectedItem(null);setItemEval("");setWornDateInput(null)}} style={ghostBtn}>← Back</button><button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:""})}} style={{...chipStyle(false),fontSize:10}}>Edit</button></div>{selectedItem.imageData?<img src={selectedItem.imageData} style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:3,marginBottom:14}}/>:<div style={{width:"100%",aspectRatio:"3/4",background:"#1a1a1a",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:"#333",fontSize:12}}>No Photo</div>}
+    {selectedItem&&!editing&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}><div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}><button onClick={()=>{setSelectedItem(null);setItemEval("");setWornDateInput(null)}} style={ghostBtn}>← Back</button><button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:"",materials:selectedItem.materials||(selectedItem.material?[selectedItem.material]:[])})}} style={{...chipStyle(false),fontSize:10}}>Edit</button></div>{selectedItem.imageData?<img src={selectedItem.imageData} style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:3,marginBottom:14}}/>:<div style={{width:"100%",aspectRatio:"3/4",background:"#1a1a1a",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:"#333",fontSize:12}}>No Photo</div>}
 {(selectedItem.outfitPhotos||[]).length>0&&(<div style={{marginBottom:14}}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Worn Photos</div><div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>{(selectedItem.outfitPhotos||[]).map((p,i)=>(<div key={i} style={{position:"relative",flexShrink:0}}><img src={p} style={{width:90,height:120,objectFit:"cover",borderRadius:3,display:"block"}}/><button onClick={()=>{const upd=items.map(it=>it.id===selectedItem.id?{...it,outfitPhotos:(it.outfitPhotos||[]).filter((_,j)=>j!==i)}:it);persist(upd);setSelectedItem(upd.find(it=>it.id===selectedItem.id))}} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,0.75)",border:"none",color:"#aaa",fontSize:12,borderRadius:2,cursor:"pointer",padding:"1px 5px",lineHeight:1}}>×</button></div>))}</div></div>)}
 <button onClick={()=>outfitPhotoRef.current.click()} style={{width:"100%",background:"transparent",border:"1px dashed #2a2a2a",color:"#666",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:14}}>+ Add Outfit Photo</button>
 <div style={{fontFamily:"Georgia, serif",fontSize:20,fontStyle:"italic",marginBottom:3}}>{selectedItem.name||"Unnamed"}</div>
 {selectedItem.brand&&<div style={{fontSize:11,color:"#777",marginBottom:8}}>{selectedItem.brand}</div>}
-<div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>{selectedItem.color&&<span style={chipStyle(false)}>{selectedItem.color}</span>}{selectedItem.material&&<span style={chipStyle(false)}>{selectedItem.material}</span>}{selectedItem.season&&selectedItem.season!=="All Year"&&<span style={chipStyle(false)}>{selectedItem.season}</span>}{selectedItem.sleeveLength&&selectedItem.sleeveLength!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.sleeveLength}</span>}{selectedItem.length&&selectedItem.length!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.length}</span>}{(selectedItem.tags||[]).map(t=><span key={t} style={chipStyle(true)}>{t}</span>)}</div>
+<div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>{selectedItem.color&&<span style={chipStyle(false)}>{selectedItem.color}</span>}{fmtMaterials(selectedItem)&&<span style={chipStyle(false)}>{fmtMaterials(selectedItem)}</span>}{selectedItem.season&&selectedItem.season!=="All Year"&&<span style={chipStyle(false)}>{selectedItem.season}</span>}{selectedItem.sleeveLength&&selectedItem.sleeveLength!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.sleeveLength}</span>}{selectedItem.length&&selectedItem.length!=="N/A"&&<span style={chipStyle(false)}>{selectedItem.length}</span>}{(selectedItem.tags||[]).map(t=><span key={t} style={chipStyle(true)}>{t}</span>)}</div>
 {selectedItem.comments&&<div style={{fontSize:12,color:"#777",fontStyle:"italic",lineHeight:1.6,marginBottom:12}}>{selectedItem.comments}</div>}
 <div style={{fontSize:10,color:"#999",lineHeight:1.8,marginBottom:14}}>{selectedItem.price&&<span>Paid ${selectedItem.price.toFixed(2)}{selectedItem.wornDates?.length>0?` · $${(selectedItem.price/selectedItem.wornDates.length).toFixed(2)}/wear`:""} · </span>}{selectedItem.datePurchased&&<span>Purchased {selectedItem.datePurchased} · </span>}Worn {selectedItem.wornDates?.length||0}×{selectedItem.wornDates?.length>0&&` · Last worn ${selectedItem.wornDates[selectedItem.wornDates.length-1]}`}</div>
 <div style={{marginBottom:8}}>{wornDateInput===null?(<div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setWornDateInput(new Date().toISOString().split("T")[0])} style={{flex:1,background:"transparent",border:"1px solid #333",color:"#e8e2d8",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Mark Worn</button><button type="button" onClick={()=>removeItem(selectedItem.id)} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button></div>):wornDateInput==="done"?(<div style={{padding:"10px 14px",background:"#1a1a2a",border:"1px solid #333",borderRadius:3,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a6a",textAlign:"center"}}>✓ Logged</div>):(<div style={{display:"flex",gap:8,alignItems:"center"}}><input type="date" value={wornDateInput} onChange={e=>setWornDateInput(e.target.value)} style={{...inputStyle,marginBottom:0,flex:1}}/><button type="button" onClick={()=>{markWorn(selectedItem.id,wornDateInput);setWornDateInput("done");setTimeout(()=>setWornDateInput(null),1200)}} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"10px 14px",fontSize:11,letterSpacing:1,cursor:"pointer",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>Log Date</button><button type="button" onClick={()=>setWornDateInput(null)} style={{...ghostBtn,fontSize:18,padding:"0 4px",flexShrink:0}}>✕</button></div>)}</div>
+<div style={{display:"flex",gap:8,marginBottom:10}}>
+<button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="donate"?null:"donate")} style={{flex:1,background:selectedItem.status==="donate"?"#c8601022":"transparent",border:`1px solid ${selectedItem.status==="donate"?"#c86010":"#333"}`,color:selectedItem.status==="donate"?"#d4752a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="donate"?"✓ To Donate":"Mark to Donate"}</button>
+<button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="sell"?null:"sell")} style={{flex:1,background:selectedItem.status==="sell"?"#3a8a4a22":"transparent",border:`1px solid ${selectedItem.status==="sell"?"#4a9a5a":"#333"}`,color:selectedItem.status==="sell"?"#4a9a5a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="sell"?"✓ To Sell":"Mark to Sell"}</button>
+</div>
 <button onClick={()=>{setItemChatModal(selectedItem);setItemChatHistory([]);setItemChatInput(`Help me style ${selectedItem.name}`)}} style={{width:"100%",background:"transparent",border:"1px solid #2a2a2a",color:"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>
 {selectedItem.wornDates?.length>0&&(<div style={{marginBottom:18}}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Wear History</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{[...selectedItem.wornDates].map((d,origIdx)=>({d,origIdx})).reverse().slice(0,24).map(({d,origIdx})=>(<span key={origIdx} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#666",background:"#1a1a1a",padding:"3px 4px 3px 8px",borderRadius:2}}>{d}<button onClick={()=>removeWornDate(selectedItem.id,origIdx)} style={{background:"none",border:"none",color:"#444",cursor:"pointer",fontSize:13,padding:"0 3px",lineHeight:1,display:"flex",alignItems:"center"}}>×</button></span>))}</div></div>)}
 <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Styling Notes</div>
