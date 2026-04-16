@@ -273,9 +273,12 @@ export default function WardrobeApp(){
   async function syncFromSupabase(markDone=false){
     const uid=getUserId();
     const [dbItems,dbWish,dbSettings]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist"),sbLoadSettings()]);
-    if(dbSettings?.customCategories){
-      setCustomCategories(dbSettings.customCategories);
-      try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(dbSettings.customCategories))}catch{}
+    if(dbSettings){
+      if(dbSettings.customCategories){setCustomCategories(dbSettings.customCategories);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(dbSettings.customCategories))}catch{}}
+      if(dbSettings.styleProfile){setStyleProfile(dbSettings.styleProfile);try{localStorage.setItem("wardrobe-style-profile",dbSettings.styleProfile)}catch{}}
+      if(dbSettings.extraInstructions!==undefined){setExtraInstructions(dbSettings.extraInstructions);try{localStorage.setItem("wardrobe-extra-instructions",dbSettings.extraInstructions)}catch{}}
+      if(dbSettings.chatHistory?.length){setChatHistory(dbSettings.chatHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(dbSettings.chatHistory))}catch{}}
+      if(dbSettings.styleNotes?.length){setStyleNotes(dbSettings.styleNotes);try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(dbSettings.styleNotes))}catch{}}
     }
     if(dbItems!==null){
       if(dbItems.length>0){
@@ -323,6 +326,7 @@ export default function WardrobeApp(){
     if(upserted.length)sbUpsert("wardrobe_wishlist",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));
   }
   function addBrand(brand){if(!brand||brands.includes(brand))return;const updated=[...brands,brand].sort();setBrands(updated);try{localStorage.setItem("wardrobe-brands",JSON.stringify(updated))}catch{}}
+  function saveSettings(patch={}){sbSaveSettings({customCategories:Array.isArray(customCategories)?customCategories:[],styleProfile,extraInstructions,chatHistory:chatHistory.slice(-30),styleNotes,...patch})}
   function openFilePicker(target){setCropTarget(target);fileInputRef.current.click()}
 
   async function fetchUrl(){
@@ -473,7 +477,7 @@ export default function WardrobeApp(){
 
   function compressImage(dataUrl,maxW=600){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const s=Math.min(1,maxW/img.width);const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",0.65))};img.src=dataUrl})}
   async function extractStyleNote(userMsg,assistantReply){try{const combined=`Shelly said: "${userMsg}"\nStylist replied: "${assistantReply.substring(0,400)}"`;const note=await callClaude(`Read this chat exchange and extract any explicit style preference or dislike that Shelly expressed — things like "I hate X", "I never wear Y", "I love Z", "I prefer A over B". Return ONLY a brief factual note under 15 words (e.g. "Dislikes cropped tops", "Prefers wide-leg pants over skinny"). If no clear preference was stated, return exactly: none`,combined,80);const c=note.trim();return(c&&c.toLowerCase()!=="none"&&!c.toLowerCase().startsWith("no ")&&c.length>4&&c.length<130)?c:null}catch{return null}}
-  function saveLearnedNote(note){setStyleNotes(prev=>{const u=[...prev,note];try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}return u});setLearnedIndicator(true);setTimeout(()=>setLearnedIndicator(false),2000)}
+  function saveLearnedNote(note){setStyleNotes(prev=>{const u=[...prev,note];try{localStorage.setItem("wardrobe-style-notes",JSON.stringify(u))}catch{}saveSettings({styleNotes:u});return u});setLearnedIndicator(true);setTimeout(()=>setLearnedIndicator(false),2000)}
   function addCustomCategory(){
     const c=newCatInput.trim();
     if(!c)return;
@@ -483,7 +487,7 @@ export default function WardrobeApp(){
       if(all.map(x=>x.toLowerCase()).includes(c.toLowerCase()))return safe;
       const u=[...safe,c];
       try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}
-      sbSaveSettings({customCategories:u});
+      saveSettings({customCategories:u});
       return u;
     });
     setNewCatInput("");
@@ -496,11 +500,20 @@ export default function WardrobeApp(){
     const newHistory=[...chatHistory,{role:"user",content:correction}];
     setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}
     setCorrectingIdx(null);setCorrectionInput("");setChatLoading(true);
-    try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,correction),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}
+    try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,correction),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}saveSettings({chatHistory:updated.slice(-30)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}
     setChatLoading(false);
   }
-  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
-  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);const focusCtx=itemChatModal?`\n\nFocus item: [${itemChatModal.category}] ${itemChatModal.name}${itemChatModal.brand?` / ${itemChatModal.brand}`:""}${itemChatModal.color?` / ${itemChatModal.color}`:""}${itemChatModal.material?` / ${itemChatModal.material}`:""}${itemChatModal.stylingNotes?`\nStyling notes: ${itemChatModal.stylingNotes}`:""}${itemChatModal.keepNote?`\nNote: ${itemChatModal.keepNote}`:""}`:""  ;try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg)+focusCtx,messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
+  async function sendChat(){const msg=chatInput.trim();if(!msg||chatLoading)return;const newHistory=[...chatHistory,{role:"user",content:msg}];setChatHistory(newHistory);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(newHistory))}catch{}setChatInput("");setChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";const updated=[...newHistory,{role:"assistant",content:reply}];setChatHistory(updated);try{localStorage.setItem("wardrobe-chat-history",JSON.stringify(updated))}catch{}saveSettings({chatHistory:updated.slice(-30)});extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setChatLoading(false)}
+  function itemFocusCtx(item){return item?`\n\nFocus item: [${item.category}] ${item.name}${item.brand?` / ${item.brand}`:""}${item.color?` / ${item.color}`:""}${fmtMaterials(item)?` / ${fmtMaterials(item)}`:""}${item.stylingNotes?`\nStyling notes: ${item.stylingNotes}`:""}${item.keepNote?`\nNote: ${item.keepNote}`:""}`:""  }
+  async function sendItemChat(){const msg=itemChatInput.trim();if(!msg||itemChatLoading)return;const newHistory=[...itemChatHistory,{role:"user",content:msg}];setItemChatHistory(newHistory);setItemChatInput("");setItemChatLoading(true);try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,msg)+itemFocusCtx(itemChatModal),messages:buildContextHistory(newHistory)})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory(h=>[...h,{role:"assistant",content:reply}]);extractStyleNote(msg,reply).then(note=>{if(note)saveLearnedNote(note)})}catch{setItemChatHistory(h=>[...h,{role:"assistant",content:"Error. Try again."}])}setItemChatLoading(false)}
+  async function openItemChat(item){
+    setItemChatModal(item);setItemChatInput("");
+    const initialMsg=`Help me style the ${item.name}`;
+    const newHistory=[{role:"user",content:initialMsg}];
+    setItemChatHistory(newHistory);setItemChatLoading(true);
+    try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,initialMsg)+itemFocusCtx(item),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory([...newHistory,{role:"assistant",content:reply}])}catch{setItemChatHistory([...newHistory,{role:"assistant",content:"Error. Try again."}])}
+    setItemChatLoading(false);
+  }
   function copySyncCode(){const sc=getShortCode();navigator.clipboard?.writeText(sc).catch(()=>{});setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}
   async function connectSyncCode(){
     const code=syncCodeInput.trim().toUpperCase();
@@ -617,7 +630,7 @@ export default function WardrobeApp(){
         </div>)}
         {loadingInspo&&<div style={{textAlign:"center",color:"#666",fontSize:11,letterSpacing:1,padding:"12px 0"}}>Analyzing look...</div>}
         {inspoResult&&(()=>{
-          const matched=(inspoResult.pieces||[]).map(name=>items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase())).filter(Boolean);
+          const allPieces=(inspoResult.pieces||[]).map(name=>{const item=items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase());return{name,item}});
           return(<div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:4,overflow:"hidden",marginBottom:12}}>
             {/* Inspo photo with name overlay */}
             <div style={{position:"relative"}}>
@@ -627,16 +640,16 @@ export default function WardrobeApp(){
                 <button onClick={()=>{setInspoResult(null);setInspoImage(null)}} style={{background:"none",border:"1px solid #ffffff33",color:"#ffffff88",borderRadius:3,padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer"}}>New photo</button>
               </div>
             </div>
-            {/* Matched wardrobe pieces */}
-            {matched.length>0&&(<div>
+            {/* All pieces — matched show wardrobe photo, unmatched show "need to buy" placeholder */}
+            {allPieces.length>0&&(<div>
               <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",padding:"10px 14px 6px"}}>Recreate with your wardrobe</div>
               <div style={{display:"flex",gap:1,padding:"0 1px 1px"}}>
-                {matched.map((item,i)=>(
+                {allPieces.map(({name,item},i)=>(
                   <div key={i} style={{flex:1,overflow:"hidden"}}>
-                    <div style={{aspectRatio:"3/4",background:"#111",position:"relative"}}>
-                      {item.imageData?<img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:4}}><div style={{fontSize:8,color:"#555",textAlign:"center",lineHeight:1.3}}>{item.name}</div></div>}
+                    <div style={{aspectRatio:"3/4",background:item?"#111":"#1a1510",position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {item?.imageData?<img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:6,gap:4}}>{!item&&<div style={{fontSize:14,color:"#b8976a44"}}>+</div>}<div style={{fontSize:7,color:item?"#555":"#b8976a88",textAlign:"center",lineHeight:1.3,padding:"0 2px"}}>{name}</div></div>}
                     </div>
-                    <div style={{background:"rgba(0,0,0,0.7)",padding:"4px 4px 4px"}}><div style={{fontSize:7,color:"#e8e2d8aa",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div></div>
+                    <div style={{background:item?"rgba(0,0,0,0.7)":"#1a1510",padding:"4px 4px"}}><div style={{fontSize:7,color:item?"#e8e2d8aa":"#b8976a",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item?item.name:name}</div></div>
                   </div>
                 ))}
               </div>
@@ -644,7 +657,7 @@ export default function WardrobeApp(){
             <div style={{padding:"12px 14px 14px"}}>
               {inspoResult.why&&<div style={{fontSize:11,color:"#888",lineHeight:1.6,marginBottom:8}}>{inspoResult.why}</div>}
               {inspoResult.tip&&<div style={{fontSize:10,color:"#b8976a",marginBottom:8}}>✦ {inspoResult.tip}</div>}
-              {inspoResult.gaps?.length>0&&(<div><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>To complete this look:</div>{inspoResult.gaps.map((g,i)=><div key={i} style={{fontSize:11,color:"#666",marginBottom:3}}>· {g}</div>)}</div>)}
+              {inspoResult.gaps?.length>0&&(<div><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Still need:</div>{inspoResult.gaps.map((g,i)=><div key={i} style={{fontSize:11,color:"#666",marginBottom:3}}>· {g}</div>)}</div>)}
             </div>
           </div>);
         })()}
@@ -762,7 +775,7 @@ export default function WardrobeApp(){
             {customCategories.map((c,i)=>(
               <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#e8e2d820",border:"1px solid #e8e2d840",borderRadius:20,padding:"5px 10px 5px 12px"}}>
                 <span style={{fontSize:11,color:"#e8e2d8"}}>{c}</span>
-                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}sbSaveSettings({customCategories:u});return u})}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+                <button onClick={()=>{setCustomCategories(prev=>{const safe=Array.isArray(prev)?prev:[];const u=safe.filter((_,j)=>j!==i);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(u))}catch{}saveSettings({customCategories:u});return u})}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
               </span>
             ))}
           </div>
@@ -776,7 +789,7 @@ export default function WardrobeApp(){
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Style Profile</div>
           <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Describe your style in your own words. This replaces the default on every Claude call.</div>
-          <textarea value={styleProfile} onChange={e=>{setStyleProfile(e.target.value);try{localStorage.setItem("wardrobe-style-profile",e.target.value)}catch{}}} style={{...inputStyle,height:130,resize:"vertical",lineHeight:1.6}} placeholder={DEFAULT_STYLE_SYSTEM}/>
+          <textarea value={styleProfile} onChange={e=>{setStyleProfile(e.target.value);try{localStorage.setItem("wardrobe-style-profile",e.target.value)}catch{}}} onBlur={e=>saveSettings({styleProfile:e.target.value})} style={{...inputStyle,height:130,resize:"vertical",lineHeight:1.6}} placeholder={DEFAULT_STYLE_SYSTEM}/>
           {styleProfile!==DEFAULT_STYLE_SYSTEM&&<button onClick={()=>{setStyleProfile(DEFAULT_STYLE_SYSTEM);try{localStorage.setItem("wardrobe-style-profile",DEFAULT_STYLE_SYSTEM)}catch{}}} style={{...ghostBtn,fontSize:10,color:"#555",letterSpacing:1}}>Reset to default</button>}
         </div>
 
@@ -784,7 +797,7 @@ export default function WardrobeApp(){
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:6}}>Current Instructions</div>
           <div style={{fontSize:11,color:"#555",marginBottom:10,lineHeight:1.5}}>Temporary context appended to every prompt — packing for a trip, trying to shop less, etc.</div>
-          <textarea value={extraInstructions} onChange={e=>{setExtraInstructions(e.target.value);try{localStorage.setItem("wardrobe-extra-instructions",e.target.value)}catch{}}} style={{...inputStyle,height:72,resize:"none",lineHeight:1.6}} placeholder="e.g. Packing for 10 days in Italy in June. Carry-on only."/>
+          <textarea value={extraInstructions} onChange={e=>{setExtraInstructions(e.target.value);try{localStorage.setItem("wardrobe-extra-instructions",e.target.value)}catch{}}} onBlur={e=>saveSettings({extraInstructions:e.target.value})} style={{...inputStyle,height:72,resize:"none",lineHeight:1.6}} placeholder="e.g. Packing for 10 days in Italy in June. Carry-on only."/>
         </div>
 
         {/* D. Style Notes */}
@@ -881,7 +894,7 @@ export default function WardrobeApp(){
 <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="donate"?null:"donate")} style={{flex:1,background:selectedItem.status==="donate"?"#c8601022":"transparent",border:`1px solid ${selectedItem.status==="donate"?"#c86010":"#333"}`,color:selectedItem.status==="donate"?"#d4752a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="donate"?"✓ To Donate":"Mark to Donate"}</button>
 <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="sell"?null:"sell")} style={{flex:1,background:selectedItem.status==="sell"?"#3a8a4a22":"transparent",border:`1px solid ${selectedItem.status==="sell"?"#4a9a5a":"#333"}`,color:selectedItem.status==="sell"?"#4a9a5a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="sell"?"✓ To Sell":"Mark to Sell"}</button>
 </div>
-<button onClick={()=>{setItemChatModal(selectedItem);setItemChatHistory([]);setItemChatInput(`Help me style ${selectedItem.name}`)}} style={{width:"100%",background:"transparent",border:"1px solid #2a2a2a",color:"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>
+<button onClick={()=>openItemChat(selectedItem)} style={{width:"100%",background:"transparent",border:"1px solid #2a2a2a",color:"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>
 {selectedItem.wornDates?.length>0&&(<div style={{marginBottom:18}}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Wear History</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{[...selectedItem.wornDates].map((d,origIdx)=>({d,origIdx})).reverse().slice(0,24).map(({d,origIdx})=>(<span key={origIdx} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#666",background:"#1a1a1a",padding:"3px 4px 3px 8px",borderRadius:2}}>{d}<button onClick={()=>removeWornDate(selectedItem.id,origIdx)} style={{background:"none",border:"none",color:"#444",cursor:"pointer",fontSize:13,padding:"0 3px",lineHeight:1,display:"flex",alignItems:"center"}}>×</button></span>))}</div></div>)}
 <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Styling Notes</div>
 <textarea value={stylingNotesInput} onChange={e=>setStylingNotesInput(e.target.value)} onBlur={()=>{if(stylingNotesInput!==(selectedItem.stylingNotes||"")){const upd=items.map(i=>i.id===selectedItem.id?{...i,stylingNotes:stylingNotesInput}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id))}}} placeholder="e.g. only wear tucked in, boat days only, needs a belt..." style={{width:"100%",background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:12,color:"#e8e2d8",fontSize:12,resize:"vertical",minHeight:56,boxSizing:"border-box",marginBottom:18,fontFamily:"inherit",lineHeight:1.5}}/>
