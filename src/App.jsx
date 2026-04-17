@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 const CATEGORIES = ["Tops", "Bottoms", "Dresses", "Outerwear", "Shoes", "Accessories"];
 const COLORS = ["Black", "White", "Cream", "Tan", "Camel", "Navy", "Grey", "Brown", "Olive", "Blush", "Red", "Blue", "Green", "Other"];
 const SEASONS = ["All Year", "Spring/Summer", "Fall/Winter"];
@@ -74,9 +75,7 @@ function saveWishlist(w){try{localStorage.setItem(WISHLIST_KEY,JSON.stringify(w)
 const SB_URL=import.meta.env.VITE_SUPABASE_URL||"https://lkyxzwjsxjjfrhfdohot.supabase.co";
 const SB_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreXh6d2pzeGpqZnJoZmRvaG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDE3NTYsImV4cCI6MjA5MTcxNzc1Nn0.CTGfz6bua_dlsdb-5o2tDT1voQErXZ-LpFZlIcOi_Sg";
 const SB_HDR={apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,"Content-Type":"application/json"};
-function getUserId(){let u=localStorage.getItem("wardrobe-uid");if(!u){u=crypto.randomUUID();localStorage.setItem("wardrobe-uid",u)}return u}
-function getShortCode(){return getUserId().replace(/-/g,"").slice(0,8).toUpperCase()}
-async function sbFindUidByShortCode(code){try{const r=await fetch(`${SB_URL}/rest/v1/wardrobe_items?user_id=ilike.${encodeURIComponent(code.toLowerCase())}%25&select=user_id&limit=1`,{headers:SB_HDR});if(!r.ok)return null;const rows=await r.json();return rows[0]?.user_id||null}catch{return null}}
+const supabase=createClient(SB_URL,SB_KEY);
 async function sbUpsert(table,rows){
   if(!rows.length)return;
   console.log(`[sb] upsert ${table}: ${rows.length} rows uid=${rows[0]?.user_id?.slice(0,8)}`);
@@ -86,16 +85,14 @@ async function sbUpsert(table,rows){
     else console.log(`[sb] upsert ${table} ok`);
   }catch(e){console.error("[sb] upsert error:",e.message)}
 }
-async function sbDel(table,id){
-  const uid=getUserId();
+async function sbDel(table,id,uid){
   console.log(`[sb] delete ${table} id=${String(id).slice(0,10)} uid=${uid.slice(0,8)}`);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}&user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...SB_HDR,Prefer:"return=minimal"}});
     if(!r.ok)console.error(`[sb] delete ${table} FAILED ${r.status}`);
   }catch(e){console.error("[sb] delete error:",e.message)}
 }
-async function sbLoad(table){
-  const uid=getUserId();
+async function sbLoad(table,uid){
   console.log(`[sb] load ${table} uid=${uid.slice(0,8)} url=${SB_URL.slice(8,40)}`);
   try{
     const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&id=neq.__settings__&select=data&order=created_at.asc`,{headers:SB_HDR});
@@ -106,12 +103,10 @@ async function sbLoad(table){
     return Array.isArray(rows)?rows.map(r=>r.data):null;
   }catch(e){console.error("[sb] load error:",e.message);return null}
 }
-async function sbSaveSettings(settings){
-  const uid=getUserId();
+async function sbSaveSettings(settings,uid){
   await sbUpsert("wardrobe_items",[{id:"__settings__",user_id:uid,data:settings}]);
 }
-async function sbLoadSettings(){
-  const uid=getUserId();
+async function sbLoadSettings(uid){
   try{
     const res=await fetch(`${SB_URL}/rest/v1/wardrobe_items?id=eq.__settings__&user_id=eq.${encodeURIComponent(uid)}&select=data`,{headers:SB_HDR});
     if(!res.ok)return null;
@@ -200,6 +195,17 @@ function FormFields({form,setForm,onImageClick,onRecrop,brands=[],onAddBrand,cat
   </div>);
 }
 
+function LoginScreen({onSignIn}){
+  return(
+    <div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia,'Times New Roman',serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{fontFamily:"'DM Sans',system-ui,sans-serif",fontSize:10,letterSpacing:5,color:"#555",textTransform:"uppercase",marginBottom:8}}>Personal Closet</div>
+      <div style={{fontSize:36,fontStyle:"italic",letterSpacing:-0.5,marginBottom:48}}>Wardrobe</div>
+      <button onClick={onSignIn} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"16px 32px",fontSize:12,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",fontWeight:600,fontFamily:"'DM Sans',system-ui,sans-serif"}}>Sign in with Google</button>
+      <div style={{fontSize:10,color:"#444",marginTop:16,letterSpacing:1,fontFamily:"'DM Sans',system-ui,sans-serif"}}>Your wardrobe syncs automatically across all devices</div>
+    </div>
+  );
+}
+
 export default function WardrobeApp(){
   const [items,setItems]=useState(()=>loadFromStorage());
   const [wishlist,setWishlist]=useState(()=>loadWishlist());
@@ -241,11 +247,8 @@ export default function WardrobeApp(){
   const [addingWish,setAddingWish]=useState(false);
   const [fetchingWishUrl,setFetchingWishUrl]=useState(false);
   const importRef=useRef();
-  const [syncCodeInput,setSyncCodeInput]=useState("");
-  const [syncCopied,setSyncCopied]=useState(false);
-  const [syncLoading,setSyncLoading]=useState(false);
-  const [syncStatus,setSyncStatus]=useState(null);
-  const [syncDone,setSyncDone]=useState(false);
+  const [user,setUser]=useState(null);
+  const [authLoading,setAuthLoading]=useState(true);
   const [styleProfile,setStyleProfile]=useState(()=>{try{return localStorage.getItem("wardrobe-style-profile")||DEFAULT_STYLE_SYSTEM}catch{return DEFAULT_STYLE_SYSTEM}});
   const [extraInstructions,setExtraInstructions]=useState(()=>{try{return localStorage.getItem("wardrobe-extra-instructions")||""}catch{return""}});
   const [customCategories,setCustomCategories]=useState(()=>{try{const p=JSON.parse(localStorage.getItem("wardrobe-custom-categories")||"[]");return Array.isArray(p)?p:[]}catch{return[]}});
@@ -270,9 +273,9 @@ export default function WardrobeApp(){
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"})},[chatHistory]);
   useEffect(()=>{itemChatEndRef.current?.scrollIntoView({behavior:"smooth"})},[itemChatHistory]);
   useEffect(()=>{if(selectedItem)setStylingNotesInput(selectedItem.stylingNotes||"")},[selectedItem?.id]);
-  async function syncFromSupabase(markDone=false){
-    const uid=getUserId();
-    const [dbItems,dbWish,dbSettings]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist"),sbLoadSettings()]);
+  async function syncFromSupabase(){
+    const uid=user?.id;if(!uid)return;
+    const [dbItems,dbWish,dbSettings]=await Promise.all([sbLoad("wardrobe_items",uid),sbLoad("wardrobe_wishlist",uid),sbLoadSettings(uid)]);
     if(dbSettings){
       if(dbSettings.customCategories){setCustomCategories(dbSettings.customCategories);try{localStorage.setItem("wardrobe-custom-categories",JSON.stringify(dbSettings.customCategories))}catch{}}
       if(dbSettings.styleProfile){setStyleProfile(dbSettings.styleProfile);try{localStorage.setItem("wardrobe-style-profile",dbSettings.styleProfile)}catch{}}
@@ -296,37 +299,39 @@ export default function WardrobeApp(){
       if(dbWish.length>0){setWishlist(dbWish);saveWishlist(dbWish)}
       else{const loc=loadWishlist();if(loc.length)sbUpsert("wardrobe_wishlist",loc.map(i=>({id:String(i.id),user_id:uid,data:i})))}
     }
-    if(markDone)setSyncDone(true);
   }
 
   useEffect(()=>{
-    syncFromSupabase(true);
-    // Re-sync whenever the app is foregrounded (switching tabs or back from phone sleep)
+    supabase.auth.getSession().then(({data:{session}})=>{setUser(session?.user??null);setAuthLoading(false)});
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{setUser(session?.user??null)});
+    return()=>subscription.unsubscribe();
+  },[]);
+  useEffect(()=>{
+    if(!user)return;
+    syncFromSupabase();
     const onVisible=()=>{if(document.visibilityState==="visible")syncFromSupabase()};
     document.addEventListener("visibilitychange",onVisible);
     return()=>document.removeEventListener("visibilitychange",onVisible);
-  },[]);
+  },[user?.id]);
 
   function persist(newItems){
     const newIds=new Set(newItems.map(i=>String(i.id)));
     const removed=items.filter(i=>!newIds.has(String(i.id)));
     const upserted=newItems.filter(i=>{const old=items.find(j=>String(j.id)===String(i.id));return !old||JSON.stringify(old)!==JSON.stringify(i)});
     setItems(newItems);saveToStorage(newItems);
-    const uid=getUserId();
-    removed.forEach(i=>sbDel("wardrobe_items",i.id));
-    if(upserted.length)sbUpsert("wardrobe_items",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));
+    const uid=user?.id;
+    if(uid){removed.forEach(i=>sbDel("wardrobe_items",i.id,uid));if(upserted.length)sbUpsert("wardrobe_items",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));}
   }
   function persistWishlist(w){
     const newIds=new Set(w.map(i=>String(i.id)));
     const removed=wishlist.filter(i=>!newIds.has(String(i.id)));
     const upserted=w.filter(i=>{const old=wishlist.find(j=>String(j.id)===String(i.id));return !old||JSON.stringify(old)!==JSON.stringify(i)});
     setWishlist(w);saveWishlist(w);
-    const uid=getUserId();
-    removed.forEach(i=>sbDel("wardrobe_wishlist",i.id));
-    if(upserted.length)sbUpsert("wardrobe_wishlist",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));
+    const uid=user?.id;
+    if(uid){removed.forEach(i=>sbDel("wardrobe_wishlist",i.id,uid));if(upserted.length)sbUpsert("wardrobe_wishlist",upserted.map(i=>({id:String(i.id),user_id:uid,data:i})));}
   }
   function addBrand(brand){if(!brand||brands.includes(brand))return;const updated=[...brands,brand].sort();setBrands(updated);try{localStorage.setItem("wardrobe-brands",JSON.stringify(updated))}catch{}}
-  function saveSettings(patch={}){sbSaveSettings({customCategories:Array.isArray(customCategories)?customCategories:[],styleProfile,extraInstructions,chatHistory:chatHistory.slice(-30),styleNotes,...patch})}
+  function saveSettings(patch={}){if(!user?.id)return;sbSaveSettings({customCategories:Array.isArray(customCategories)?customCategories:[],styleProfile,extraInstructions,chatHistory:chatHistory.slice(-30),styleNotes,...patch},user.id)}
   function openFilePicker(target){setCropTarget(target);fileInputRef.current.click()}
 
   async function fetchUrl(){
@@ -514,34 +519,16 @@ export default function WardrobeApp(){
     try{const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:buildChatSystem(items,initialMsg)+itemFocusCtx(item),messages:newHistory})});const data=await res.json();const reply=data.content?.[0]?.text||"Sorry, something went wrong.";setItemChatHistory([...newHistory,{role:"assistant",content:reply}])}catch{setItemChatHistory([...newHistory,{role:"assistant",content:"Error. Try again."}])}
     setItemChatLoading(false);
   }
-  function copySyncCode(){const sc=getShortCode();navigator.clipboard?.writeText(sc).catch(()=>{});setSyncCopied(true);setTimeout(()=>setSyncCopied(false),2000)}
-  async function connectSyncCode(){
-    const code=syncCodeInput.trim().toUpperCase();
-    if(!code||code.length<4)return;
-    setSyncLoading(true);setSyncStatus(null);
-    const prevUid=getUserId();
-    try{
-      // Short code (≤8 chars): look up full UUID from Supabase prefix search
-      let targetUid=code;
-      if(code.length<=8){
-        const found=await sbFindUidByShortCode(code);
-        if(!found){setSyncStatus("notfound");setSyncLoading(false);return;}
-        targetUid=found;
-      }
-      // Set UID permanently — don't revert just because items are empty yet
-      localStorage.setItem("wardrobe-uid",targetUid);
-      const[dbItems,dbWish]=await Promise.all([sbLoad("wardrobe_items"),sbLoad("wardrobe_wishlist")]);
-      if(dbItems===null){localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
-      else{if(dbItems.length){setItems(dbItems);saveToStorage(dbItems)}if(dbWish?.length){setWishlist(dbWish);saveWishlist(dbWish)}setSyncCodeInput("");setSyncStatus("success")}
-    }catch{localStorage.setItem("wardrobe-uid",prevUid);setSyncStatus("error")}
-    setSyncLoading(false);
-  }
-
   async function addOutfitPhoto(e){const file=e.target.files[0];e.target.value="";if(!file)return;const dataUrl=await readFile(file);const compressed=await compressImage(dataUrl);const updated=items.map(i=>i.id===selectedItem.id?{...i,outfitPhotos:[...(i.outfitPhotos||[]),compressed]}:i);persist(updated);setSelectedItem(updated.find(i=>i.id===selectedItem.id))}
 
   const filtered=items.filter(i=>{if(activeCategory==="To Go")return i.status==="donate"||i.status==="sell";if(activeCategory!=="All"&&i.category!==activeCategory)return false;if(activeFilters.color&&i.color!==activeFilters.color)return false;if(activeFilters.season&&i.season!==activeFilters.season)return false;if(activeFilters.material&&!getMaterials(i).includes(activeFilters.material))return false;if(activeFilters.brand&&i.brand!==activeFilters.brand)return false;if(activeFilters.tag&&!(i.tags||[]).includes(activeFilters.tag))return false;return true});
   const underloved=items.filter(i=>!i.wornDates?.length);
   const allTags=[...new Set(items.flatMap(i=>i.tags||[]))];
+
+  async function signInWithGoogle(){await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}})}
+  async function signOut(){await supabase.auth.signOut();setUser(null);setItems([]);setWishlist([]);localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(WISHLIST_KEY)}
+  if(authLoading)return(<div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#444",fontFamily:"'DM Sans',system-ui,sans-serif",fontSize:10,letterSpacing:3,textTransform:"uppercase"}}>Loading...</div>);
+  if(!user)return(<LoginScreen onSignIn={signInWithGoogle}/>);
 
   return(<div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:900,margin:"0 auto"}}>
     {cropSrc&&<CropModal imageSrc={cropSrc} onDone={onCropDone} onCancel={onCropCancel}/>}
@@ -573,11 +560,6 @@ export default function WardrobeApp(){
         <button onClick={()=>setShowFilters(f=>!f)} style={{...ghostBtn,fontSize:10,letterSpacing:1.5}}>{showFilters?"▲ Hide":"▼ Filter"}{Object.keys(activeFilters).length>0&&<span style={{color:"#b8976a",marginLeft:6}}>({Object.keys(activeFilters).length})</span>}</button>
         {showFilters&&(<div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{key:"color",opts:COLORS},{key:"season",opts:SEASONS},{key:"material",opts:MATERIALS},...(brands.length?[{key:"brand",opts:brands}]:[]),...(allTags.length?[{key:"tag",opts:allTags}]:[])].map(({key,opts})=>(<div key={key}><div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>{key}</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{opts.map(o=><button key={o} onClick={()=>setActiveFilters(f=>f[key]===o?Object.fromEntries(Object.entries(f).filter(([k])=>k!==key)):{...f,[key]:o})} style={chipStyle(activeFilters[key]===o)}>{o}</button>)}</div></div>))}{Object.keys(activeFilters).length>0&&<button onClick={()=>setActiveFilters({})} style={{...ghostBtn,color:"#8a4a4a",fontSize:10}}>Clear filters</button>}</div>)}
       </div>
-      {syncDone&&items.length===0&&(<div style={{margin:"16px 24px",background:"#161616",border:"1px solid #3a3a2a",borderRadius:4,padding:16,fontFamily:"'DM Sans', system-ui, sans-serif"}}>
-        <div style={{fontSize:11,color:"#b8976a",letterSpacing:1,marginBottom:6}}>Already have a wardrobe on another device?</div>
-        <div style={{fontSize:11,color:"#666",marginBottom:12}}>Go to Settings → enter the 8-character code from your other device to sync.</div>
-        <button type="button" onClick={()=>setShowSettings(true)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"9px 18px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Open Settings</button>
-      </div>)}
       {filtered.length===0?(<div style={{textAlign:"center",padding:"60px 24px",color:"#444",fontFamily:"'DM Sans', system-ui, sans-serif"}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>{items.length>0?"No matches":"Nothing here yet"}</div><div style={{fontSize:11,color:"#333"}}>{items.length>0?"Try different filters":"Add your first piece"}</div></div>):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:1}}>
           {filtered.map(item=>(<div key={item.id} onClick={()=>evaluateItem(item)} style={{position:"relative",aspectRatio:"3/4",background:"#1a1a1a",cursor:"pointer",overflow:"hidden"}}>
@@ -818,22 +800,13 @@ export default function WardrobeApp(){
           )}
         </div>
 
-        {/* E. Sync */}
+        {/* E. Account */}
         <div style={{marginBottom:28}}>
-          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:14}}>Sync Across Devices</div>
-          <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16,marginBottom:12}}>
-            <div style={{fontSize:10,color:"#888",letterSpacing:1,marginBottom:10}}>YOUR SYNC CODE — type this on your other device</div>
-            <div style={{fontFamily:"monospace",fontSize:32,fontWeight:700,color:"#e8e2d8",letterSpacing:6,textAlign:"center",padding:"14px 0",marginBottom:12}}>{getShortCode()}</div>
-            <button type="button" onClick={copySyncCode} style={{width:"100%",background:syncCopied?"#2a3a2a":"#222",color:syncCopied?"#6a9a6a":"#aaa",border:`1px solid ${syncCopied?"#3a6a3a":"#333"}`,borderRadius:3,padding:"10px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>{syncCopied?"✓ Copied!":"Copy Code"}</button>
-          </div>
-          <div style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:3,padding:16}}>
-            <div style={{fontSize:10,color:"#666",letterSpacing:1,marginBottom:8}}>On your other device, go to Settings and enter this code</div>
-            <input value={syncCodeInput} onChange={e=>{setSyncCodeInput(e.target.value);setSyncStatus(null)}} placeholder="Enter code from other device..." style={{...inputStyle,marginBottom:10,fontFamily:"monospace",fontSize:14,textTransform:"uppercase",letterSpacing:3}} onKeyDown={e=>{if(e.key==="Enter")connectSyncCode()}}/>
-            {syncStatus==="success"&&<div style={{fontSize:11,color:"#6a9a6a",marginBottom:8}}>✓ Connected — wardrobe loaded</div>}
-            {syncStatus==="notfound"&&<div style={{fontSize:11,color:"#b8976a",marginBottom:8}}>Code not found. Check for typos.</div>}
-            {syncStatus==="error"&&<div style={{fontSize:11,color:"#8a4a4a",marginBottom:8}}>Connection failed. Check your internet.</div>}
-            <div style={{fontSize:10,color:"#444",marginBottom:10}}>Loads the other device's wardrobe onto this device.</div>
-            <button onClick={connectSyncCode} disabled={syncLoading||!syncCodeInput.trim()} style={{background:syncCodeInput.trim()&&!syncLoading?"#e8e2d8":"#1a1a1a",color:syncCodeInput.trim()&&!syncLoading?"#111":"#444",border:"none",borderRadius:3,padding:"11px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:syncCodeInput.trim()&&!syncLoading?"pointer":"not-allowed",fontWeight:600}}>{syncLoading?"Connecting...":"Connect"}</button>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:14}}>Account</div>
+          <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:12}}>Signed in as <span style={{color:"#c8c0b0"}}>{user.email}</span></div>
+            <div style={{fontSize:11,color:"#444",marginBottom:14}}>Your wardrobe syncs automatically across all devices when signed in with the same Google account.</div>
+            <button onClick={signOut} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Sign Out</button>
           </div>
         </div>
 
@@ -899,7 +872,17 @@ export default function WardrobeApp(){
 <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Styling Notes</div>
 <textarea value={stylingNotesInput} onChange={e=>setStylingNotesInput(e.target.value)} onBlur={()=>{if(stylingNotesInput!==(selectedItem.stylingNotes||"")){const upd=items.map(i=>i.id===selectedItem.id?{...i,stylingNotes:stylingNotesInput}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id))}}} placeholder="e.g. only wear tucked in, boat days only, needs a belt..." style={{width:"100%",background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:12,color:"#e8e2d8",fontSize:12,resize:"vertical",minHeight:56,boxSizing:"border-box",marginBottom:18,fontFamily:"inherit",lineHeight:1.5}}/>
 <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Style Verdict</div>
-{loadingEval?<div style={{color:"#444",fontSize:12,padding:"16px 0",fontStyle:"italic"}}>Evaluating...</div>:<div><div style={{background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:16,fontSize:13,lineHeight:1.8,color:"#c8c0b0",whiteSpace:"pre-wrap",marginBottom:10}}>{itemEval}</div>{selectedItem.keepNote?<div style={{fontSize:11,color:"#6a9a6a",paddingBottom:8}}>✓ Marked as keep</div>:<button type="button" onClick={()=>{const upd=items.map(i=>i.id===selectedItem.id?{...i,keepNote:"Shelly wants to keep this"}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id))}} style={{background:"transparent",border:"1px solid #333",color:"#666",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",marginBottom:8}}>I disagree — keeping this</button>}</div></div></div>)}
+{loadingEval
+  ? <div style={{color:"#444",fontSize:12,padding:"16px 0",fontStyle:"italic"}}>Evaluating...</div>
+  : <div>
+      <div style={{background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:16,fontSize:13,lineHeight:1.8,color:"#c8c0b0",whiteSpace:"pre-wrap",marginBottom:10}}>{itemEval}</div>
+      {selectedItem.keepNote
+        ? <div style={{fontSize:11,color:"#6a9a6a",paddingBottom:8}}>✓ Marked as keep</div>
+        : <button type="button" onClick={()=>{const upd=items.map(i=>i.id===selectedItem.id?{...i,keepNote:"Shelly wants to keep this"}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id))}} style={{background:"transparent",border:"1px solid #333",color:"#666",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",marginBottom:8}}>I disagree — keeping this</button>
+      }
+    </div>
+}
+</div></div>)}
 
     {/* ITEM CHAT MODAL */}
     {itemChatModal&&(<div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:150,display:"flex",flexDirection:"column",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
