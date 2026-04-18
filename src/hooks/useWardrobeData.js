@@ -1,0 +1,121 @@
+import { useState } from "react";
+import { sbDel, sbUpsert, sbLoad, sbLoadSettings } from "../supabase.js";
+import { normalizeItem } from "../utils/normalizeItem.js";
+import { STORAGE_KEY, WISHLIST_KEY } from "../constants.js";
+
+// ── localStorage helpers ────────────────────────────────────────────────────
+export function loadFromStorage() {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; }
+  catch { return []; }
+}
+export function saveToStorage(items) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+}
+export function loadWishlistFromStorage() {
+  try { const r = localStorage.getItem(WISHLIST_KEY); return r ? JSON.parse(r) : []; }
+  catch { return []; }
+}
+export function saveWishlistToStorage(w) {
+  try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(w)); } catch {}
+}
+
+// ── Hook ────────────────────────────────────────────────────────────────────
+export function useWardrobeData(user) {
+  const [items, setItems] = useState(() => loadFromStorage().map(normalizeItem));
+  const [wishlist, setWishlist] = useState(() => loadWishlistFromStorage());
+  const [brands, setBrands] = useState(() => {
+    try { const b = localStorage.getItem("wardrobe-brands"); return b ? JSON.parse(b) : []; }
+    catch { return []; }
+  });
+
+  function persist(newItems) {
+    const uid = user?.id;
+    const newIds = new Set(newItems.map(i => String(i.id)));
+    const removed = items.filter(i => !newIds.has(String(i.id)));
+    const upserted = newItems.filter(i => {
+      const old = items.find(j => String(j.id) === String(i.id));
+      return !old || JSON.stringify(old) !== JSON.stringify(i);
+    });
+    setItems(newItems);
+    saveToStorage(newItems);
+    if (uid) {
+      removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
+      if (upserted.length)
+        sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+    }
+  }
+
+  function persistWishlist(w) {
+    const uid = user?.id;
+    const newIds = new Set(w.map(i => String(i.id)));
+    const removed = wishlist.filter(i => !newIds.has(String(i.id)));
+    const upserted = w.filter(i => {
+      const old = wishlist.find(j => String(j.id) === String(i.id));
+      return !old || JSON.stringify(old) !== JSON.stringify(i);
+    });
+    setWishlist(w);
+    saveWishlistToStorage(w);
+    if (uid) {
+      removed.forEach(i => sbDel("wardrobe_wishlist", i.id, uid));
+      if (upserted.length)
+        sbUpsert("wardrobe_wishlist", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+    }
+  }
+
+  function addBrand(brand) {
+    if (!brand || brands.includes(brand)) return;
+    const updated = [...brands, brand].sort();
+    setBrands(updated);
+    try { localStorage.setItem("wardrobe-brands", JSON.stringify(updated)); } catch {}
+  }
+
+  /**
+   * Pull data from Supabase and merge with local state.
+   * Calls `syncSettingsFrom` (from useSettings) with whatever settings row we find.
+   */
+  async function syncFromSupabase(uid, syncSettingsFrom) {
+    if (!uid) return;
+    const [dbItems, dbWish, dbSettings] = await Promise.all([
+      sbLoad("wardrobe_items", uid),
+      sbLoad("wardrobe_wishlist", uid),
+      sbLoadSettings(uid),
+    ]);
+
+    if (dbSettings) syncSettingsFrom(dbSettings);
+
+    if (dbItems !== null) {
+      const normalized = dbItems.map(normalizeItem);
+      if (normalized.length > 0) {
+        const sbIds = new Set(normalized.map(i => String(i.id)));
+        const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
+        const merged = [...normalized, ...localOnly];
+        if (localOnly.length)
+          sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+        setItems(merged);
+        saveToStorage(merged);
+      } else {
+        const loc = loadFromStorage().map(normalizeItem);
+        if (loc.length)
+          sbUpsert("wardrobe_items", loc.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+      }
+    }
+
+    if (dbWish !== null) {
+      if (dbWish.length > 0) {
+        setWishlist(dbWish);
+        saveWishlistToStorage(dbWish);
+      } else {
+        const loc = loadWishlistFromStorage();
+        if (loc.length)
+          sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+      }
+    }
+  }
+
+  return {
+    items, setItems, persist,
+    wishlist, setWishlist, persistWishlist,
+    brands, addBrand,
+    syncFromSupabase,
+  };
+}
