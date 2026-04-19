@@ -29,17 +29,6 @@ export default function WardrobeApp() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const settings = useSettings(user);
   const wardrobe = useWardrobeData(user);
@@ -50,10 +39,34 @@ export default function WardrobeApp() {
     addStyleNote: settings.addStyleNote,
   });
 
-  // Sync on login and on tab focus
+  // ── Auth: wait for session before syncing ───────────────────────────────────
+  useEffect(() => {
+    // getSession() covers page refresh with an existing stored session.
+    // We trigger sync here directly so it runs as soon as we know the user.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      setAuthLoading(false);
+      if (u) wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+    });
+
+    // onAuthStateChange covers OAuth redirect (SIGNED_IN) and token refresh.
+    // INITIAL_SESSION fires on registration if a session already exists —
+    // this handles the case where getSession() races against PKCE exchange.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && u) {
+        wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync on tab focus (separate from auth — user is already known here)
   useEffect(() => {
     if (!user) return;
-    wardrobe.syncFromSupabase(user.id, settings.syncSettingsFrom);
     const onVisible = () => {
       if (document.visibilityState === "visible")
         wardrobe.syncFromSupabase(user.id, settings.syncSettingsFrom);
