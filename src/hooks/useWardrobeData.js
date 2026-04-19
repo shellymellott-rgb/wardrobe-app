@@ -128,11 +128,23 @@ export function useWardrobeData(user) {
   async function syncFromSupabase(uid, syncSettingsFrom) {
     if (!uid) return;
     setSyncing(true);
+    const t0 = performance.now();
+
+    // ── Timed fetch — all three in parallel ───────────────────────────────────
+    const timed = (label, promise) => {
+      const ts = performance.now();
+      return promise.then(r => {
+        console.log(`[sync] ${label}: ${(performance.now() - ts).toFixed(0)}ms`, Array.isArray(r) ? `(${r.length} rows)` : "");
+        return r;
+      });
+    };
+
     const [dbItems, dbWish, dbSettings] = await Promise.all([
-      sbLoad("wardrobe_items", uid),
-      sbLoad("wardrobe_wishlist", uid),
-      sbLoadSettings(uid),
+      timed("wardrobe_items", sbLoad("wardrobe_items", uid)),
+      timed("wardrobe_wishlist", sbLoad("wardrobe_wishlist", uid)),
+      timed("settings", sbLoadSettings(uid)),
     ]);
+    console.log(`[sync] parallel fetch total: ${(performance.now() - t0).toFixed(0)}ms`);
 
     if (dbSettings) syncSettingsFrom(dbSettings);
 
@@ -140,28 +152,31 @@ export function useWardrobeData(user) {
       let normalized = dbItems.map(normalizeItem).filter(Boolean);
 
       // ── Migrate base64 images to Supabase Storage ──────────────────────────
-      // Any item still storing a full base64 string gets uploaded once here.
-      // After this point all items in Supabase will have public URLs.
-      const needsMigration = normalized.filter(i => i.imageData?.startsWith("data:"));
+      // Only items without imageMigrated:true AND still carrying base64 data.
+      // On success: imageData becomes a URL and imageMigrated is set to true.
+      // On failure: item is unchanged and will be retried next sync.
+      const needsMigration = normalized.filter(i =>
+        !i.imageMigrated && i.imageData?.startsWith("data:")
+      );
       if (needsMigration.length > 0) {
-        console.log("[storage] migrating", needsMigration.length, "base64 image(s) to Supabase Storage…");
+        const tm = performance.now();
+        console.log(`[sync] migrating ${needsMigration.length} base64 image(s) to Supabase Storage…`);
         const migrated = await Promise.all(needsMigration.map(async item => {
           const url = await sbUploadImage(uid, String(item.id), item.imageData);
-          return url ? { ...item, imageData: url } : item;
+          // imageMigrated:true only on success so failures are retried
+          return url ? { ...item, imageData: url, imageMigrated: true } : item;
         }));
         const migratedMap = new Map(migrated.map(i => [String(i.id), i]));
         normalized = normalized.map(i => migratedMap.get(String(i.id)) || i);
-        // Write migrated items back to Supabase so the base64 blobs are gone
-        const uploaded = migrated.filter(i => !i.imageData?.startsWith("data:"));
+        const uploaded = migrated.filter(i => i.imageMigrated);
         if (uploaded.length)
           sbUpsert("wardrobe_items", uploaded.map(i => ({ id: String(i.id), user_id: uid, data: i })));
-        console.log("[storage] migration complete —", uploaded.length, "image(s) now stored as URLs");
+        console.log(`[sync] migration: ${(performance.now() - tm).toFixed(0)}ms — ${uploaded.length} uploaded, ${needsMigration.length - uploaded.length} failed`);
       }
 
       const sbIds = new Set(normalized.map(i => String(i.id)));
       const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
       const merged = normalized.length > 0 ? [...normalized, ...localOnly] : localOnly;
-      console.log("[storage] syncFromSupabase: db returned", normalized.length, "items,", localOnly.length, "local-only → merged", merged.length);
       setItems(merged);
       saveToStorage(merged);   // write here so next refresh is instant
       if (normalized.length > 0 && localOnly.length)
@@ -179,6 +194,7 @@ export function useWardrobeData(user) {
       }
     }
 
+    console.log(`[sync] total syncFromSupabase: ${(performance.now() - t0).toFixed(0)}ms`);
     setSyncing(false);
   }
 

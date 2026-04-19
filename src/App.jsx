@@ -26,6 +26,21 @@ import ItemDetailModal from "./components/ItemDetailModal.jsx";
 import ItemChatModal from "./components/ItemChatModal.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 
+// Read the cached Supabase user ID directly from localStorage so we can kick
+// off the data fetch before getSession() resolves its network token check.
+// Returns null if no valid cached session exists.
+function getCachedUserId() {
+  try {
+    const ref = new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split(".")[0];
+    const raw = localStorage.getItem(`sb-${ref}-auth-token`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Bail if the access token is already expired — sync would 401 anyway
+    if ((parsed?.expires_at ?? 0) < Math.floor(Date.now() / 1000)) return null;
+    return parsed?.user?.id ?? null;
+  } catch { return null; }
+}
+
 export default function WardrobeApp() {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
@@ -43,18 +58,31 @@ export default function WardrobeApp() {
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
   useEffect(() => {
-    // getSession() covers page refresh with an existing stored session.
-    // We trigger sync here directly so it runs as soon as we know the user.
+    // Fire data fetch immediately using the cached session — don't wait for
+    // getSession() which may make a network call to refresh the token.
+    const cachedUid = getCachedUserId();
+    if (cachedUid) {
+      console.log("[auth] early sync start with cached uid:", cachedUid);
+      wardrobe.syncFromSupabase(cachedUid, settings.syncSettingsFrom);
+    }
+
+    // getSession() runs in parallel — confirms/refreshes the session.
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       setAuthLoading(false);
-      if (u) wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+      // Only re-sync if the confirmed user differs from the cached one
+      // (e.g. token was refreshed and uid changed, or user was logged out)
+      if (u && u.id !== cachedUid) {
+        console.log("[auth] uid changed after getSession — re-syncing");
+        wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+      } else if (!u && cachedUid) {
+        console.log("[auth] cached session invalid — clearing items");
+        wardrobe.setItems([]);
+      }
     });
 
     // onAuthStateChange covers OAuth redirect (SIGNED_IN) and token refresh.
-    // INITIAL_SESSION fires on registration if a session already exists —
-    // this handles the case where getSession() races against PKCE exchange.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null;
       setUser(u);

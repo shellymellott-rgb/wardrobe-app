@@ -9,6 +9,8 @@ create table if not exists wardrobe_items (
   updated_at  timestamptz default now()
 );
 create index if not exists wardrobe_items_user_id_idx on wardrobe_items (user_id);
+-- Composite index covers the query pattern: WHERE user_id = ? ORDER BY created_at ASC
+create index if not exists wardrobe_items_user_created_idx on wardrobe_items (user_id, created_at);
 
 create table if not exists wardrobe_wishlist (
   id          text        primary key,
