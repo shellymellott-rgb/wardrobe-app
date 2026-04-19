@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { chipStyle } from "../styles.js";
+import WeatherOutfitCard from "./WeatherOutfitCard.jsx";
 
 // Shared card style — slightly lighter than page (#0d0d0d → #111 → #161616 layering)
 const card = {
@@ -36,6 +37,7 @@ export default function HomeView({
   items, underloved,
   outfits, loadingOutfit, generateOutfits, occasion, setOccasion,
   markWorn, evaluateItem, setView, onAddItem,
+  weatherEnabled, weatherOutfit, weatherLoading, weatherError, getWeatherOutfit,
 }) {
   const [inputFocused, setInputFocused] = useState(false);
   const hour = new Date().getHours();
@@ -76,6 +78,19 @@ export default function HomeView({
           What are we wearing today?
         </div>
       </div>
+
+      {/* ── Weather Outfit ───────────────────────────────────── */}
+      {weatherEnabled && hasEnoughItems && (
+        <div style={{padding:"0 24px",marginBottom:32}}>
+          <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555",marginBottom:14}}>Today's Weather</div>
+          <WeatherOutfitCard
+            weatherOutfit={weatherOutfit}
+            weatherLoading={weatherLoading}
+            weatherError={weatherError}
+            getWeatherOutfit={getWeatherOutfit}
+          />
+        </div>
+      )}
 
       {/* ── Outfit of the Day ────────────────────────────────── */}
       <div style={{padding:"0 24px",marginBottom:40}}>

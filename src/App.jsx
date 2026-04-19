@@ -4,8 +4,10 @@ import { CATEGORIES } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
 import { readFile, compressImage } from "./utils/imageUtils.js";
-import { IMAGE_SCAN_PROMPT } from "./constants.js";
+import { IMAGE_SCAN_PROMPT, WEATHER_OUTFIT_PROMPT } from "./constants.js";
 import { callClaude } from "./utils/callClaude.js";
+import { fetchWeatherByCity, fetchWeatherByGeolocation } from "./utils/weather.js";
+import { stripForClaude } from "./utils/wardrobeContext.js";
 import { parseJsonObject } from "./utils/parseJson.js";
 
 import { useSettings } from "./hooks/useSettings.js";
@@ -74,6 +76,39 @@ export default function WardrobeApp() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Weather outfit ──────────────────────────────────────────────────────────
+  const [weatherOutfit, setWeatherOutfit] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
+
+  async function getWeatherOutfit() {
+    if (wardrobe.items.length < 2) return;
+    setWeatherLoading(true); setWeatherOutfit(null); setWeatherError(null);
+    try {
+      const w = settings.homeCity.trim()
+        ? await fetchWeatherByCity(settings.homeCity.trim())
+        : await fetchWeatherByGeolocation();
+      // Pre-filter items by weather before sending to Claude
+      const avg = (w.tempHigh + w.tempLow) / 2;
+      const candidates = wardrobe.items.filter(item => {
+        const season = item.season || "All Year";
+        const cat = item.category || "";
+        if (avg < 50 && season === "Spring/Summer") return false;
+        if (avg > 78 && season === "Fall/Winter" && !["Shoes","Accessories"].includes(cat)) return false;
+        return true;
+      }).slice(0, 35);
+      const text = await callClaude(
+        settings.buildStyleSystem(),
+        WEATHER_OUTFIT_PROMPT(candidates.map(stripForClaude), w),
+        600
+      );
+      setWeatherOutfit({ ...parseJsonObject(text), weather: w });
+    } catch (e) {
+      setWeatherError(e.message || "Could not get weather");
+    }
+    setWeatherLoading(false);
+  }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState("home");
@@ -305,6 +340,11 @@ export default function WardrobeApp() {
           evaluateItem={evaluateItem}
           setView={setView}
           onAddItem={()=>{setView("add");setAddForm(emptyForm());}}
+          weatherEnabled={settings.weatherEnabled}
+          weatherOutfit={weatherOutfit}
+          weatherLoading={weatherLoading}
+          weatherError={weatherError}
+          getWeatherOutfit={getWeatherOutfit}
         />
       )}
 
@@ -378,6 +418,8 @@ export default function WardrobeApp() {
           styleNotes={settings.styleNotes}
           removeStyleNote={settings.removeStyleNote}
           clearStyleNotes={settings.clearStyleNotes}
+          weatherEnabled={settings.weatherEnabled} setWeatherEnabled={settings.setWeatherEnabled}
+          homeCity={settings.homeCity} setHomeCity={settings.setHomeCity}
           exportWardrobe={exportWardrobe}
           onImport={()=>importRef.current.click()}
           user={user} signOut={signOut}

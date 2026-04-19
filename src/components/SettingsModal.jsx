@@ -8,6 +8,7 @@ export default function SettingsModal({
   styleProfile, setStyleProfile, saveSettings,
   extraInstructions, setExtraInstructions,
   styleNotes, removeStyleNote, clearStyleNotes,
+  weatherEnabled, setWeatherEnabled, homeCity, setHomeCity,
   exportWardrobe, onImport,
   user, signOut,
 }) {
@@ -93,7 +94,47 @@ export default function SettingsModal({
           }
         </div>
 
-        {/* E. Account */}
+        {/* E. Weather */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:10}}>Weather-Based Outfits</div>
+          <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:weatherEnabled?14:0}}>
+              <div>
+                <div style={{fontSize:12,color:"#e8e2d8",marginBottom:2}}>Daily outfit by weather</div>
+                <div style={{fontSize:10,color:"#555"}}>Shows "What should I wear today?" on the home screen</div>
+              </div>
+              <button
+                onClick={()=>{
+                  const next = !weatherEnabled;
+                  setWeatherEnabled(next);
+                  try{localStorage.setItem("wardrobe-weather-enabled",String(next));}catch{}
+                  saveSettings({weatherEnabled:next});
+                }}
+                style={{
+                  background:weatherEnabled?"#e8e2d8":"transparent",
+                  color:weatherEnabled?"#111":"#555",
+                  border:`1px solid ${weatherEnabled?"#e8e2d8":"#333"}`,
+                  borderRadius:20,padding:"5px 14px",fontSize:10,letterSpacing:1,
+                  textTransform:"uppercase",cursor:"pointer",flexShrink:0,marginLeft:12,
+                }}
+              >{weatherEnabled?"On":"Off"}</button>
+            </div>
+            {weatherEnabled && (
+              <>
+                <div style={{fontSize:10,color:"#666",marginBottom:6}}>Home city — leave blank to use device location</div>
+                <input
+                  value={homeCity}
+                  onChange={e=>{setHomeCity(e.target.value);try{localStorage.setItem("wardrobe-home-city",e.target.value);}catch{}}}
+                  onBlur={e=>saveSettings({homeCity:e.target.value})}
+                  placeholder="e.g. Miami, New York, Chicago"
+                  style={{...inputStyle,marginBottom:0}}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* F. Account */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:14}}>Account</div>
           <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>

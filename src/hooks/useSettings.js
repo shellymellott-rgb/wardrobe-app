@@ -35,6 +35,16 @@ export function useSettings(user) {
     catch { return []; }
   });
 
+  const [weatherEnabled, setWeatherEnabled] = useState(() => {
+    try { return localStorage.getItem("wardrobe-weather-enabled") === "true"; }
+    catch { return false; }
+  });
+
+  const [homeCity, setHomeCity] = useState(() => {
+    try { return localStorage.getItem("wardrobe-home-city") || ""; }
+    catch { return ""; }
+  });
+
   // ── Core save helper ───────────────────────────────────────────────────────
   // Accepts an optional patch to override any individual field before saving.
   // Uses the current state values for everything else, so callers must pass
@@ -48,6 +58,8 @@ export function useSettings(user) {
       extraInstructions,
       chatHistory: chatHistory.slice(-30),
       styleNotes,
+      weatherEnabled,
+      homeCity,
       ...patch,
     }, id);
   }
@@ -79,6 +91,14 @@ export function useSettings(user) {
       const v = Array.isArray(dbSettings.styleNotes) ? dbSettings.styleNotes : [];
       setStyleNotes(v);
       try { localStorage.setItem("wardrobe-style-notes", JSON.stringify(v)); } catch {}
+    }
+    if ("weatherEnabled" in dbSettings) {
+      setWeatherEnabled(!!dbSettings.weatherEnabled);
+      try { localStorage.setItem("wardrobe-weather-enabled", String(!!dbSettings.weatherEnabled)); } catch {}
+    }
+    if ("homeCity" in dbSettings) {
+      setHomeCity(dbSettings.homeCity || "");
+      try { localStorage.setItem("wardrobe-home-city", dbSettings.homeCity || ""); } catch {}
     }
   }
 
@@ -144,6 +164,8 @@ export function useSettings(user) {
     extraInstructions, setExtraInstructions,
     chatHistory, setChatHistory,
     styleNotes, addStyleNote, removeStyleNote, clearStyleNotes,
+    weatherEnabled, setWeatherEnabled,
+    homeCity, setHomeCity,
     saveSettings, syncSettingsFrom, buildStyleSystem,
   };
 }

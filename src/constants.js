@@ -24,6 +24,15 @@ export const IMAGE_SCAN_PROMPT =
 {"name":"descriptive name with color+style","brand":"brand name if visible or null","color":"Black/White/Cream/Tan/Camel/Navy/Grey/Brown/Olive/Blush/Red/Blue/Green/Other","category":"Tops/Bottoms/Dresses/Outerwear/Shoes/Accessories","material":"Cotton/Linen/Silk/Wool/Cashmere/Denim/Knit/Leather/Polyester/Other or null","price":"numeric string if visible or null","datePurchased":"YYYY-MM-DD if visible or null","season":"All Year/Spring/Summer/Fall/Winter","sleeveLength":"N/A/Sleeveless/Short Sleeve/Long Sleeve","length":"N/A/Cropped/Mini/Midi/Full"}
 Read ALL text in the image including product titles, brand names, prices.`;
 
+export const WEATHER_OUTFIT_PROMPT = (items, weather) =>
+  `Today's weather: ${weather.summary}.
+
+Wardrobe (pre-filtered for conditions, ${items.length} pieces):
+${items.map(i => `- [${i.category}] ${i.name}${i.color ? ` / ${i.color}` : ""}${i.season ? ` / ${i.season}` : ""}`).join("\n")}
+
+Suggest ONE complete outfit for today using ONLY items listed. Return ONLY valid JSON:
+{"outfit":["exact item name"],"why":"one sentence","layer":"optional layering or accessory tip or null","avoid":"what fabric or item type to skip given the weather or null"}`;
+
 export const RECEIPT_PROMPT =
   `Extract clothing items from this receipt or order confirmation. Return ONLY valid JSON:
 {"purchaseDate":"YYYY-MM-DD or null","items":[{"name":"descriptive name with color+style","brand":"brand name or null","color":"Black/White/Cream/Tan/Camel/Navy/Grey/Brown/Olive/Blush/Red/Blue/Green/Other or null","category":"Tops/Bottoms/Dresses/Outerwear/Shoes/Accessories","price":"numeric string or null"}]}
