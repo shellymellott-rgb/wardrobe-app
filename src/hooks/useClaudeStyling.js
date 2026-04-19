@@ -57,7 +57,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
 
       // Fetch directly (not via callClaude) to expose the raw response for debugging
       const reqBody = {
-        model: "claude-sonnet-4-6",
+        model: "claude-3-5-sonnet-latest",
         max_tokens: 800,
         system: buildStyleSystem(),
         messages: [{
