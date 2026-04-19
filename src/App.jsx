@@ -421,7 +421,7 @@ export default function WardrobeApp() {
           inspoImage={styling.inspoImage} inspoResult={styling.inspoResult}
           setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
           loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
-          underloved={underloved} markWorn={markWorn}
+          underloved={underloved} markWorn={markWorn} user={user}
         />
       )}
 

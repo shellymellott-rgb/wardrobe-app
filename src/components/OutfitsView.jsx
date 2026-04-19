@@ -1,14 +1,35 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
+import { sbCreateOutfit } from "../supabase.js";
 
 const OCCASION_CHIPS = ["Errands", "Dinner", "Travel", "Boat day", "Work from home", "Date night", "Beach", "Gym"];
 
 export default function OutfitsView({
   items, occasion, setOccasion, outfits, outfitText, loadingOutfit, generateOutfits,
   inspoImage, inspoResult, setInspoResult, setInspoImage, loadingInspo, analyzeInspo,
-  underloved, markWorn,
+  underloved, markWorn, user,
 }) {
   const inspoRef = useRef();
+  const [inspoSaved, setInspoSaved] = useState(false);
+
+  async function saveInspoOutfit() {
+    if (!inspoResult || !user?.id) return;
+    // Re-run same three-level matching used in the render to find matched items
+    const matchedIds = (inspoResult.pieces || []).map(name => {
+      const q = name.toLowerCase().trim();
+      return (
+        items.find(i => i.name.toLowerCase() === q) ||
+        items.find(i => i.name.toLowerCase().includes(q) || q.includes(i.name.toLowerCase())) ||
+        items.find(i => q.split(/\s+/).filter(w => w.length > 3).some(w => i.name.toLowerCase().includes(w))) ||
+        null
+      );
+    }).filter(Boolean).map(i => String(i.id));
+
+    const id = crypto.randomUUID();
+    const name = inspoResult.outfitName || "Inspo Look";
+    await sbCreateOutfit({ id, user_id: user.id, name }, matchedIds);
+    setInspoSaved(true);
+  }
 
   return (
     <div style={{padding:"24px 24px 100px",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
@@ -96,7 +117,7 @@ export default function OutfitsView({
                 <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.85))",padding:"24px 16px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#e8e2d8"}}>{inspoResult.outfitName}</div>
                   <button
-                    onClick={()=>{setInspoResult(null);setInspoImage(null);}}
+                    onClick={()=>{setInspoResult(null);setInspoImage(null);setInspoSaved(false);}}
                     style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.5)",borderRadius:3,padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer"}}
                   >New photo</button>
                 </div>
@@ -142,11 +163,24 @@ export default function OutfitsView({
                 {inspoResult.why && <div style={{fontSize:11,color:"#777",lineHeight:1.6,marginBottom:8}}>{inspoResult.why}</div>}
                 {inspoResult.tip && <div style={{fontSize:10,color:"#b8976a",marginBottom:8}}>✦ {inspoResult.tip}</div>}
                 {inspoResult.gaps?.length > 0 && (
-                  <div>
+                  <div style={{marginBottom:12}}>
                     <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Still need:</div>
                     {inspoResult.gaps.map((g,i) => <div key={i} style={{fontSize:11,color:"#555",marginBottom:3}}>· {g}</div>)}
                   </div>
                 )}
+                <button
+                  onClick={saveInspoOutfit}
+                  disabled={inspoSaved}
+                  style={{
+                    width:"100%", border:"none", borderRadius:6, padding:"11px",
+                    fontSize:10, letterSpacing:2, textTransform:"uppercase", cursor:inspoSaved?"default":"pointer",
+                    background:inspoSaved?"transparent":"#e8e2d8",
+                    color:inspoSaved?"#3a7a4a":"#111",
+                    fontWeight:inspoSaved?400:700,
+                  }}
+                >
+                  {inspoSaved ? "✓ Outfit saved" : "Save outfit"}
+                </button>
               </div>
             </div>
           );
