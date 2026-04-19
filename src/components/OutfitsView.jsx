@@ -77,10 +77,18 @@ export default function OutfitsView({
         )}
 
         {inspoResult && (() => {
-          const allPieces = (inspoResult.pieces||[]).map(name => {
-            const item = items.find(i => i.name===name || i.name.toLowerCase()===name.toLowerCase());
-            return { name, item };
-          });
+          // Three-level match: exact → one contains the other → any significant word overlaps
+          function findItem(name) {
+            const q = name.toLowerCase().trim();
+            return (
+              items.find(i => i.name.toLowerCase() === q) ||
+              items.find(i => i.name.toLowerCase().includes(q) || q.includes(i.name.toLowerCase())) ||
+              items.find(i => q.split(/\s+/).filter(w => w.length > 3).some(w => i.name.toLowerCase().includes(w))) ||
+              null
+            );
+          }
+          const allPieces = (inspoResult.pieces||[]).map(name => ({ name, item: findItem(name) }));
+
           return (
             <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,overflow:"hidden"}}>
               <div style={{position:"relative"}}>
@@ -95,23 +103,35 @@ export default function OutfitsView({
               </div>
               {allPieces.length > 0 && (
                 <div>
-                  <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",padding:"12px 16px 6px"}}>
+                  <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",padding:"12px 16px 8px"}}>
                     Recreate with your wardrobe
                   </div>
-                  <div style={{display:"flex",gap:2,padding:"0 2px 2px"}}>
+                  {/* Horizontal scroll row — closet-card style, fixed width per item */}
+                  <div style={{display:"flex",gap:8,overflowX:"auto",padding:"0 16px 14px",scrollbarWidth:"none"}}>
                     {allPieces.map(({ name, item }, i) => (
-                      <div key={i} style={{flex:1,overflow:"hidden"}}>
-                        <div style={{aspectRatio:"3/4",background:item?"#111":"#1a1510",position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <div key={i} style={{flexShrink:0,width:96}}>
+                        <div style={{
+                          position:"relative",width:96,height:128,
+                          background:item?"#141414":"#1a1510",
+                          borderRadius:8,overflow:"hidden",
+                          border:item?"1px solid #1e1e1e":"1px solid rgba(184,151,106,0.15)",
+                        }}>
                           {item?.imageData
                             ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                            : <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:6,gap:4}}>
-                                {!item && <div style={{fontSize:14,color:"rgba(184,151,106,0.3)"}}>+</div>}
-                                <div style={{fontSize:7,color:item?"#444":"rgba(184,151,106,0.5)",textAlign:"center",lineHeight:1.3,padding:"0 2px"}}>{name}</div>
+                            : <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:8,gap:6}}>
+                                <div style={{fontSize:18,color:item?"#2a2a2a":"rgba(184,151,106,0.2)"}}>+</div>
+                                <div style={{fontSize:8,color:item?"#333":"rgba(184,151,106,0.45)",textAlign:"center",lineHeight:1.4}}>{name}</div>
                               </div>
                           }
-                        </div>
-                        <div style={{background:item?"rgba(0,0,0,0.6)":"#1a1510",padding:"4px 4px"}}>
-                          <div style={{fontSize:7,color:item?"rgba(232,226,216,0.65)":"#b8976a",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item?item.name:name}</div>
+                          {/* Gradient name overlay — same as closet grid */}
+                          <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.82))",padding:"18px 6px 6px"}}>
+                            <div style={{fontSize:9,fontWeight:500,color:"#e8e2d8",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                              {item ? item.name : name}
+                            </div>
+                            <div style={{fontSize:8,color:item?"#666":"#b8976a",marginTop:1}}>
+                              {item ? (item.brand||item.category||"") : "not in closet"}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
