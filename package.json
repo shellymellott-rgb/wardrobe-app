@@ -13,6 +13,10 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "devDependencies": {
     "@vitejs/plugin-react": "4.0.4",
     "vite": "4.4.9",
