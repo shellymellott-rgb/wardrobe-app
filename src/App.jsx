@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "./supabase.js";
+import { supabase, sbLoadOutfits } from "./supabase.js";
 import { CATEGORIES } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
@@ -157,6 +157,17 @@ export default function WardrobeApp() {
   function resetWeatherOutfit() {
     setWeatherOutfit(null); setWeatherError(null); setWeatherSaved(false);
   }
+
+  // ── Saved outfits ───────────────────────────────────────────────────────────
+  const [savedOutfits, setSavedOutfits] = useState([]);
+
+  async function loadSavedOutfits() {
+    if (!user?.id) return;
+    const data = await sbLoadOutfits(user.id);
+    if (data) setSavedOutfits(data);
+  }
+
+  useEffect(() => { loadSavedOutfits(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState("home");
@@ -422,6 +433,7 @@ export default function WardrobeApp() {
           setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
           loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
           underloved={underloved} markWorn={markWorn} user={user}
+          savedOutfits={savedOutfits} onOutfitSaved={loadSavedOutfits}
         />
       )}
 
