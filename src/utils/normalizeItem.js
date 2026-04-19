@@ -41,7 +41,7 @@ export function emptyForm() {
     materials:[],customMaterial:"",
     tags:[],customTag:"",
     comments:"",datePurchased:"",price:"",
-    imageData:null,originalImageData:null,
+    imageData:null,imageThumb:null,originalImageData:null,
   };
 }
 
@@ -64,7 +64,8 @@ export function buildItem(form) {
     comments: form.comments || "",
     datePurchased: form.datePurchased || "",
     price: form.price ? parseFloat(form.price) : null,
-    imageData: form.imageData || null,
+    imageData:  form.imageData  || null,
+    imageThumb: form.imageThumb || null,
     wornDates: [],
     addedAt: new Date().toISOString(),
   };

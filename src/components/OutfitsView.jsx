@@ -160,7 +160,7 @@ export default function OutfitsView({
                           border:item?"1px solid #1e1e1e":"1px solid rgba(184,151,106,0.15)",
                         }}>
                           {item?.imageData
-                            ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                            ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                             : <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:8,gap:6}}>
                                 <div style={{fontSize:18,color:item?"#2a2a2a":"rgba(184,151,106,0.2)"}}>+</div>
                                 <div style={{fontSize:8,color:item?"#333":"rgba(184,151,106,0.45)",textAlign:"center",lineHeight:1.4}}>{name}</div>
@@ -266,7 +266,7 @@ export default function OutfitsView({
                 {outfitItems.map((item, ii) => (
                   <div key={ii} style={{flex:1,aspectRatio:"3/4",background:"#1a1a1a",overflow:"hidden",borderRadius:5}}>
                     {item.imageData
-                      ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                      ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                       : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:4}}>
                           <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
                         </div>
@@ -317,7 +317,7 @@ export default function OutfitsView({
                         border:"1px solid #1e1e1e",
                       }}>
                         {item.imageData
-                          ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                          ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                           : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:8}}>
                               <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
                             </div>
@@ -346,7 +346,7 @@ export default function OutfitsView({
           </div>
           {underloved.map(item => (
             <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"#111",border:"1px solid rgba(184,151,106,0.15)",borderRadius:6,padding:"10px 12px",marginBottom:8}}>
-              {item.imageData && <img src={item.imageData} style={{width:32,height:42,objectFit:"cover",borderRadius:4,flexShrink:0}}/>}
+              {item.imageData && <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:32,height:42,objectFit:"cover",borderRadius:4,flexShrink:0}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name||"Unnamed"}</div>
                 <div style={{fontSize:9,color:"#555",letterSpacing:1,textTransform:"uppercase",marginTop:1}}>{item.brand||item.category}</div>

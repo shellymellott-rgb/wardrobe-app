@@ -119,7 +119,7 @@ export default function HomeView({
               <div style={{display:"flex",height:100,gap:1,padding:2}}>
                 {previewItems.map((item,i) => (
                   <div key={i} style={{flex:1,overflow:"hidden",borderRadius:6,background:"#111"}}>
-                    <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover",opacity:0.55}}/>
+                    <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",opacity:0.55}}/>
                   </div>
                 ))}
               </div>
@@ -156,7 +156,7 @@ export default function HomeView({
               <div style={{display:"flex",height:110,gap:1,padding:2}}>
                 {previewItems.map((item,i) => (
                   <div key={i} style={{flex:1,overflow:"hidden",borderRadius:6,background:"#111"}}>
-                    <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                   </div>
                 ))}
               </div>
@@ -211,7 +211,7 @@ export default function HomeView({
                       {pieces.map((item,ii) => (
                         <div key={ii} style={{flex:1,aspectRatio:"3/4",background:"#1a1a1a",overflow:"hidden",borderRadius:8}}>
                           {item.imageData
-                            ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                            ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                             : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:6}}>
                                 <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
                               </div>
@@ -260,7 +260,7 @@ export default function HomeView({
               <div key={item.id} style={{flexShrink:0,width:96,cursor:"pointer"}} onClick={()=>evaluateItem(item)}>
                 <div style={{width:96,height:124,background:"#161616",border:"1px solid #222",borderRadius:10,overflow:"hidden",marginBottom:7,position:"relative"}}>
                   {item.imageData
-                    ? <img src={item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                     : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:8}}>
                         <div style={{fontSize:9,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
                       </div>

@@ -20,3 +20,20 @@ export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
     img.src = dataUrl;
   });
 }
+
+/**
+ * Generate two compressed versions from a raw cropped image.
+ * Returns { full, thumb } where:
+ *   full  — 600px longest side, quality 0.7  (~30-60KB) — for detail view
+ *   thumb — 200px longest side, quality 0.4  (~5-10KB)  — for grid/cards
+ */
+export async function generateImageVersions(dataUrl) {
+  const [full, thumb] = await Promise.all([
+    compressImage(dataUrl, 600, 0.7),
+    compressImage(dataUrl, 200, 0.4),
+  ]);
+  const fullKB  = Math.round(full.length  * 0.75 / 1024);
+  const thumbKB = Math.round(thumb.length * 0.75 / 1024);
+  console.log(`[image] generated versions — full: ~${fullKB}KB, thumb: ~${thumbKB}KB`);
+  return { full, thumb };
+}

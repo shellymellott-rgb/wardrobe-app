@@ -1,17 +1,41 @@
 import { useState } from "react";
 import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage } from "../supabase.js";
 import { normalizeItem } from "../utils/normalizeItem.js";
+import { compressImage } from "../utils/imageUtils.js";
 import { STORAGE_KEY, WISHLIST_KEY } from "../constants.js";
 
-// Upload any items whose imageData is still a base64 string to Supabase Storage.
-// Returns a new array with publicURLs substituted; returns the same reference if nothing changed.
+// Upload full image and thumbnail to Supabase Storage for any item still
+// carrying base64. Generates a thumb on-the-fly if one isn't already present.
+// Returns a new array with public URLs substituted; same ref if nothing changed.
 async function uploadItemImages(uid, items) {
   let anyUploaded = false;
   const result = await Promise.all(items.map(async item => {
-    if (!item.imageData || !item.imageData.startsWith("data:")) return item;
-    const url = await sbUploadImage(uid, String(item.id), item.imageData);
-    if (url) { anyUploaded = true; return { ...item, imageData: url }; }
-    return item; // keep base64 as fallback if upload fails
+    const needsFull  = item.imageData?.startsWith("data:");
+    const needsThumb = item.imageThumb?.startsWith("data:") ||
+                       (needsFull && !item.imageThumb); // auto-generate if missing
+
+    if (!needsFull && !needsThumb) return item;
+
+    let updated = { ...item };
+
+    if (needsFull) {
+      const url = await sbUploadImage(uid, String(item.id), item.imageData, "");
+      if (url) { updated.imageData = url; anyUploaded = true; }
+    }
+
+    // Generate thumb from full if we don't have one already
+    const thumbSource = item.imageThumb?.startsWith("data:")
+      ? item.imageThumb
+      : needsFull ? item.imageData : null; // generate from full base64
+    if (thumbSource) {
+      const thumbData = item.imageThumb?.startsWith("data:")
+        ? item.imageThumb
+        : await compressImage(thumbSource, 200, 0.4);
+      const url = await sbUploadImage(uid, String(item.id), thumbData, "_thumb");
+      if (url) { updated.imageThumb = url; anyUploaded = true; }
+    }
+
+    return anyUploaded ? updated : item;
   }));
   return anyUploaded ? result : items;
 }
@@ -160,11 +184,22 @@ export function useWardrobeData(user) {
       );
       if (needsMigration.length > 0) {
         const tm = performance.now();
-        console.log(`[sync] migrating ${needsMigration.length} base64 image(s) to Supabase Storage…`);
+        console.log(`[sync] migrating ${needsMigration.length} base64 image(s) to Storage (compress + upload full + thumb)…`);
         const migrated = await Promise.all(needsMigration.map(async item => {
-          const url = await sbUploadImage(uid, String(item.id), item.imageData);
-          // imageMigrated:true only on success so failures are retried
-          return url ? { ...item, imageData: url, imageMigrated: true } : item;
+          // Compress to final sizes before uploading — existing base64 may be huge
+          const [fullData, thumbData] = await Promise.all([
+            compressImage(item.imageData, 600, 0.7),
+            compressImage(item.imageData, 200, 0.4),
+          ]);
+          const [fullUrl, thumbUrl] = await Promise.all([
+            sbUploadImage(uid, String(item.id), fullData,  ""),
+            sbUploadImage(uid, String(item.id), thumbData, "_thumb"),
+          ]);
+          // imageMigrated:true only on success so failures retry next sync
+          if (fullUrl) {
+            return { ...item, imageData: fullUrl, imageThumb: thumbUrl || null, imageMigrated: true };
+          }
+          return item;
         }));
         const migratedMap = new Map(migrated.map(i => [String(i.id), i]));
         normalized = normalized.map(i => migratedMap.get(String(i.id)) || i);

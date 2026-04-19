@@ -133,7 +133,7 @@ export default function ClosetView({
             <div key={item.id} onClick={()=>evaluateItem(item)}
               style={{position:"relative",aspectRatio:"3/4",background:"#141414",cursor:"pointer",overflow:"hidden",borderRadius:3}}>
               {item.imageData
-                ? <img src={item.imageData} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                ? <img src={item.imageThumb ?? item.imageData} alt={item.name} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 : <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:8,boxSizing:"border-box"}}>
                     {item.color && <div style={{fontSize:8,color:"#3a3a3a"}}>{item.color}</div>}
                     <div style={{fontSize:9,color:"#2a2a2a",textAlign:"center",lineHeight:1.3}}>{item.name}</div>

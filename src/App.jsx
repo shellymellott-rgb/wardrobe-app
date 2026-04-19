@@ -3,7 +3,7 @@ import { supabase, sbLoadOutfits } from "./supabase.js";
 import { CATEGORIES } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
-import { readFile, compressImage } from "./utils/imageUtils.js";
+import { readFile, compressImage, generateImageVersions } from "./utils/imageUtils.js";
 import { IMAGE_SCAN_PROMPT, WEATHER_OUTFIT_PROMPT } from "./constants.js";
 import { callClaude } from "./utils/callClaude.js";
 import { fetchWeatherByCity, fetchWeatherByGeolocation } from "./utils/weather.js";
@@ -280,10 +280,12 @@ export default function WardrobeApp() {
     setCropSrc(dataUrl);
   }
 
-  function onCropDone(cropped) {
-    if (cropTarget === "add") setAddForm(f => ({ ...f, imageData: cropped }));
-    else if (cropTarget === "edit") setEditForm(f => ({ ...f, imageData: cropped }));
-    else setReceiptImages(prev => ({ ...prev, [cropTarget]: cropped }));
+  async function onCropDone(cropped) {
+    // Compress immediately: full (600px/0.7) for detail view, thumb (200px/0.4) for grid
+    const { full, thumb } = await generateImageVersions(cropped);
+    if (cropTarget === "add") setAddForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
+    else if (cropTarget === "edit") setEditForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
+    else setReceiptImages(prev => ({ ...prev, [cropTarget]: full })); // receipts: just full
     setCropSrc(null); setCropTarget(null); setSavedOriginalImageData(null);
   }
 
