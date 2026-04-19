@@ -5,7 +5,7 @@ import { chipStyle } from "../styles.js";
 export default function ClosetView({
   items, filtered, activeCategory, setActiveCategory, allCategories,
   activeFilters, setActiveFilters, showFilters, setShowFilters,
-  brands, allTags, evaluateItem,
+  brands, allTags, evaluateItem, syncing,
 }) {
   const [search, setSearch] = useState("");
 
@@ -110,14 +110,23 @@ export default function ClosetView({
 
       {/* Grid */}
       {displayItems.length === 0 ? (
-        <div style={{textAlign:"center",padding:"60px 24px",color:"#444"}}>
-          <div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
-            {items.length > 0 ? "No matches" : "Nothing here yet"}
+        syncing && items.length === 0 ? (
+          // Loading skeleton — shown while Supabase sync is in flight and nothing cached locally
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2,padding:"0 2px 2px"}}>
+            {Array.from({length:9}).map((_,i) => (
+              <div key={i} style={{aspectRatio:"3/4",background:"#141414",borderRadius:3,animation:"pulse 1.4s ease-in-out infinite",animationDelay:`${i*0.08}s`}}/>
+            ))}
           </div>
-          <div style={{fontSize:11,color:"#333"}}>
-            {items.length > 0 ? "Try different filters or search" : "Add your first piece"}
+        ) : (
+          <div style={{textAlign:"center",padding:"60px 24px",color:"#444"}}>
+            <div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
+              {items.length > 0 ? "No matches" : "Nothing here yet"}
+            </div>
+            <div style={{fontSize:11,color:"#333"}}>
+              {items.length > 0 ? "Try different filters or search" : "Add your first piece"}
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2,padding:"0 2px 2px"}}>
           {displayItems.map(item => (

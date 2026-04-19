@@ -27,6 +27,7 @@ export function useWardrobeData(user) {
     try { const b = localStorage.getItem("wardrobe-brands"); return b ? JSON.parse(b) : []; }
     catch { return []; }
   });
+  const [syncing, setSyncing] = useState(false);
 
   function persist(newItems) {
     const uid = user?.id;
@@ -75,6 +76,7 @@ export function useWardrobeData(user) {
    */
   async function syncFromSupabase(uid, syncSettingsFrom) {
     if (!uid) return;
+    setSyncing(true);
     const [dbItems, dbWish, dbSettings] = await Promise.all([
       sbLoad("wardrobe_items", uid),
       sbLoad("wardrobe_wishlist", uid),
@@ -104,12 +106,14 @@ export function useWardrobeData(user) {
           sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: i })));
       }
     }
+
+    setSyncing(false);
   }
 
   return {
     items, setItems, persist,
     wishlist, setWishlist, persistWishlist,
     brands, addBrand,
-    syncFromSupabase,
+    syncing, syncFromSupabase,
   };
 }

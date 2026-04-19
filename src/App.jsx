@@ -355,13 +355,14 @@ export default function WardrobeApp() {
   const allTags = [...new Set(wardrobe.items.flatMap(i=>i.tags||[]))];
 
   // ── Early returns ───────────────────────────────────────────────────────────
-  if (authLoading) {
-    return <div style={{minHeight:"100vh",background:"#111",display:"flex",alignItems:"center",justifyContent:"center",color:"#444",fontFamily:"'DM Sans',system-ui,sans-serif",fontSize:10,letterSpacing:3,textTransform:"uppercase"}}>Loading...</div>;
-  }
-  if (!user) return <LoginScreen onSignIn={signInWithGoogle}/>;
+  // Don't block on authLoading — localStorage items render immediately.
+  // Only redirect to login once auth definitively resolves to no-user.
+  if (!authLoading && !user) return <LoginScreen onSignIn={signInWithGoogle}/>;
+
+  const isDataLoading = authLoading || wardrobe.syncing;
 
   return (
-    <div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:900,margin:"0 auto"}}>
+    <div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:900,margin:"0 auto",position:"relative"}}>
       {cropSrc && <CropModal imageSrc={cropSrc} onDone={onCropDone} onCancel={onCropCancel}/>}
       <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileSelected} style={{display:"none"}}/>
       <input ref={importRef} type="file" accept=".json" onChange={importWardrobe} style={{display:"none"}}/>
@@ -369,6 +370,10 @@ export default function WardrobeApp() {
 
       {/* Header */}
       <div style={{padding:"28px 24px 18px",borderBottom:"1px solid #222"}}>
+        {/* Syncing indicator — thin pulsing bar at top */}
+        {isDataLoading && (
+          <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"#b8976a",opacity:0.5,animation:"pulse 1.2s ease-in-out infinite"}}/>
+        )}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
             <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,letterSpacing:5,color:"#555",textTransform:"uppercase",marginBottom:5}}>Personal Closet</div>
@@ -376,8 +381,8 @@ export default function WardrobeApp() {
           </div>
           <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
             <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{wardrobe.items.length}</div>
-            <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:"#555",textTransform:"uppercase"}}>pieces</div>
-            {underloved.length>0 && <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}
+            <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:isDataLoading?"#b8976a":"#555",textTransform:"uppercase"}}>{isDataLoading ? "syncing..." : "pieces"}</div>
+            {!isDataLoading && underloved.length>0 && <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}
             <button onClick={()=>setShowSettings(true)} style={{background:showSettings?"#e8e2d820":"transparent",border:`1px solid ${showSettings?"#e8e2d840":"#2a2a2a"}`,color:showSettings?"#e8e2d8":"#888",fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:4,borderRadius:3,letterSpacing:1,fontFamily:"'DM Sans', system-ui, sans-serif"}}>⚙ Settings</button>
           </div>
         </div>
@@ -424,6 +429,7 @@ export default function WardrobeApp() {
           showFilters={showFilters} setShowFilters={setShowFilters}
           brands={wardrobe.brands} allTags={allTags}
           evaluateItem={evaluateItem}
+          syncing={wardrobe.syncing}
         />
       )}
 
