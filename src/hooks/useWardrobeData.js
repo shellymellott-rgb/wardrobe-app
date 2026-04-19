@@ -5,12 +5,37 @@ import { STORAGE_KEY, WISHLIST_KEY } from "../constants.js";
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 export function loadFromStorage() {
-  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; }
-  catch { return []; }
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    const parsed = r ? JSON.parse(r) : [];
+    console.log("[storage] loadFromStorage:", parsed.length, "items", parsed.length ? `(first: "${parsed[0]?.name}")` : "(empty — cache miss)");
+    return parsed;
+  }
+  catch (e) { console.error("[storage] loadFromStorage parse error:", e.message); return []; }
 }
+
 export function saveToStorage(items) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+  // Try full save with images. If quota exceeded, save metadata-only so at least
+  // names/brands/categories appear instantly on next load even if photos must wait.
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    console.log("[storage] saveToStorage: saved", items.length, "items (full, with images)");
+  } catch (e) {
+    if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
+      console.warn("[storage] QuotaExceededError — images too large for localStorage. Saving metadata-only fallback.");
+      try {
+        const stripped = items.map(({ imageData, originalImageData, outfitPhotos, ...rest }) => rest);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+        console.log("[storage] saveToStorage: saved", stripped.length, "items (metadata only, no images)");
+      } catch (e2) {
+        console.error("[storage] saveToStorage failed even without images:", e2.message);
+      }
+    } else {
+      console.error("[storage] saveToStorage unexpected error:", e.message);
+    }
+  }
 }
+
 export function loadWishlistFromStorage() {
   try { const r = localStorage.getItem(WISHLIST_KEY); return r ? JSON.parse(r) : []; }
   catch { return []; }
@@ -90,8 +115,9 @@ export function useWardrobeData(user) {
       const sbIds = new Set(normalized.map(i => String(i.id)));
       const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
       const merged = normalized.length > 0 ? [...normalized, ...localOnly] : localOnly;
+      console.log("[storage] syncFromSupabase: db returned", normalized.length, "items,", localOnly.length, "local-only → merged", merged.length);
       setItems(merged);
-      saveToStorage(merged);
+      saveToStorage(merged);   // write here so next refresh is instant
       if (normalized.length > 0 && localOnly.length)
         sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: i })));
     }
