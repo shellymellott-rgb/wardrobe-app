@@ -53,12 +53,12 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       // Compress aggressively before sending — full photos easily exceed serverless body limits.
       // Max 800px on the longest dimension, JPEG 0.5 quality. Aspect ratio preserved by compressImage.
-      const compressed = await compressImage(dataUrl, 800, 0.5);
+      const compressed = await compressImage(dataUrl, 400, 0.35);
       console.log("[inspo] compressed dataUrl length:", compressed?.length, "(was:", dataUrl?.length, ")");
 
       const base64 = compressed.split(",")[1];
       const mediaType = "image/jpeg"; // compressImage always outputs JPEG
-      console.log("[inspo] base64 length:", base64?.length, "| mediaType:", mediaType);
+      console.log("[inspo] FINAL base64 length:", base64?.length, "bytes (approx", Math.round(base64?.length * 0.75 / 1024), "KB) | mediaType:", mediaType);
 
       // Fetch directly (not via callClaude) to expose the raw response for debugging
       const reqBody = {
