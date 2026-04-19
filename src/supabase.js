@@ -49,15 +49,21 @@ export async function sbDel(table, id, uid) {
 }
 
 export async function sbLoad(table, uid) {
+  const url = `${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&id=neq.__settings__&select=data&order=created_at.asc`;
+  console.log("[sbLoad] fetching", table, "uid=", uid, "url=", url);
   try {
-    const res = await fetch(
-      `${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&id=neq.__settings__&select=data&order=created_at.asc`,
-      { headers: SB_HDR }
-    );
-    if (!res.ok) return null;
+    const res = await fetch(url, { headers: SB_HDR });
+    console.log("[sbLoad]", table, "response status=", res.status);
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("[sbLoad]", table, "FAILED:", txt);
+      return null;
+    }
     const rows = await res.json();
+    console.log("[sbLoad]", table, "rows returned=", rows.length);
     return Array.isArray(rows) ? rows.map(r => r.data) : null;
-  } catch {
+  } catch (e) {
+    console.error("[sbLoad]", table, "exception:", e.message);
     return null;
   }
 }

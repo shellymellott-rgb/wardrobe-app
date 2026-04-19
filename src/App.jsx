@@ -41,22 +41,32 @@ export default function WardrobeApp() {
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
   useEffect(() => {
+    console.log("[AUTH] useEffect running");
+
     // getSession() covers page refresh with an existing stored session.
     // We trigger sync here directly so it runs as soon as we know the user.
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("[AUTH] getSession resolved:", session ? `user=${session.user?.id} email=${session.user?.email}` : "null");
       const u = session?.user ?? null;
       setUser(u);
       setAuthLoading(false);
-      if (u) wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+      if (u) {
+        console.log("[AUTH] calling syncFromSupabase from getSession, uid=", u.id);
+        wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
+      } else {
+        console.log("[AUTH] getSession: no user, skipping sync");
+      }
     });
 
     // onAuthStateChange covers OAuth redirect (SIGNED_IN) and token refresh.
     // INITIAL_SESSION fires on registration if a session already exists —
     // this handles the case where getSession() races against PKCE exchange.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[AUTH] onAuthStateChange event=", event, "user=", session?.user?.id ?? "null");
       const u = session?.user ?? null;
       setUser(u);
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && u) {
+        console.log("[AUTH] calling syncFromSupabase from onAuthStateChange, uid=", u.id);
         wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
       }
     });
