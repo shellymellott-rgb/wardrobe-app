@@ -434,6 +434,8 @@ export default function WardrobeApp() {
           loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
           underloved={underloved} markWorn={markWorn} user={user}
           savedOutfits={savedOutfits} onOutfitSaved={loadSavedOutfits}
+          wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}
+          setChatInput={styling.setChatInput} setView={setView}
         />
       )}
 

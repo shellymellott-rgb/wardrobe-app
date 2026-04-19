@@ -9,9 +9,12 @@ export default function OutfitsView({
   inspoImage, inspoResult, setInspoResult, setInspoImage, loadingInspo, analyzeInspo,
   underloved, markWorn, user,
   savedOutfits, onOutfitSaved,
+  wishlist, persistWishlist, setChatInput, setView,
 }) {
   const inspoRef = useRef();
   const [inspoSaved, setInspoSaved] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [addedToWishlist, setAddedToWishlist] = useState({});
 
   async function saveInspoOutfit() {
     if (!inspoResult || !user?.id) return;
@@ -113,13 +116,30 @@ export default function OutfitsView({
           const allPieces = (inspoResult.pieces||[]).map(name => ({ name, item: findItem(name) }));
 
           return (
+            <>
+            {/* Lightbox */}
+            {lightboxOpen && (
+              <div
+                onClick={()=>setLightboxOpen(false)}
+                style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+              >
+                <img src={inspoImage} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:8}}/>
+              </div>
+            )}
             <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,overflow:"hidden"}}>
-              <div style={{position:"relative"}}>
-                <img src={inspoImage} style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block"}}/>
-                <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.85))",padding:"24px 16px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+              {/* Photo — fixed 4:5 aspect ratio, tappable for full view */}
+              <div
+                onClick={()=>setLightboxOpen(true)}
+                style={{position:"relative",width:"100%",paddingBottom:"125%",cursor:"zoom-in",overflow:"hidden"}}
+              >
+                <img
+                  src={inspoImage}
+                  style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center top",display:"block"}}
+                />
+                <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.85))",padding:"32px 16px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#e8e2d8"}}>{inspoResult.outfitName}</div>
                   <button
-                    onClick={()=>{setInspoResult(null);setInspoImage(null);setInspoSaved(false);}}
+                    onClick={e=>{e.stopPropagation();setInspoResult(null);setInspoImage(null);setInspoSaved(false);setLightboxOpen(false);}}
                     style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.5)",borderRadius:3,padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer"}}
                   >New photo</button>
                 </div>
@@ -166,8 +186,46 @@ export default function OutfitsView({
                 {inspoResult.tip && <div style={{fontSize:10,color:"#b8976a",marginBottom:8}}>✦ {inspoResult.tip}</div>}
                 {inspoResult.gaps?.length > 0 && (
                   <div style={{marginBottom:12}}>
-                    <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:6}}>Still need:</div>
-                    {inspoResult.gaps.map((g,i) => <div key={i} style={{fontSize:11,color:"#555",marginBottom:3}}>· {g}</div>)}
+                    <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Still need:</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {inspoResult.gaps.map((g, i) => {
+                        const key = `gap-${i}`;
+                        const added = addedToWishlist[key];
+                        return (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#161616",border:"1px solid rgba(184,151,106,0.12)",borderRadius:8,padding:"10px 12px"}}>
+                            <div style={{flex:1,fontSize:11,color:"#c8c0b0",lineHeight:1.4}}>{g}</div>
+                            <div style={{display:"flex",gap:6,flexShrink:0}}>
+                              <button
+                                onClick={() => {
+                                  const newItem = { id: crypto.randomUUID(), name: g, category: "Other", brand: "", color: "", imageData: null, worn: 0 };
+                                  persistWishlist?.([...(wishlist||[]), newItem]);
+                                  setAddedToWishlist(prev => ({...prev, [key]: true}));
+                                }}
+                                disabled={added}
+                                style={{
+                                  background:added?"transparent":"#1a1a1a",
+                                  border:added?"none":"1px solid #2a2a2a",
+                                  borderRadius:5,padding:"5px 9px",
+                                  fontSize:9,letterSpacing:1,textTransform:"uppercase",
+                                  color:added?"#3a7a4a":"#888",cursor:added?"default":"pointer",
+                                }}
+                              >{added ? "✓ Saved" : "+ Wishlist"}</button>
+                              <button
+                                onClick={() => {
+                                  setChatInput?.(`I need help finding: ${g}. What should I look for?`);
+                                  setView?.("chat");
+                                }}
+                                style={{
+                                  background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:5,
+                                  padding:"5px 9px",fontSize:9,letterSpacing:1,textTransform:"uppercase",
+                                  color:"#888",cursor:"pointer",
+                                }}
+                              >Ask stylist</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <button
@@ -185,6 +243,7 @@ export default function OutfitsView({
                 </button>
               </div>
             </div>
+            </>
           );
         })()}
 
