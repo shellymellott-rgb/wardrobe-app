@@ -13,6 +13,10 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   const [outfitText, setOutfitText] = useState("");
   const [loadingOutfit, setLoadingOutfit] = useState(false);
 
+  function addOutfit(outfit) {
+    setOutfits(prev => [outfit, ...prev]);
+  }
+
   async function generateOutfits() {
     if (items.length < 2) return;
     setLoadingOutfit(true); setOutfits([]); setOutfitText("");
@@ -186,7 +190,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
 
   return {
     // outfits
-    occasion, setOccasion, outfits, outfitText, loadingOutfit, generateOutfits,
+    occasion, setOccasion, outfits, outfitText, loadingOutfit, generateOutfits, addOutfit,
     // inspo
     inspoImage, setInspoImage, inspoResult, setInspoResult, loadingInspo, analyzeInspo,
     // eval

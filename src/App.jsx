@@ -81,33 +81,81 @@ export default function WardrobeApp() {
   const [weatherOutfit, setWeatherOutfit] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
+  const [weatherOccasion, setWeatherOccasion] = useState("");
+  const [weatherSaved, setWeatherSaved] = useState(false);
+
+  function weatherFilter(items, { tempHigh, tempLow, isRainy }) {
+    const avg    = (tempHigh + tempLow) / 2;
+    const cold   = avg < 45;
+    const cool   = avg >= 45 && avg < 58;
+    const hot    = avg >= 80;
+    return items.filter(item => {
+      const cat    = item.category   || "";
+      const sleeve = item.sleeveLength || "N/A";
+      const mats   = item.materials  || [];
+      const length = item.length     || "N/A";
+      const season = item.season     || "All Year";
+      const name   = (item.name     || "").toLowerCase();
+      const isHeavy    = mats.some(m => ["Wool","Cashmere","Knit"].includes(m));
+      const isDelicate = mats.some(m => ["Linen","Silk"].includes(m));
+      const isOpenShoe = cat === "Shoes" && /sandal|slide|mule|flip/.test(name);
+      // Accessories are always relevant
+      if (cat === "Accessories") return true;
+      // Season-level (catches items with no detailed fields filled in)
+      if (cold && season === "Spring/Summer") return false;
+      if (hot  && season === "Fall/Winter" && cat !== "Outerwear") return false;
+      // Heavy fabrics in heat
+      if (hot && isHeavy && cat !== "Outerwear") return false;
+      // Delicate fabrics in cold
+      if (cold && isDelicate && ["Tops","Dresses"].includes(cat)) return false;
+      // Sleeve length
+      if ((cold || cool) && sleeve === "Sleeveless") return false;
+      if (cold && sleeve === "Short Sleeve") return false;
+      // Dress/bottom length
+      if (cold && ["Mini","Cropped"].includes(length)) return false;
+      if (cool && length === "Mini") return false;
+      // Rain
+      if (isRainy && isOpenShoe) return false;
+      if (isRainy && isDelicate && ["Tops","Dresses"].includes(cat)) return false;
+      // Wool/heavy outerwear in heat
+      if (hot && cat === "Outerwear" && isHeavy) return false;
+      return true;
+    }).slice(0, 40);
+  }
 
   async function getWeatherOutfit() {
     if (wardrobe.items.length < 2) return;
-    setWeatherLoading(true); setWeatherOutfit(null); setWeatherError(null);
+    setWeatherLoading(true); setWeatherOutfit(null); setWeatherError(null); setWeatherSaved(false);
     try {
       const w = settings.homeCity.trim()
         ? await fetchWeatherByCity(settings.homeCity.trim())
         : await fetchWeatherByGeolocation();
-      // Pre-filter items by weather before sending to Claude
-      const avg = (w.tempHigh + w.tempLow) / 2;
-      const candidates = wardrobe.items.filter(item => {
-        const season = item.season || "All Year";
-        const cat = item.category || "";
-        if (avg < 50 && season === "Spring/Summer") return false;
-        if (avg > 78 && season === "Fall/Winter" && !["Shoes","Accessories"].includes(cat)) return false;
-        return true;
-      }).slice(0, 35);
+      const candidates = weatherFilter(wardrobe.items, w);
       const text = await callClaude(
         settings.buildStyleSystem(),
-        WEATHER_OUTFIT_PROMPT(candidates.map(stripForClaude), w),
-        600
+        WEATHER_OUTFIT_PROMPT(candidates.map(stripForClaude), w, weatherOccasion),
+        700
       );
       setWeatherOutfit({ ...parseJsonObject(text), weather: w });
     } catch (e) {
       setWeatherError(e.message || "Could not get weather");
     }
     setWeatherLoading(false);
+  }
+
+  function saveWeatherOutfit() {
+    if (!weatherOutfit || weatherSaved) return;
+    styling.addOutfit({
+      name: `${weatherOutfit.weather?.condition || "Weather"} Look${weatherOccasion ? ` — ${weatherOccasion}` : ""}`,
+      pieces: weatherOutfit.main || [],
+      why: weatherOutfit.mainWhy || "",
+      tip: weatherOutfit.layer || "",
+    });
+    setWeatherSaved(true);
+  }
+
+  function resetWeatherOutfit() {
+    setWeatherOutfit(null); setWeatherError(null); setWeatherSaved(false);
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -344,7 +392,12 @@ export default function WardrobeApp() {
           weatherOutfit={weatherOutfit}
           weatherLoading={weatherLoading}
           weatherError={weatherError}
+          weatherOccasion={weatherOccasion}
+          setWeatherOccasion={setWeatherOccasion}
+          weatherSaved={weatherSaved}
           getWeatherOutfit={getWeatherOutfit}
+          saveWeatherOutfit={saveWeatherOutfit}
+          resetWeatherOutfit={resetWeatherOutfit}
         />
       )}
 

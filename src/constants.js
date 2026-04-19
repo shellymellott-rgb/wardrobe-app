@@ -24,14 +24,19 @@ export const IMAGE_SCAN_PROMPT =
 {"name":"descriptive name with color+style","brand":"brand name if visible or null","color":"Black/White/Cream/Tan/Camel/Navy/Grey/Brown/Olive/Blush/Red/Blue/Green/Other","category":"Tops/Bottoms/Dresses/Outerwear/Shoes/Accessories","material":"Cotton/Linen/Silk/Wool/Cashmere/Denim/Knit/Leather/Polyester/Other or null","price":"numeric string if visible or null","datePurchased":"YYYY-MM-DD if visible or null","season":"All Year/Spring/Summer/Fall/Winter","sleeveLength":"N/A/Sleeveless/Short Sleeve/Long Sleeve","length":"N/A/Cropped/Mini/Midi/Full"}
 Read ALL text in the image including product titles, brand names, prices.`;
 
-export const WEATHER_OUTFIT_PROMPT = (items, weather) =>
-  `Today's weather: ${weather.summary}.
+export const WEATHER_OUTFIT_PROMPT = (items, weather, occasion) =>
+  `Today: ${weather.summary}${occasion ? ` · ${occasion}` : ""}.
 
-Wardrobe (pre-filtered for conditions, ${items.length} pieces):
-${items.map(i => `- [${i.category}] ${i.name}${i.color ? ` / ${i.color}` : ""}${i.season ? ` / ${i.season}` : ""}`).join("\n")}
+Available pieces (${items.length}, pre-filtered for today's conditions):
+${items.map(i => {
+  const sleeve = i.sleeveLength && i.sleeveLength !== "N/A" ? ` / ${i.sleeveLength}` : "";
+  const len    = i.length     && i.length     !== "N/A" ? ` / ${i.length}`     : "";
+  const mats   = (i.materials||[]).length ? ` / ${i.materials.join("+")}` : "";
+  return `- [${i.category}] ${i.name}${i.color ? ` / ${i.color}` : ""}${sleeve}${len}${mats}`;
+}).join("\n")}
 
-Suggest ONE complete outfit for today using ONLY items listed. Return ONLY valid JSON:
-{"outfit":["exact item name"],"why":"one sentence","layer":"optional layering or accessory tip or null","avoid":"what fabric or item type to skip given the weather or null"}`;
+Suggest two complete outfits using ONLY items listed above. Return ONLY valid JSON:
+{"main":["exact item name"],"mainWhy":"one sentence","backup":["exact item name"],"backupWhy":"one sentence","layer":"optional layer or accessory tip or null","avoid":"what to skip given conditions or null","gaps":["key item missing from closet for these conditions — omit if closet is fine"]}`;
 
 export const RECEIPT_PROMPT =
   `Extract clothing items from this receipt or order confirmation. Return ONLY valid JSON:

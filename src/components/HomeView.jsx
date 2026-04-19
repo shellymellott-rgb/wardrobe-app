@@ -37,7 +37,9 @@ export default function HomeView({
   items, underloved,
   outfits, loadingOutfit, generateOutfits, occasion, setOccasion,
   markWorn, evaluateItem, setView, onAddItem,
-  weatherEnabled, weatherOutfit, weatherLoading, weatherError, getWeatherOutfit,
+  weatherEnabled, weatherOutfit, weatherLoading, weatherError,
+  weatherOccasion, setWeatherOccasion, weatherSaved,
+  getWeatherOutfit, saveWeatherOutfit, resetWeatherOutfit,
 }) {
   const [inputFocused, setInputFocused] = useState(false);
   const hour = new Date().getHours();
@@ -87,7 +89,12 @@ export default function HomeView({
             weatherOutfit={weatherOutfit}
             weatherLoading={weatherLoading}
             weatherError={weatherError}
+            weatherOccasion={weatherOccasion}
+            setWeatherOccasion={setWeatherOccasion}
+            weatherSaved={weatherSaved}
             getWeatherOutfit={getWeatherOutfit}
+            saveWeatherOutfit={saveWeatherOutfit}
+            resetWeatherOutfit={resetWeatherOutfit}
           />
         </div>
       )}
