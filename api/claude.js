@@ -139,13 +139,21 @@ export default async function handler(req, res) {
     // Claude API proxy
     const apiKey = process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
 
-    // If any message contains an image block, override to a confirmed vision-capable model.
+    // If any message contains an image block, override to the same model already
+    // confirmed working elsewhere in this app (claude-sonnet-4-6).
     const hasImage = (claudeBody.messages || []).some(m =>
       Array.isArray(m.content) && m.content.some(c => c.type === "image")
     );
     if (hasImage) {
-      claudeBody.model = "claude-3-sonnet-20240229";
-      console.log('[api/claude] image content detected — model overridden to:', claudeBody.model);
+      claudeBody.model = "claude-sonnet-4-6";
+      // Log request body for image calls (replace base64 data with length summary so logs stay readable)
+      const loggable = JSON.parse(JSON.stringify(claudeBody));
+      loggable.messages.forEach(m => {
+        if (Array.isArray(m.content)) m.content.forEach(c => {
+          if (c.type === "image" && c.source?.data) c.source.data = `[base64 ${c.source.data.length} chars]`;
+        });
+      });
+      console.log('[api/claude] image request body:', JSON.stringify(loggable));
     }
 
     console.log('[api/claude] Claude call, model:', claudeBody.model, 'apiKey set:', !!apiKey);
@@ -160,6 +168,7 @@ export default async function handler(req, res) {
     });
     console.log('[api/claude] Anthropic response status:', response.status);
     const data = await response.json();
+    if (hasImage) console.log('[api/claude] image response body:', JSON.stringify(data).substring(0, 500));
     if (data.error) console.error('[api/claude] Anthropic error:', data.error);
     res.status(200).json(data);
   } catch (err) {
