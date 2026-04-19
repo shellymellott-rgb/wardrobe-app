@@ -6,16 +6,16 @@ export function readFile(file) {
   });
 }
 
-export function compressImage(dataUrl, maxW = 600) {
+export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const s = Math.min(1, maxW / img.width);
+      const s = Math.min(1, maxDim / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
-      c.width = img.width * s;
-      c.height = img.height * s;
+      c.width  = Math.round(img.width  * s);
+      c.height = Math.round(img.height * s);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      resolve(c.toDataURL("image/jpeg", 0.65));
+      resolve(c.toDataURL("image/jpeg", quality));
     };
     img.src = dataUrl;
   });
