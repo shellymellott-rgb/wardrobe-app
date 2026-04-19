@@ -1,7 +1,20 @@
 import { useState } from "react";
-import { sbDel, sbUpsert, sbLoad, sbLoadSettings } from "../supabase.js";
+import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage } from "../supabase.js";
 import { normalizeItem } from "../utils/normalizeItem.js";
 import { STORAGE_KEY, WISHLIST_KEY } from "../constants.js";
+
+// Upload any items whose imageData is still a base64 string to Supabase Storage.
+// Returns a new array with publicURLs substituted; returns the same reference if nothing changed.
+async function uploadItemImages(uid, items) {
+  let anyUploaded = false;
+  const result = await Promise.all(items.map(async item => {
+    if (!item.imageData || !item.imageData.startsWith("data:")) return item;
+    const url = await sbUploadImage(uid, String(item.id), item.imageData);
+    if (url) { anyUploaded = true; return { ...item, imageData: url }; }
+    return item; // keep base64 as fallback if upload fails
+  }));
+  return anyUploaded ? result : items;
+}
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 export function loadFromStorage() {
@@ -54,21 +67,34 @@ export function useWardrobeData(user) {
   });
   const [syncing, setSyncing] = useState(false);
 
-  function persist(newItems) {
+  async function persist(newItems) {
     const uid = user?.id;
-    const newIds = new Set(newItems.map(i => String(i.id)));
-    const removed = items.filter(i => !newIds.has(String(i.id)));
-    const upserted = newItems.filter(i => {
-      const old = items.find(j => String(j.id) === String(i.id));
-      return !old || JSON.stringify(old) !== JSON.stringify(i);
-    });
+    const prevItems = items; // capture before any state update for diff later
+
+    // Optimistic update immediately — UI sees new items at once (may briefly show base64)
     setItems(newItems);
     saveToStorage(newItems);
-    if (uid) {
-      removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
-      if (upserted.length)
-        sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+
+    if (!uid) return;
+
+    // Upload any base64 images to Storage; replace with public URLs
+    const finalItems = await uploadItemImages(uid, newItems);
+    if (finalItems !== newItems) {
+      // Some images were uploaded — update state + cache with the URL versions
+      setItems(finalItems);
+      saveToStorage(finalItems);
     }
+
+    // Diff against pre-persist snapshot to decide what to upsert/delete
+    const newIds = new Set(finalItems.map(i => String(i.id)));
+    const removed = prevItems.filter(i => !newIds.has(String(i.id)));
+    const upserted = finalItems.filter(i => {
+      const old = prevItems.find(j => String(j.id) === String(i.id));
+      return !old || JSON.stringify(old) !== JSON.stringify(i);
+    });
+    removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
+    if (upserted.length)
+      sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
   }
 
   function persistWishlist(w) {
@@ -111,7 +137,27 @@ export function useWardrobeData(user) {
     if (dbSettings) syncSettingsFrom(dbSettings);
 
     if (dbItems !== null) {
-      const normalized = dbItems.map(normalizeItem).filter(Boolean);
+      let normalized = dbItems.map(normalizeItem).filter(Boolean);
+
+      // ── Migrate base64 images to Supabase Storage ──────────────────────────
+      // Any item still storing a full base64 string gets uploaded once here.
+      // After this point all items in Supabase will have public URLs.
+      const needsMigration = normalized.filter(i => i.imageData?.startsWith("data:"));
+      if (needsMigration.length > 0) {
+        console.log("[storage] migrating", needsMigration.length, "base64 image(s) to Supabase Storage…");
+        const migrated = await Promise.all(needsMigration.map(async item => {
+          const url = await sbUploadImage(uid, String(item.id), item.imageData);
+          return url ? { ...item, imageData: url } : item;
+        }));
+        const migratedMap = new Map(migrated.map(i => [String(i.id), i]));
+        normalized = normalized.map(i => migratedMap.get(String(i.id)) || i);
+        // Write migrated items back to Supabase so the base64 blobs are gone
+        const uploaded = migrated.filter(i => !i.imageData?.startsWith("data:"));
+        if (uploaded.length)
+          sbUpsert("wardrobe_items", uploaded.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+        console.log("[storage] migration complete —", uploaded.length, "image(s) now stored as URLs");
+      }
+
       const sbIds = new Set(normalized.map(i => String(i.id)));
       const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
       const merged = normalized.length > 0 ? [...normalized, ...localOnly] : localOnly;
