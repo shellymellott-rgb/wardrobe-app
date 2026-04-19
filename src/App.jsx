@@ -14,6 +14,7 @@ import { useClaudeStyling } from "./hooks/useClaudeStyling.js";
 
 import LoginScreen from "./components/LoginScreen.jsx";
 import CropModal from "./components/CropModal.jsx";
+import HomeView from "./components/HomeView.jsx";
 import ClosetView from "./components/ClosetView.jsx";
 import AddItemView from "./components/AddItemView.jsx";
 import OutfitsView from "./components/OutfitsView.jsx";
@@ -62,7 +63,7 @@ export default function WardrobeApp() {
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const [view, setView] = useState("closet");
+  const [view, setView] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
 
   // ── Closet filters ──────────────────────────────────────────────────────────
@@ -232,11 +233,12 @@ export default function WardrobeApp() {
   const filtered = wardrobe.items.filter(i => {
     if (activeCategory==="To Go") return i.status==="donate"||i.status==="sell";
     if (activeCategory!=="All" && i.category!==activeCategory) return false;
-    if (activeFilters.color && i.color!==activeFilters.color) return false;
-    if (activeFilters.season && i.season!==activeFilters.season) return false;
-    if (activeFilters.material && !(i.materials||[]).includes(activeFilters.material)) return false;
-    if (activeFilters.brand && i.brand!==activeFilters.brand) return false;
-    if (activeFilters.tag && !(i.tags||[]).includes(activeFilters.tag)) return false;
+    const fv = (key) => { const v = activeFilters[key]; return Array.isArray(v) ? v : (v ? [v] : []); };
+    if (fv("color").length && !fv("color").includes(i.color)) return false;
+    if (fv("season").length && !fv("season").includes(i.season)) return false;
+    if (fv("material").length && !fv("material").some(m=>(i.materials||[]).includes(m))) return false;
+    if (fv("brand").length && !fv("brand").includes(i.brand)) return false;
+    if (fv("tag").length && !fv("tag").some(t=>(i.tags||[]).includes(t))) return false;
     return true;
   });
   const underloved = wardrobe.items.filter(i => !i.wornDates?.length);
@@ -270,15 +272,28 @@ export default function WardrobeApp() {
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginTop:18,fontFamily:"'DM Sans', system-ui, sans-serif",flexWrap:"wrap"}}>
-          {navBtn("Closet", view==="closet", ()=>setView("closet"))}
+          {navBtn("Home",    view==="home",    ()=>setView("home"))}
+          {navBtn("Closet",  view==="closet",  ()=>setView("closet"))}
           {navBtn("Outfits", view==="outfits", ()=>setView("outfits"))}
-          {navBtn("Wishlist", view==="wishlist", ()=>setView("wishlist"))}
-          {navBtn("Chat", view==="chat", ()=>setView("chat"))}
-          {navBtn("+ Add", view==="add", ()=>{setView("add");setAddForm(emptyForm());})}
+          {navBtn("Wishlist",view==="wishlist",()=>setView("wishlist"))}
         </div>
       </div>
 
       {/* Views */}
+      {view==="home" && (
+        <HomeView
+          items={wardrobe.items}
+          underloved={underloved}
+          outfits={styling.outfits}
+          loadingOutfit={styling.loadingOutfit}
+          generateOutfits={styling.generateOutfits}
+          occasion={styling.occasion} setOccasion={styling.setOccasion}
+          markWorn={markWorn}
+          evaluateItem={evaluateItem}
+          setView={setView}
+        />
+      )}
+
       {view==="closet" && (
         <ClosetView
           items={wardrobe.items} filtered={filtered}
@@ -371,6 +386,23 @@ export default function WardrobeApp() {
           brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories}
           stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
         />
+      )}
+
+      {/* FAB — Add Item */}
+      {!cropSrc && view!=="add" && !selectedItem && !showSettings && !styling.itemChatModal && (
+        <button
+          onClick={()=>{setView("add");setAddForm(emptyForm());}}
+          style={{
+            position:"fixed",bottom:28,right:24,
+            width:52,height:52,borderRadius:"50%",
+            background:"#e8e2d8",color:"#111",
+            border:"none",fontSize:28,fontWeight:300,lineHeight:1,
+            cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+            boxShadow:"0 4px 24px rgba(0,0,0,0.5)",zIndex:50,
+            fontFamily:"'DM Sans',system-ui,sans-serif",
+          }}
+          aria-label="Add item"
+        >+</button>
       )}
 
       {styling.itemChatModal && (
