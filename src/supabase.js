@@ -13,59 +13,26 @@ if (!SB_URL || !SB_KEY) {
 
 export const supabase = createClient(SB_URL, SB_KEY);
 
-const SB_HDR = {
-  apikey: SB_KEY,
-  Authorization: `Bearer ${SB_KEY}`,
-  "Content-Type": "application/json",
-};
-
 export async function sbUpsert(table, rows) {
   if (!rows.length) return;
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
-      method: "POST",
-      headers: { ...SB_HDR, Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(rows),
-    });
-    if (!r.ok) {
-      const txt = await r.text();
-      console.error(`[sb] upsert ${table} FAILED ${r.status}:`, txt);
-    }
-  } catch (e) {
-    console.error("[sb] upsert error:", e.message);
-  }
+  const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
+  if (error) console.error(`[sb] upsert ${table} FAILED:`, error.message);
 }
 
 export async function sbDel(table, id, uid) {
-  try {
-    const r = await fetch(
-      `${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}&user_id=eq.${encodeURIComponent(uid)}`,
-      { method: "DELETE", headers: { ...SB_HDR, Prefer: "return=minimal" } }
-    );
-    if (!r.ok) console.error(`[sb] delete ${table} FAILED ${r.status}`);
-  } catch (e) {
-    console.error("[sb] delete error:", e.message);
-  }
+  const { error } = await supabase.from(table).delete().eq("id", String(id)).eq("user_id", uid);
+  if (error) console.error(`[sb] delete ${table} FAILED:`, error.message);
 }
 
 export async function sbLoad(table, uid) {
-  const url = `${SB_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&id=neq.__settings__&select=data&order=created_at.asc`;
-  console.log("[sbLoad] fetching", table, "uid=", uid, "url=", url);
-  try {
-    const res = await fetch(url, { headers: SB_HDR });
-    console.log("[sbLoad]", table, "response status=", res.status);
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("[sbLoad]", table, "FAILED:", txt);
-      return null;
-    }
-    const rows = await res.json();
-    console.log("[sbLoad]", table, "rows returned=", rows.length);
-    return Array.isArray(rows) ? rows.map(r => r.data) : null;
-  } catch (e) {
-    console.error("[sbLoad]", table, "exception:", e.message);
-    return null;
-  }
+  const { data, error } = await supabase
+    .from(table)
+    .select("data")
+    .eq("user_id", uid)
+    .neq("id", "__settings__")
+    .order("created_at", { ascending: true });
+  if (error) { console.error(`[sb] load ${table} FAILED:`, error.message); return null; }
+  return Array.isArray(data) ? data.map(r => r.data) : null;
 }
 
 export async function sbSaveSettings(settings, uid) {
@@ -73,15 +40,12 @@ export async function sbSaveSettings(settings, uid) {
 }
 
 export async function sbLoadSettings(uid) {
-  try {
-    const res = await fetch(
-      `${SB_URL}/rest/v1/wardrobe_items?id=eq.__settings__&user_id=eq.${encodeURIComponent(uid)}&select=data`,
-      { headers: SB_HDR }
-    );
-    if (!res.ok) return null;
-    const rows = await res.json();
-    return rows[0]?.data ?? null;
-  } catch {
-    return null;
-  }
+  const { data, error } = await supabase
+    .from("wardrobe_items")
+    .select("data")
+    .eq("id", "__settings__")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (error) { console.error("[sb] loadSettings FAILED:", error.message); return null; }
+  return data?.data ?? null;
 }

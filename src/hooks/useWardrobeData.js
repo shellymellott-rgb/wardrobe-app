@@ -74,15 +74,12 @@ export function useWardrobeData(user) {
    * Calls `syncSettingsFrom` (from useSettings) with whatever settings row we find.
    */
   async function syncFromSupabase(uid, syncSettingsFrom) {
-    console.log("[SYNC] syncFromSupabase called, uid=", uid);
-    if (!uid) { console.log("[SYNC] uid is falsy, returning early"); return; }
-    console.log("[SYNC] firing sbLoad for wardrobe_items...");
+    if (!uid) return;
     const [dbItems, dbWish, dbSettings] = await Promise.all([
       sbLoad("wardrobe_items", uid),
       sbLoad("wardrobe_wishlist", uid),
       sbLoadSettings(uid),
     ]);
-    console.log("[SYNC] sbLoad results: items=", Array.isArray(dbItems) ? dbItems.length : dbItems, "wish=", Array.isArray(dbWish) ? dbWish.length : dbWish, "settings=", dbSettings ? "present" : "null");
 
     if (dbSettings) syncSettingsFrom(dbSettings);
 
