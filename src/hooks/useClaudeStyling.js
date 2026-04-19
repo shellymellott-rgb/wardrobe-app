@@ -43,18 +43,68 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
 
   async function analyzeInspo(e) {
     const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+
+    console.log("[inspo] file selected:", file.name, "| type:", file.type, "| size:", file.size, "bytes");
+
     const dataUrl = await readFile(file);
+    console.log("[inspo] readFile done | dataUrl length:", dataUrl?.length, "| prefix:", dataUrl?.substring(0, 60));
+
     setInspoImage(dataUrl); setInspoResult(null); setLoadingInspo(true);
     try {
       const base64 = dataUrl.split(",")[1];
-      const text = await callClaude(
-        buildStyleSystem(),
-        [{ type:"image", source:{ type:"base64", media_type:file.type||"image/jpeg", data:base64 } }, { type:"text", text:INSPO_PROMPT(items.map(stripForClaude)) }],
-        800
-      );
-      setInspoResult(parseJsonObject(text));
-    } catch {
-      setInspoResult({ outfitName:"Inspiration Look", pieces:[], why:"Could not analyze. Try again.", tip:"", gaps:[] });
+      const mediaType = file.type || "image/jpeg";
+      console.log("[inspo] base64 length:", base64?.length, "| mediaType:", mediaType);
+
+      // Fetch directly (not via callClaude) to expose the raw response for debugging
+      const reqBody = {
+        model: "claude-sonnet-4-6",
+        max_tokens: 800,
+        system: buildStyleSystem(),
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+            { type: "text",  text: INSPO_PROMPT(items.map(stripForClaude)) },
+          ],
+        }],
+      };
+      console.log("[inspo] sending to /api/claude | model:", reqBody.model, "| messages[0].content types:", reqBody.messages[0].content.map(c => c.type));
+
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reqBody),
+      });
+      console.log("[inspo] HTTP status:", res.status);
+
+      const rawData = await res.json();
+      console.log("[inspo] raw API response:", JSON.stringify(rawData).substring(0, 600));
+
+      if (rawData.error) {
+        console.error("[inspo] API error object:", rawData.error);
+      }
+
+      const text = rawData.content?.[0]?.text || "";
+      console.log("[inspo] extracted text length:", text.length, "| preview:", text.substring(0, 200));
+
+      if (!text) {
+        console.warn("[inspo] empty text — likely an API error above");
+      }
+
+      const parsed = parseJsonObject(text);
+      console.log("[inspo] parseJsonObject result:", parsed);
+
+      setInspoResult(parsed);
+    } catch (err) {
+      console.error("[inspo] caught error:", err.message);
+      console.error("[inspo] stack:", err.stack);
+      setInspoResult({
+        outfitName: "Inspiration Look",
+        pieces: [],
+        why: err.message || "Unknown error — check console",
+        tip: "",
+        gaps: [],
+      });
     }
     setLoadingInspo(false);
   }
