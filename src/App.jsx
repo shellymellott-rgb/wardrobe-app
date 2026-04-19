@@ -159,12 +159,15 @@ export default function WardrobeApp() {
   }
 
   // ── Saved outfits ───────────────────────────────────────────────────────────
-  const [savedOutfits, setSavedOutfits] = useState([]);
+  const [savedOutfits, setSavedOutfits] = useState(null);   // null = not yet loaded
+  const [outfitsLoading, setOutfitsLoading] = useState(false);
 
   async function loadSavedOutfits() {
     if (!user?.id) return;
+    setOutfitsLoading(true);
     const data = await sbLoadOutfits(user.id);
-    if (data) setSavedOutfits(data);
+    setSavedOutfits(data ?? []);
+    setOutfitsLoading(false);
   }
 
   useEffect(() => { loadSavedOutfits(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -433,7 +436,7 @@ export default function WardrobeApp() {
           setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
           loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
           underloved={underloved} markWorn={markWorn} user={user}
-          savedOutfits={savedOutfits} onOutfitSaved={loadSavedOutfits}
+          savedOutfits={savedOutfits} outfitsLoading={outfitsLoading} onOutfitSaved={loadSavedOutfits}
           wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}
           setChatInput={styling.setChatInput} setView={setView}
         />
