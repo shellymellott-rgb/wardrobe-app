@@ -153,22 +153,31 @@ export function useWardrobeData(user) {
     if (!uid) return;
     setSyncing(true);
     const t0 = performance.now();
+    console.log(`[sync] START uid=${uid.slice(0,8)}…`);
 
     // ── Timed fetch — all three in parallel ───────────────────────────────────
+    // Each timed() captures its own start so we see individual query times
+    // even though they run concurrently.
     const timed = (label, promise) => {
       const ts = performance.now();
+      console.log(`[sync]   → ${label} fetch started`);
       return promise.then(r => {
-        console.log(`[sync] ${label}: ${(performance.now() - ts).toFixed(0)}ms`, Array.isArray(r) ? `(${r.length} rows)` : "");
+        const dur = (performance.now() - ts).toFixed(0);
+        const info = Array.isArray(r) ? `${r.length} rows` : r === null ? "null (error)" : "ok";
+        console.log(`[sync]   ← ${label}: ${dur}ms (${info})`);
         return r;
+      }).catch(e => {
+        console.log(`[sync]   ✗ ${label}: ${(performance.now()-ts).toFixed(0)}ms FAILED:`, e.message);
+        return null;
       });
     };
 
     const [dbItems, dbWish, dbSettings] = await Promise.all([
-      timed("wardrobe_items", sbLoad("wardrobe_items", uid)),
+      timed("wardrobe_items",    sbLoad("wardrobe_items", uid)),
       timed("wardrobe_wishlist", sbLoad("wardrobe_wishlist", uid)),
-      timed("settings", sbLoadSettings(uid)),
+      timed("settings",          sbLoadSettings(uid)),
     ]);
-    console.log(`[sync] parallel fetch total: ${(performance.now() - t0).toFixed(0)}ms`);
+    console.log(`[sync] all fetches done: ${(performance.now() - t0).toFixed(0)}ms total`);
 
     if (dbSettings) syncSettingsFrom(dbSettings);
 
@@ -229,7 +238,7 @@ export function useWardrobeData(user) {
       }
     }
 
-    console.log(`[sync] total syncFromSupabase: ${(performance.now() - t0).toFixed(0)}ms`);
+    console.log(`[sync] DONE — total: ${(performance.now() - t0).toFixed(0)}ms`);
     setSyncing(false);
   }
 

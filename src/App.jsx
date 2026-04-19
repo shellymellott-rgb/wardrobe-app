@@ -41,6 +41,10 @@ function getCachedUserId() {
   } catch { return null; }
 }
 
+// App-wide start time so every log shows ms-since-mount, not absolute ms
+const APP_START = performance.now();
+const ts = () => `+${(performance.now() - APP_START).toFixed(0)}ms`;
+
 export default function WardrobeApp() {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
@@ -58,35 +62,44 @@ export default function WardrobeApp() {
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
   useEffect(() => {
-    // Fire data fetch immediately using the cached session — don't wait for
-    // getSession() which may make a network call to refresh the token.
+    console.log(`[auth] ${ts()} useEffect mount`);
+
+    // ── Early sync: start data fetch NOW using cached session ─────────────────
+    // getCachedUserId() reads the Supabase token directly from localStorage
+    // so we don't have to wait for getSession() to make its network call.
     const cachedUid = getCachedUserId();
+    console.log(`[auth] ${ts()} getCachedUserId →`, cachedUid ?? "null (no cached session — waiting for getSession)");
     if (cachedUid) {
-      console.log("[auth] early sync start with cached uid:", cachedUid);
       wardrobe.syncFromSupabase(cachedUid, settings.syncSettingsFrom);
     }
 
-    // getSession() runs in parallel — confirms/refreshes the session.
+    // ── getSession: may make a network call to refresh an expired token ───────
+    const tGs = performance.now();
+    console.log(`[auth] ${ts()} calling getSession()…`);
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log(`[auth] ${ts()} getSession resolved — took ${(performance.now() - tGs).toFixed(0)}ms — user: ${session?.user?.id ?? "null"}`);
       const u = session?.user ?? null;
       setUser(u);
       setAuthLoading(false);
-      // Only re-sync if the confirmed user differs from the cached one
-      // (e.g. token was refreshed and uid changed, or user was logged out)
+      // Re-sync only if the user is different from the one we already synced with
       if (u && u.id !== cachedUid) {
-        console.log("[auth] uid changed after getSession — re-syncing");
+        console.log(`[auth] ${ts()} uid changed after getSession — re-syncing`);
         wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
       } else if (!u && cachedUid) {
-        console.log("[auth] cached session invalid — clearing items");
+        console.log(`[auth] ${ts()} cached session was invalid — clearing items`);
         wardrobe.setItems([]);
       }
     });
 
-    // onAuthStateChange covers OAuth redirect (SIGNED_IN) and token refresh.
+    // onAuthStateChange fires for OAuth redirect (SIGNED_IN) and token refresh.
+    // INITIAL_SESSION fires synchronously on init — guard against double-sync
+    // if cachedUid already kicked off the same sync above.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null;
+      console.log(`[auth] ${ts()} onAuthStateChange event="${event}" user=${u?.id ?? "null"}`);
       setUser(u);
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && u) {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && u && u.id !== cachedUid) {
+        console.log(`[auth] ${ts()} syncing from onAuthStateChange (${event})`);
         wardrobe.syncFromSupabase(u.id, settings.syncSettingsFrom);
       }
     });

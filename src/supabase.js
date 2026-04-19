@@ -66,14 +66,22 @@ export async function sbDel(table, id, uid) {
 }
 
 export async function sbLoad(table, uid) {
+  const t = performance.now();
   const { data, error } = await supabase
     .from(table)
     .select("data")
     .eq("user_id", uid)
     .neq("id", "__settings__")
     .order("created_at", { ascending: true });
-  if (error) { console.error(`[sb] load ${table} FAILED:`, error.message); return null; }
-  return Array.isArray(data) ? data.map(r => r.data) : null;
+  const dur = (performance.now() - t).toFixed(0);
+  if (error) {
+    console.error(`[sb] ${table} FAILED (${dur}ms):`, error.message);
+    return null;
+  }
+  const rows = Array.isArray(data) ? data : [];
+  const payloadKB = Math.round(JSON.stringify(rows).length * 0.75 / 1024);
+  console.log(`[sb] ${table}: ${dur}ms — ${rows.length} rows — ~${payloadKB}KB payload`);
+  return rows.map(r => r.data);
 }
 
 export async function sbSaveSettings(settings, uid) {
