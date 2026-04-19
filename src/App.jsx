@@ -291,6 +291,7 @@ export default function WardrobeApp() {
           markWorn={markWorn}
           evaluateItem={evaluateItem}
           setView={setView}
+          onAddItem={()=>{setView("add");setAddForm(emptyForm());}}
         />
       )}
 
