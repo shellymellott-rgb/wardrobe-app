@@ -138,6 +138,16 @@ export default async function handler(req, res) {
     }
     // Claude API proxy
     const apiKey = process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+
+    // If any message contains an image block, override to a confirmed vision-capable model.
+    const hasImage = (claudeBody.messages || []).some(m =>
+      Array.isArray(m.content) && m.content.some(c => c.type === "image")
+    );
+    if (hasImage) {
+      claudeBody.model = "claude-3-sonnet-20240229";
+      console.log('[api/claude] image content detected — model overridden to:', claudeBody.model);
+    }
+
     console.log('[api/claude] Claude call, model:', claudeBody.model, 'apiKey set:', !!apiKey);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
