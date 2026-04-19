@@ -84,20 +84,14 @@ export function useWardrobeData(user) {
     if (dbSettings) syncSettingsFrom(dbSettings);
 
     if (dbItems !== null) {
-      const normalized = dbItems.map(normalizeItem);
-      if (normalized.length > 0) {
-        const sbIds = new Set(normalized.map(i => String(i.id)));
-        const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
-        const merged = [...normalized, ...localOnly];
-        if (localOnly.length)
-          sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: i })));
-        setItems(merged);
-        saveToStorage(merged);
-      } else {
-        const loc = loadFromStorage().map(normalizeItem);
-        if (loc.length)
-          sbUpsert("wardrobe_items", loc.map(i => ({ id: String(i.id), user_id: uid, data: i })));
-      }
+      const normalized = dbItems.map(normalizeItem).filter(Boolean);
+      const sbIds = new Set(normalized.map(i => String(i.id)));
+      const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
+      const merged = normalized.length > 0 ? [...normalized, ...localOnly] : localOnly;
+      setItems(merged);
+      saveToStorage(merged);
+      if (normalized.length > 0 && localOnly.length)
+        sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: i })));
     }
 
     if (dbWish !== null) {
