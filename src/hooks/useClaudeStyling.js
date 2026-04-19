@@ -3,7 +3,7 @@ import { callClaude } from "../utils/callClaude.js";
 import { parseJsonObject, parseJsonArray } from "../utils/parseJson.js";
 import { OUTFIT_PROMPT, EVALUATE_PROMPT, INSPO_PROMPT } from "../utils/prompts.js";
 import { buildChatSystem, itemFocusCtx, buildContextHistory, stripForClaude } from "../utils/wardrobeContext.js";
-import { readFile } from "../utils/imageUtils.js";
+import { readFile, compressImage } from "../utils/imageUtils.js";
 
 export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote }) {
 
