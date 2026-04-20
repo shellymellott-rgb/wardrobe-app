@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
+import ImageEditor from "./ImageEditor.jsx";
 
 export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
   const showLength = ["Bottoms","Dresses"].includes(form.category);
   const [dragOver, setDragOver] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
 
   function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); setDragOver(true); }
   function handleDragLeave(e) { e.stopPropagation(); setDragOver(false); }
@@ -53,7 +55,22 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
             </div>
         }
       </div>
-      {form.imageData && <button onClick={form.originalImageData && onRecrop ? onRecrop : onImageClick} style={{...ghostBtn,color:"#666",fontSize:10,letterSpacing:1,marginBottom:12,display:"block"}}>↺ Change / Recrop</button>}
+      {form.imageData && (
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
+          <button onClick={form.originalImageData && onRecrop ? onRecrop : onImageClick} style={{...ghostBtn,color:"#666",fontSize:10,letterSpacing:1}}>↺ Change / Recrop</button>
+          <button onClick={()=>setShowEditor(true)} style={{...ghostBtn,color:"#888",fontSize:10,letterSpacing:1}}>✦ Edit Photo</button>
+        </div>
+      )}
+      {showEditor && (
+        <ImageEditor
+          imageData={form.imageData}
+          onApply={(full, thumb) => {
+            setForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
+            setShowEditor(false);
+          }}
+          onClose={() => setShowEditor(false)}
+        />
+      )}
 
       <label style={labelStyle}>Name *</label>
       <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Black Wide-Leg Trousers" style={inputStyle}/>
