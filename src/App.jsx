@@ -101,8 +101,11 @@ export default function WardrobeApp() {
   useEffect(() => {
     if (!user) return;
     const onVisible = () => {
-      if (document.visibilityState === "visible")
+      if (document.visibilityState === "visible") {
+        const lastPersist = parseInt(localStorage.getItem("lastPersistAt") || "0");
+        if (Date.now() - lastPersist < 30000) return;
         wardrobe.syncFromSupabase(user.id, settings.syncSettingsFrom);
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -343,6 +346,7 @@ export default function WardrobeApp() {
     );
     if (ef.brand) wardrobe.addBrand(ef.brand);
     wardrobe.persist(updated);
+    localStorage.setItem("lastPersistAt", Date.now().toString());
     setSelectedItem(updated.find(i=>i.id===ef.id));
     setEditing(false);
   }
