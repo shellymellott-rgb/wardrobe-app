@@ -29,8 +29,8 @@ export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
  */
 export async function generateImageVersions(dataUrl) {
   const [full, thumb] = await Promise.all([
-    compressImage(dataUrl, 600, 0.7),
-    compressImage(dataUrl, 200, 0.4),
+    compressImage(dataUrl, 600, 0.85),
+    compressImage(dataUrl, 200, 0.65),
   ]);
   return { full, thumb };
 }
