@@ -49,6 +49,17 @@ export async function sbUploadImage(userId, itemId, dataUrl, suffix = "") {
   }
 }
 
+export async function sbDeleteImage(userId, itemId) {
+  const paths = [
+    `${userId}/${itemId}.jpg`,
+    `${userId}/${itemId}.png`,
+    `${userId}/${itemId}_thumb.jpg`,
+    `${userId}/${itemId}_thumb.png`,
+  ];
+  const { error } = await supabase.storage.from("wardrobe-images").remove(paths);
+  if (error) console.error("[sb] deleteImage FAILED:", error.message);
+}
+
 export async function sbUpsert(table, rows) {
   if (!rows.length) return;
   const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
