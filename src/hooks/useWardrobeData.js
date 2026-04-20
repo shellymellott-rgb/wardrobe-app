@@ -62,22 +62,42 @@ export function loadFromStorage() {
   catch (e) { console.error("[storage] loadFromStorage parse error:", e.message); return []; }
 }
 
+function isBase64(s) { return typeof s === "string" && s.startsWith("data:"); }
+
 export function saveToStorage(items) {
+  // Level 1 — full save including all images
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    return;
   } catch (e) {
-    if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
-      // Images are now Storage URLs (tiny strings), so quota issues should be rare.
-      // Fallback: save without any remaining base64 blobs.
-      try {
-        const stripped = items.map(({ originalImageData, outfitPhotos, ...rest }) => rest);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
-      } catch (e2) {
-        console.error("[storage] saveToStorage failed:", e2.message);
-      }
-    } else {
+    if (e.name !== "QuotaExceededError" && e.code !== 22 && e.code !== 1014) {
       console.error("[storage] saveToStorage error:", e.message);
+      return;
     }
+  }
+
+  // Level 2 — drop originalImageData + outfitPhotos (largest fields)
+  try {
+    const l2 = items.map(({ originalImageData, outfitPhotos, ...rest }) => rest);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(l2));
+    console.warn("[storage] quota hit — saved without originalImageData/outfitPhotos");
+    return;
+  } catch {}
+
+  // Level 3 — drop base64 imageData/imageThumb but KEEP Storage URLs (tiny strings)
+  // This guarantees item metadata is always written, even on a nearly-full device.
+  try {
+    const l3 = items.map(i => ({
+      ...i,
+      imageData:         isBase64(i.imageData)  ? null : i.imageData,
+      imageThumb:        isBase64(i.imageThumb) ? null : i.imageThumb,
+      originalImageData: null,
+      outfitPhotos:      null,
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(l3));
+    console.warn("[storage] quota hit — saved metadata + URLs only (base64 dropped)");
+  } catch (e3) {
+    console.error("[storage] saveToStorage failed at all levels:", e3.message);
   }
 }
 
