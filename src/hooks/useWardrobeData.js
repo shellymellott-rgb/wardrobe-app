@@ -11,11 +11,16 @@ function stripImages({ imageData, imageThumb, originalImageData, outfitPhotos, i
 /**
  * For any item whose imageData/imageThumb is still a base64 data URL,
  * upload it to Supabase Storage and replace with the permanent public URL.
- * Items that already have URLs (or no image) are returned unchanged.
- * Returns the same array reference if nothing was uploaded.
+ * If an upload fails, the base64 is preserved in the returned item so
+ * localStorage retains the image — Storage is best-effort, not required.
+ * Returns the same array reference only when there was nothing to upload.
  */
 async function uploadItemImages(uid, items) {
-  let changed = false;
+  const needsWork = items.some(i =>
+    i.imageData?.startsWith("data:") || i.imageThumb?.startsWith("data:")
+  );
+  if (!needsWork) return items;
+
   const result = await Promise.all(items.map(async item => {
     const needsFull  = item.imageData?.startsWith("data:");
     const needsThumb = item.imageThumb?.startsWith("data:");
@@ -25,16 +30,25 @@ async function uploadItemImages(uid, items) {
 
     if (needsFull) {
       const url = await sbUploadImage(uid, String(item.id), item.imageData, "");
-      if (url) { updated.imageData = url; changed = true; }
+      if (url) {
+        updated.imageData = url;
+      } else {
+        console.error(`[persist] Storage upload failed for "${item.name}" — image kept in localStorage`);
+        // updated.imageData remains as base64 — localStorage will hold it
+      }
     }
     if (needsThumb) {
       const url = await sbUploadImage(uid, String(item.id), item.imageThumb, "_thumb");
-      if (url) { updated.imageThumb = url; changed = true; }
+      if (url) {
+        updated.imageThumb = url;
+      } else {
+        console.error(`[persist] Storage thumb upload failed for "${item.name}"`);
+      }
     }
 
     return updated;
   }));
-  return changed ? result : items;
+  return result;
 }
 
 // ── localStorage helpers ────────────────────────────────────────────────────
@@ -96,9 +110,13 @@ export function useWardrobeData(user) {
     if (!uid) return;
 
     // Upload any base64 images to Supabase Storage; replace with permanent URLs.
-    // This runs after the optimistic update so the UI doesn't wait on uploads.
+    // uploadItemImages always returns a new array when there was work to do.
+    // On upload failure, the returned items still carry the original base64 —
+    // we save that to localStorage so the image is never silently lost.
     const finalItems = await uploadItemImages(uid, newItems);
     if (finalItems !== newItems) {
+      // uploadItemImages did work — save result (URLs where upload succeeded,
+      // base64 where it failed, so localStorage always has the image)
       setItems(finalItems);
       saveToStorage(finalItems);
     }
