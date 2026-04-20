@@ -94,7 +94,7 @@ export function useWardrobeData(user) {
     if (uid) {
       removed.forEach(i => sbDel("wardrobe_wishlist", i.id, uid));
       if (upserted.length)
-        sbUpsert("wardrobe_wishlist", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+        sbUpsert("wardrobe_wishlist", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
     }
   }
 
@@ -172,7 +172,7 @@ export function useWardrobeData(user) {
       } else {
         const loc = loadWishlistFromStorage();
         if (loc.length)
-          sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+          sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
       }
     }
 

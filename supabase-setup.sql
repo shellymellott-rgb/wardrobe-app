@@ -77,3 +77,26 @@ create policy "users own their outfit items"
   on outfit_items for all
   using  (exists (select 1 from outfits where outfits.id = outfit_id and outfits.user_id = auth.uid()::text))
   with check (exists (select 1 from outfits where outfits.id = outfit_id and outfits.user_id = auth.uid()::text));
+
+-- ── One-time data cleanup: strip base64 image blobs from existing rows ────────
+-- Run this ONCE in the Supabase SQL Editor to remove base64 imageData that was
+-- written before the client-side stripping code was deployed.  Safe to re-run —
+-- the `-` operator is a no-op when the key is already absent.
+--
+-- Before: rows can be 50–500 KB each (full base64 JPEG/PNG inside JSONB)
+-- After:  rows are < 1 KB each (metadata only); wardrobe_items query goes from
+--         10+ seconds to < 500 ms.
+
+UPDATE wardrobe_items
+SET data = data - 'imageData' - 'imageThumb' - 'originalImageData' - 'outfitPhotos' - 'imageMigrated'
+WHERE data ?| array['imageData','imageThumb','originalImageData','outfitPhotos','imageMigrated'];
+
+UPDATE wardrobe_wishlist
+SET data = data - 'imageData' - 'imageThumb' - 'originalImageData' - 'outfitPhotos'
+WHERE data ?| array['imageData','imageThumb','originalImageData','outfitPhotos'];
+
+-- Confirm: check average row size after cleanup (should be < 1 KB)
+-- SELECT round(avg(octet_length(data::text)) / 1024.0, 2) AS avg_kb,
+--        round(max(octet_length(data::text)) / 1024.0, 2) AS max_kb,
+--        count(*) AS rows
+-- FROM wardrobe_items;
