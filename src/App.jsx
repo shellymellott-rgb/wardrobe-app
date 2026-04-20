@@ -291,11 +291,14 @@ export default function WardrobeApp() {
   }
 
   async function onCropDone(cropped) {
-    // Compress immediately: full (600px/0.7) for detail view, thumb (200px/0.4) for grid
+    console.log(`[crop] onCropDone: target="${cropTarget}", cropped size=${Math.round(cropped.length/1024)}KB`);
+    // Compress immediately: full for detail view, thumb for grid
     const { full, thumb } = await generateImageVersions(cropped);
+    console.log(`[crop] generated: full=${Math.round(full.length/1024)}KB, thumb=${Math.round(thumb.length/1024)}KB`);
     if (cropTarget === "add") setAddForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
     else if (cropTarget === "edit") setEditForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
     else setReceiptImages(prev => ({ ...prev, [cropTarget]: full })); // receipts: just full
+    console.log(`[crop] images set on form for target="${cropTarget}"`);
     setCropSrc(null); setCropTarget(null); setSavedOriginalImageData(null);
   }
 

@@ -21,6 +21,8 @@ export const supabase = createClient(SB_URL, SB_KEY);
  * Returns the public URL on success, null on failure.
  */
 export async function sbUploadImage(userId, itemId, dataUrl, suffix = "") {
+  const path = `${userId}/${itemId}${suffix}`;
+  console.log(`[sb] uploadImage START: ${path} (${Math.round(dataUrl.length / 1024)}KB base64)`);
   try {
     const [header, base64] = dataUrl.split(",");
     const mimeMatch = header.match(/data:([^;]+)/);
@@ -30,15 +32,19 @@ export async function sbUploadImage(userId, itemId, dataUrl, suffix = "") {
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const blob = new Blob([bytes], { type: mime });
     const ext  = mime.includes("png") ? "png" : "jpg";
-    const path = `${userId}/${itemId}${suffix}.${ext}`;
+    const fullPath = `${path}.${ext}`;
     const { error } = await supabase.storage
       .from("wardrobe-images")
-      .upload(path, blob, { upsert: true, contentType: mime });
-    if (error) { console.error("[sb] uploadImage FAILED:", error.message); return null; }
-    const { data } = supabase.storage.from("wardrobe-images").getPublicUrl(path);
+      .upload(fullPath, blob, { upsert: true, contentType: mime });
+    if (error) {
+      console.error(`[sb] uploadImage FAILED for ${fullPath}:`, error.message, "| status:", error.statusCode, "| hint:", error.hint || "none");
+      return null;
+    }
+    const { data } = supabase.storage.from("wardrobe-images").getPublicUrl(fullPath);
+    console.log(`[sb] uploadImage OK: ${fullPath} → ${data.publicUrl.substring(0, 80)}...`);
     return data.publicUrl;
   } catch (e) {
-    console.error("[sb] uploadImage error:", e.message);
+    console.error(`[sb] uploadImage ERROR for ${path}:`, e.message);
     return null;
   }
 }

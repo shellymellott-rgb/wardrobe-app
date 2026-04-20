@@ -11,6 +11,7 @@ export const PRESET_TAGS = {
 
 export const STORAGE_KEY = "wardrobe-v3";
 export const WISHLIST_KEY = "wardrobe-wishlist";
+export const IMAGE_CACHE_KEY = "wardrobe-image-cache";
 
 export const DEFAULT_STYLE_SYSTEM =
   `You are Shelly's personal stylist. She works from home and her life is real-life elevated — errands, boat trips, casual dining out, travel. Not corporate, ever. Style: polished but not stiff, minimal but not boring, slightly edgy, never feminine or frilly. Loves clean lines, structure, quality fabric, neutral palette. Wide-leg or straight-leg pants, defined waist, structured dresses. Supportive flat shoes only. Be direct, opinionated, no fluff.`;
