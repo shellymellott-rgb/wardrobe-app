@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
 import { sbCreateOutfit } from "../supabase.js";
+import CompositeOutfitCard from "./CompositeOutfitCard.jsx";
 
 const OCCASION_CHIPS = ["Errands", "Dinner", "Travel", "Boat day", "Work from home", "Date night", "Beach", "Gym"];
 
@@ -254,35 +255,26 @@ export default function OutfitsView({
         )}
       </div>
 
-      {/* Outfit results */}
-      {outfits.length > 0 && outfits.map((outfit, oi) => {
-        const outfitItems = (outfit.pieces||[])
-          .map(name => items.find(i => i.name===name || i.name.toLowerCase()===name.toLowerCase()))
-          .filter(Boolean);
-        return (
-          <div key={oi} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,marginBottom:14,overflow:"hidden"}}>
-            {outfitItems.length > 0 && (
-              <div style={{display:"flex",gap:2,padding:2}}>
-                {outfitItems.map((item, ii) => (
-                  <div key={ii} style={{flex:1,aspectRatio:"3/4",background:"#1a1a1a",overflow:"hidden",borderRadius:5}}>
-                    {item.imageData
-                      ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                      : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:4}}>
-                          <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
-                        </div>
-                    }
-                  </div>
-                ))}
+      {/* Outfit results — 2-column composite cards */}
+      {outfits.length > 0 && (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
+          {outfits.map((outfit, oi) => {
+            const outfitItems = (outfit.pieces||[])
+              .map(name => items.find(i => i.name===name || i.name.toLowerCase()===name.toLowerCase()))
+              .filter(Boolean);
+            return (
+              <div key={oi} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,overflow:"hidden"}}>
+                <CompositeOutfitCard items={outfitItems} />
+                <div style={{padding:"10px 12px 12px"}}>
+                  <div style={{fontSize:11,fontWeight:600,color:"#e8e2d8",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{outfit.name}</div>
+                  <div style={{fontSize:10,color:"#666",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{outfit.why}</div>
+                  {outfit.tip && <div style={{fontSize:9,color:"#b8976a",marginTop:4}}>✦ {outfit.tip}</div>}
+                </div>
               </div>
-            )}
-            <div style={{padding:"12px 16px 14px"}}>
-              <div style={{fontSize:13,fontWeight:600,color:"#e8e2d8",marginBottom:4}}>{outfit.name}</div>
-              <div style={{fontSize:11,color:"#777",lineHeight:1.5,marginBottom:outfit.tip?8:0}}>{outfit.why}</div>
-              {outfit.tip && <div style={{fontSize:10,color:"#b8976a"}}>✦ {outfit.tip}</div>}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
 
       {outfitText && (
         <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,padding:18,fontSize:13,lineHeight:1.8,color:"#c8c0b0",whiteSpace:"pre-wrap"}}>
@@ -303,38 +295,24 @@ export default function OutfitsView({
             No outfits yet
           </div>
         ) : (
-          savedOutfits.map(outfit => {
-            const outfitItems = (outfit.itemIds||[]).map(id => items.find(i => String(i.id) === id)).filter(Boolean);
-            return (
-              <div key={outfit.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,marginBottom:14,overflow:"hidden"}}>
-                <div style={{padding:"12px 16px 8px",fontSize:12,fontWeight:600,color:"#e8e2d8"}}>{outfit.name}</div>
-                <div style={{display:"flex",gap:8,overflowX:"auto",padding:"0 16px 14px",scrollbarWidth:"none"}}>
-                  {outfitItems.length > 0 ? outfitItems.map((item, ii) => (
-                    <div key={ii} style={{flexShrink:0,width:96}}>
-                      <div style={{
-                        position:"relative",width:96,height:128,
-                        background:"#141414",borderRadius:8,overflow:"hidden",
-                        border:"1px solid #1e1e1e",
-                      }}>
-                        {item.imageData
-                          ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                          : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:8}}>
-                              <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
-                            </div>
-                        }
-                        <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.82))",padding:"18px 6px 6px"}}>
-                          <div style={{fontSize:9,fontWeight:500,color:"#e8e2d8",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
-                          <div style={{fontSize:8,color:"#666",marginTop:1}}>{item.brand||item.category||""}</div>
-                        </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {savedOutfits.map(outfit => {
+              const outfitItems = (outfit.itemIds||[]).map(id => items.find(i => String(i.id) === id)).filter(Boolean);
+              return (
+                <div key={outfit.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,overflow:"hidden"}}>
+                  {outfitItems.length > 0
+                    ? <CompositeOutfitCard items={outfitItems} />
+                    : <div style={{aspectRatio:"3/5",background:"#161616",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <div style={{fontSize:9,color:"#333",textAlign:"center",padding:16,lineHeight:1.5}}>Items no longer in closet</div>
                       </div>
-                    </div>
-                  )) : (
-                    <div style={{fontSize:11,color:"#444",padding:"4px 0 8px"}}>Items no longer in closet</div>
-                  )}
+                  }
+                  <div style={{padding:"10px 12px 12px"}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#e8e2d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{outfit.name}</div>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { chipStyle } from "../styles.js";
 import WeatherOutfitCard from "./WeatherOutfitCard.jsx";
+import CompositeOutfitCard from "./CompositeOutfitCard.jsx";
 
 // Shared card style — slightly lighter than page (#0d0d0d → #111 → #161616 layering)
 const card = {
@@ -197,37 +198,26 @@ export default function HomeView({
           </div>
         )}
 
-        {/* Outfit cards */}
+        {/* Outfit cards — composite stacked layout */}
         {outfits.length > 0 && (
           <>
-            {outfits.slice(0,2).map((outfit,oi) => {
-              const pieces = (outfit.pieces||[])
-                .map(name=>items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase()))
-                .filter(Boolean);
-              return (
-                <div key={oi} style={{...card,marginBottom:12,overflow:"hidden"}}>
-                  {pieces.length > 0 && (
-                    <div style={{display:"flex",gap:2,padding:2}}>
-                      {pieces.map((item,ii) => (
-                        <div key={ii} style={{flex:1,aspectRatio:"3/4",background:"#1a1a1a",overflow:"hidden",borderRadius:8}}>
-                          {item.imageData
-                            ? <img src={item.imageThumb ?? item.imageData} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                            : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:6}}>
-                                <div style={{fontSize:8,color:"#444",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
-                              </div>
-                          }
-                        </div>
-                      ))}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              {outfits.slice(0,2).map((outfit,oi) => {
+                const pieces = (outfit.pieces||[])
+                  .map(name=>items.find(i=>i.name===name||i.name.toLowerCase()===name.toLowerCase()))
+                  .filter(Boolean);
+                return (
+                  <div key={oi} style={{...card,overflow:"hidden"}}>
+                    <CompositeOutfitCard items={pieces} />
+                    <div style={{padding:"10px 12px 12px"}}>
+                      <div style={{fontSize:11,fontWeight:600,color:"#e8e2d8",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{outfit.name}</div>
+                      <div style={{fontSize:10,color:"#777",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{outfit.why}</div>
+                      {outfit.tip && <div style={{fontSize:9,color:"#b8976a",marginTop:4}}>✦ {outfit.tip}</div>}
                     </div>
-                  )}
-                  <div style={{padding:"14px 16px 16px"}}>
-                    <div style={{fontSize:14,fontWeight:600,color:"#e8e2d8",marginBottom:5}}>{outfit.name}</div>
-                    <div style={{fontSize:12,color:"#888",lineHeight:1.6,marginBottom:outfit.tip?8:0}}>{outfit.why}</div>
-                    {outfit.tip && <div style={{fontSize:11,color:"#b8976a"}}>✦ {outfit.tip}</div>}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={generateOutfits}
                 style={{flex:1,background:"transparent",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"11px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>
