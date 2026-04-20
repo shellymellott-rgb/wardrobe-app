@@ -24,13 +24,13 @@ export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
 /**
  * Generate two compressed versions from a raw cropped image.
  * Returns { full, thumb } where:
- *   full  — 800px longest side, quality 0.92 — for detail view
- *   thumb — 300px longest side, quality 0.75 — for grid/cards
+ *   full  — 1000px longest side, quality 0.92 — for detail view
+ *   thumb — 400px longest side, quality 0.85 — for grid/cards
  */
 export async function generateImageVersions(dataUrl) {
   const [full, thumb] = await Promise.all([
-    compressImage(dataUrl, 800, 0.92),
-    compressImage(dataUrl, 300, 0.75),
+    compressImage(dataUrl, 1000, 0.92),
+    compressImage(dataUrl, 400, 0.85),
   ]);
   return { full, thumb };
 }

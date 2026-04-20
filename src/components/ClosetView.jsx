@@ -112,9 +112,9 @@ export default function ClosetView({
       {displayItems.length === 0 ? (
         syncing && items.length === 0 ? (
           // Loading skeleton — shown while Supabase sync is in flight and nothing cached locally
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2,padding:"0 2px 2px"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,padding:"0 0 1px"}}>
             {Array.from({length:9}).map((_,i) => (
-              <div key={i} style={{aspectRatio:"3/4",background:"#141414",borderRadius:3,animation:"pulse 1.4s ease-in-out infinite",animationDelay:`${i*0.08}s`}}/>
+              <div key={i} style={{aspectRatio:"3/4",background:"#141414",animation:"pulse 1.4s ease-in-out infinite",animationDelay:`${i*0.08}s`}}/>
             ))}
           </div>
         ) : (
@@ -128,27 +128,26 @@ export default function ClosetView({
           </div>
         )
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2,padding:"0 2px 2px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,padding:"0 0 1px"}}>
           {displayItems.map(item => (
             <div key={item.id} onClick={()=>evaluateItem(item)}
-              style={{position:"relative",aspectRatio:"3/4",background:"#141414",cursor:"pointer",overflow:"hidden",borderRadius:3}}>
+              style={{position:"relative",aspectRatio:"3/4",background:"#111",cursor:"pointer",overflow:"hidden"}}>
               {item.imageData
-                ? <img src={item.imageThumb ?? item.imageData} alt={item.name} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                : <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:8,boxSizing:"border-box"}}>
-                    {item.color && <div style={{fontSize:8,color:"#3a3a3a"}}>{item.color}</div>}
-                    <div style={{fontSize:9,color:"#2a2a2a",textAlign:"center",lineHeight:1.3}}>{item.name}</div>
+                ? <img src={item.imageThumb ?? item.imageData} alt={item.name} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+                : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:6,boxSizing:"border-box"}}>
+                    <div style={{fontSize:8,color:"#2a2a2a",textAlign:"center",lineHeight:1.4}}>{item.name}</div>
                   </div>
               }
-              {/* Name overlay */}
-              <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.75))",padding:"18px 8px 8px"}}>
-                {item.name && <div style={{fontSize:10,fontWeight:500,color:"#e8e2d8",marginBottom:1,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>}
-                <div style={{fontSize:9,color:"#666",letterSpacing:0.3}}>{item.brand || item.category}</div>
+              {/* Name overlay — minimal, bottom-anchored */}
+              <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.65))",padding:"20px 6px 5px"}}>
+                {item.name && <div style={{fontSize:9,fontWeight:500,color:"rgba(232,226,216,0.9)",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>}
+                {(item.brand || item.category) && <div style={{fontSize:8,color:"rgba(255,255,255,0.3)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.brand || item.category}</div>}
               </div>
               {/* Status badges */}
-              {item.status==="donate" && <div style={{position:"absolute",top:5,right:5,background:"rgba(200,96,16,0.9)",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Donate</div>}
-              {item.status==="sell"   && <div style={{position:"absolute",top:5,right:5,background:"rgba(58,122,74,0.9)",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Sell</div>}
-              {!item.status && !item.wornDates?.length && <div style={{position:"absolute",top:5,right:5,background:"rgba(184,151,106,0.9)",color:"#111",borderRadius:3,padding:"2px 5px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>New</div>}
-              {item.wornDates?.length > 0 && <div style={{position:"absolute",top:5,left:5,background:"rgba(0,0,0,0.5)",color:"rgba(255,255,255,0.35)",borderRadius:2,padding:"2px 5px",fontSize:8}}>×{item.wornDates.length}</div>}
+              {item.status==="donate" && <div style={{position:"absolute",top:4,right:4,background:"rgba(200,96,16,0.9)",color:"#fff",borderRadius:2,padding:"1px 5px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Donate</div>}
+              {item.status==="sell"   && <div style={{position:"absolute",top:4,right:4,background:"rgba(58,122,74,0.9)",color:"#fff",borderRadius:2,padding:"1px 5px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Sell</div>}
+              {!item.status && !item.wornDates?.length && <div style={{position:"absolute",top:4,right:4,background:"rgba(184,151,106,0.85)",color:"#111",borderRadius:2,padding:"1px 4px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>New</div>}
+              {item.wornDates?.length > 0 && <div style={{position:"absolute",top:4,left:4,background:"rgba(0,0,0,0.45)",color:"rgba(255,255,255,0.3)",borderRadius:2,padding:"1px 4px",fontSize:7}}>×{item.wornDates.length}</div>}
             </div>
           ))}
         </div>

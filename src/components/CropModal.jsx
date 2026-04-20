@@ -72,7 +72,7 @@ export default function CropModal({ imageSrc, onDone, onCancel }) {
     const cx=(crop.x-iX)*(img.naturalWidth/iW); const cy=(crop.y-iY)*(img.naturalHeight/iH);
     const cw=crop.w*(img.naturalWidth/iW); const ch=crop.h*(img.naturalHeight/iH);
     const canvas=document.createElement("canvas"); canvas.width=Math.max(1,cw); canvas.height=Math.max(1,ch);
-    canvas.getContext("2d").drawImage(img,cx,cy,cw,ch,0,0,cw,ch); onDone(canvas.toDataURL("image/jpeg",0.92));
+    canvas.getContext("2d").drawImage(img,cx,cy,cw,ch,0,0,cw,ch); onDone(canvas.toDataURL("image/jpeg",1.0));
   }
 
   const HANDLES = ["nw","n","ne","e","se","s","sw","w"]; const hSize = 14;
