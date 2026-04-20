@@ -12,7 +12,7 @@ export default function ItemDetailModal({
   wornDateInput, setWornDateInput,
   setItemStatus,
   openItemChat,
-  openFilePicker, setCropSrc, setCropTarget,
+  openFilePicker, onImageDrop, setCropSrc, setCropTarget,
   outfitPhotoRef, addOutfitPhoto,
   brands, addBrand, allCategories,
   stylingNotesInput, setStylingNotesInput,
@@ -32,6 +32,7 @@ export default function ItemDetailModal({
           <FormFields
             form={editForm} setForm={setEditForm}
             onImageClick={()=>openFilePicker("edit")}
+            onImageDrop={onImageDrop}
             onRecrop={()=>{setCropTarget("edit");setCropSrc(editForm?.originalImageData);}}
             brands={brands} onAddBrand={addBrand} categories={allCategories}
           />

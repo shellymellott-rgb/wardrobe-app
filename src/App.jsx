@@ -244,11 +244,13 @@ export default function WardrobeApp() {
   // ── File / crop handlers ────────────────────────────────────────────────────
   function openFilePicker(target) { setCropTarget(target); fileInputRef.current.click(); }
 
-  async function onFileSelected(e) {
-    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  // Shared handler for both file-picker selection and drag-and-drop drops.
+  // `target` is "add", "edit", or a receipt tempId number.
+  async function handleImageFile(file, target) {
+    setCropTarget(target);
     const dataUrl = await readFile(file);
 
-    if (cropTarget === "add") {
+    if (target === "add") {
       setSavedOriginalImageData(addForm.originalImageData);
       setAddForm(f => ({ ...f, originalImageData: dataUrl }));
       // Auto-scan image for item details
@@ -273,14 +275,19 @@ export default function WardrobeApp() {
         if (parsed.brand) wardrobe.addBrand(parsed.brand);
       } catch {}
       setScanningImage(false);
-    } else if (cropTarget === "edit") {
+    } else if (target === "edit") {
       setSavedOriginalImageData(editForm?.originalImageData ?? null);
       setEditForm(f => ({ ...f, originalImageData: dataUrl }));
     } else {
-      // receipt image (cropTarget is the tempId number)
-      setSavedOriginalImageData(receiptImages[cropTarget] ?? null);
+      // receipt image (target is the tempId number)
+      setSavedOriginalImageData(receiptImages[target] ?? null);
     }
     setCropSrc(dataUrl);
+  }
+
+  async function onFileSelected(e) {
+    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+    await handleImageFile(file, cropTarget);
   }
 
   async function onCropDone(cropped) {
@@ -508,6 +515,7 @@ export default function WardrobeApp() {
           addForm={addForm} setAddForm={setAddForm}
           scanningImage={scanningImage}
           openFilePicker={openFilePicker}
+          onImageDrop={file => handleImageFile(file, "add")}
           setCropSrc={setCropSrc} setCropTarget={setCropTarget}
           receiptImages={receiptImages} setReceiptImages={setReceiptImages}
           setView={setView}
@@ -546,7 +554,8 @@ export default function WardrobeApp() {
           wornDateInput={wornDateInput} setWornDateInput={setWornDateInput}
           setItemStatus={setItemStatus}
           openItemChat={styling.openItemChat}
-          openFilePicker={openFilePicker} setCropSrc={setCropSrc} setCropTarget={setCropTarget}
+          openFilePicker={openFilePicker} onImageDrop={file => handleImageFile(file, "edit")}
+          setCropSrc={setCropSrc} setCropTarget={setCropTarget}
           outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
           brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories}
           stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}

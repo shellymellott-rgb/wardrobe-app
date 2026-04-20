@@ -1,9 +1,19 @@
+import { useState } from "react";
 import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 
-export default function FormFields({ form, setForm, onImageClick, onRecrop, brands = [], onAddBrand, categories }) {
+export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
   const showLength = ["Bottoms","Dresses"].includes(form.category);
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); setDragOver(true); }
+  function handleDragLeave(e) { e.stopPropagation(); setDragOver(false); }
+  function handleDrop(e) {
+    e.preventDefault(); e.stopPropagation(); setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith("image/") && onImageDrop) onImageDrop(file);
+  }
 
   function toggleTag(tag) {
     setForm(f => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag] }));
@@ -19,10 +29,28 @@ export default function FormFields({ form, setForm, onImageClick, onRecrop, bran
 
   return (
     <div>
-      <div onClick={onImageClick} style={{aspectRatio:"3/4",background:"#1a1a1a",border:"1px dashed #333",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginBottom:16,overflow:"hidden"}}>
+      <div
+        onClick={onImageClick}
+        onDragOver={handleDragOver} onDragEnter={handleDragOver}
+        onDragLeave={handleDragLeave} onDrop={handleDrop}
+        style={{
+          aspectRatio:"3/4",background:"#1a1a1a",
+          border: dragOver ? "2px solid #b8976a" : "1px dashed #333",
+          borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",
+          cursor:"pointer",marginBottom:16,overflow:"hidden",
+          transition:"border-color 0.15s",
+          boxSizing:"border-box",
+        }}
+      >
         {form.imageData
           ? <img src={form.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-          : <div style={{textAlign:"center",color:"#444"}}><div style={{fontSize:28,marginBottom:8}}>+</div><div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase"}}>Upload & Crop Photo</div></div>
+          : <div style={{textAlign:"center",color: dragOver ? "#b8976a" : "#444",pointerEvents:"none"}}>
+              <div style={{fontSize:28,marginBottom:8}}>{dragOver ? "↓" : "+"}</div>
+              <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase"}}>
+                {dragOver ? "Drop to upload" : "Upload & Crop Photo"}
+              </div>
+              <div style={{fontSize:9,color:"#555",marginTop:4}}>or drag & drop</div>
+            </div>
         }
       </div>
       {form.imageData && <button onClick={form.originalImageData && onRecrop ? onRecrop : onImageClick} style={{...ghostBtn,color:"#666",fontSize:10,letterSpacing:1,marginBottom:12,display:"block"}}>↺ Change / Recrop</button>}
