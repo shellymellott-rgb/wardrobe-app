@@ -6,7 +6,7 @@ export function readFile(file) {
   });
 }
 
-export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
+export function compressImage(dataUrl, maxDim = 2000, quality = 0.95) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -14,7 +14,11 @@ export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
       const c = document.createElement("canvas");
       c.width  = Math.round(img.width  * s);
       c.height = Math.round(img.height * s);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const ctx = c.getContext("2d");
+      // High-quality downscaling — avoids the pixelation/grain from default "low"
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       resolve(c.toDataURL("image/jpeg", quality));
     };
     img.src = dataUrl;
@@ -22,15 +26,16 @@ export function compressImage(dataUrl, maxDim = 600, quality = 0.65) {
 }
 
 /**
- * Generate two compressed versions from a raw cropped image.
+ * Generate two versions from a raw cropped image (crop outputs at quality 1.0).
+ * Compression happens exactly once here — no earlier, no later.
  * Returns { full, thumb } where:
- *   full  — 1000px longest side, quality 0.92 — for detail view
- *   thumb — 400px longest side, quality 0.85 — for grid/cards
+ *   full  — 2000px max, quality 0.95 — for detail view
+ *   thumb — 600px max,  quality 0.90 — for grid/cards
  */
 export async function generateImageVersions(dataUrl) {
   const [full, thumb] = await Promise.all([
-    compressImage(dataUrl, 1000, 0.92),
-    compressImage(dataUrl, 400, 0.85),
+    compressImage(dataUrl, 2000, 0.95),
+    compressImage(dataUrl, 600,  0.90),
   ]);
   return { full, thumb };
 }

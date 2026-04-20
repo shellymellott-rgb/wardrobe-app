@@ -34,8 +34,10 @@ export default function CropModal({ imageSrc, onDone, onCancel }) {
     if (cw<1||ch<1) return;
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1,cw); canvas.height = Math.max(1,ch);
-    canvas.getContext("2d").drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
-    setPreviewUrl(canvas.toDataURL("image/jpeg", 0.7));
+    const pCtx = canvas.getContext("2d");
+    pCtx.imageSmoothingEnabled = true; pCtx.imageSmoothingQuality = "high";
+    pCtx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
+    setPreviewUrl(canvas.toDataURL("image/jpeg", 0.85));
   }, [crop, imgLoaded]);
 
   function getPos(e) { const rect=containerRef.current.getBoundingClientRect(); const cx=e.touches?e.touches[0].clientX:e.clientX; const cy=e.touches?e.touches[0].clientY:e.clientY; return{x:cx-rect.left,y:cy-rect.top}; }
@@ -72,7 +74,8 @@ export default function CropModal({ imageSrc, onDone, onCancel }) {
     const cx=(crop.x-iX)*(img.naturalWidth/iW); const cy=(crop.y-iY)*(img.naturalHeight/iH);
     const cw=crop.w*(img.naturalWidth/iW); const ch=crop.h*(img.naturalHeight/iH);
     const canvas=document.createElement("canvas"); canvas.width=Math.max(1,cw); canvas.height=Math.max(1,ch);
-    canvas.getContext("2d").drawImage(img,cx,cy,cw,ch,0,0,cw,ch); onDone(canvas.toDataURL("image/jpeg",1.0));
+    const ctx=canvas.getContext("2d"); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+    ctx.drawImage(img,cx,cy,cw,ch,0,0,cw,ch); onDone(canvas.toDataURL("image/jpeg",1.0));
   }
 
   const HANDLES = ["nw","n","ne","e","se","s","sw","w"]; const hSize = 14;
