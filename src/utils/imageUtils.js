@@ -32,8 +32,5 @@ export async function generateImageVersions(dataUrl) {
     compressImage(dataUrl, 600, 0.7),
     compressImage(dataUrl, 200, 0.4),
   ]);
-  const fullKB  = Math.round(full.length  * 0.75 / 1024);
-  const thumbKB = Math.round(thumb.length * 0.75 / 1024);
-  console.log(`[image] generated versions — full: ~${fullKB}KB, thumb: ~${thumbKB}KB`);
   return { full, thumb };
 }

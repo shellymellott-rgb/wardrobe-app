@@ -1,43 +1,11 @@
 import { useState } from "react";
-import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage } from "../supabase.js";
+import { sbDel, sbUpsert, sbLoad, sbLoadSettings } from "../supabase.js";
 import { normalizeItem } from "../utils/normalizeItem.js";
-import { compressImage } from "../utils/imageUtils.js";
 import { STORAGE_KEY, WISHLIST_KEY } from "../constants.js";
 
-// Upload full image and thumbnail to Supabase Storage for any item still
-// carrying base64. Generates a thumb on-the-fly if one isn't already present.
-// Returns a new array with public URLs substituted; same ref if nothing changed.
-async function uploadItemImages(uid, items) {
-  let anyUploaded = false;
-  const result = await Promise.all(items.map(async item => {
-    const needsFull  = item.imageData?.startsWith("data:");
-    const needsThumb = item.imageThumb?.startsWith("data:") ||
-                       (needsFull && !item.imageThumb); // auto-generate if missing
-
-    if (!needsFull && !needsThumb) return item;
-
-    let updated = { ...item };
-
-    if (needsFull) {
-      const url = await sbUploadImage(uid, String(item.id), item.imageData, "");
-      if (url) { updated.imageData = url; anyUploaded = true; }
-    }
-
-    // Generate thumb from full if we don't have one already
-    const thumbSource = item.imageThumb?.startsWith("data:")
-      ? item.imageThumb
-      : needsFull ? item.imageData : null; // generate from full base64
-    if (thumbSource) {
-      const thumbData = item.imageThumb?.startsWith("data:")
-        ? item.imageThumb
-        : await compressImage(thumbSource, 200, 0.4);
-      const url = await sbUploadImage(uid, String(item.id), thumbData, "_thumb");
-      if (url) { updated.imageThumb = url; anyUploaded = true; }
-    }
-
-    return anyUploaded ? updated : item;
-  }));
-  return anyUploaded ? result : items;
+// Strip all image data before writing to Supabase — images live in localStorage only
+function stripImages({ imageData, imageThumb, originalImageData, outfitPhotos, imageMigrated, ...rest }) {
+  return rest;
 }
 
 // ── localStorage helpers ────────────────────────────────────────────────────
@@ -45,7 +13,7 @@ export function loadFromStorage() {
   try {
     const r = localStorage.getItem(STORAGE_KEY);
     const parsed = r ? JSON.parse(r) : [];
-    console.log("[storage] loadFromStorage:", parsed.length, "items", parsed.length ? `(first: "${parsed[0]?.name}")` : "(empty — cache miss)");
+    console.log("[storage] loadFromStorage:", parsed.length, "items");
     return parsed;
   }
   catch (e) { console.error("[storage] loadFromStorage parse error:", e.message); return []; }
@@ -91,34 +59,26 @@ export function useWardrobeData(user) {
   });
   const [syncing, setSyncing] = useState(false);
 
-  async function persist(newItems) {
+  function persist(newItems) {
     const uid = user?.id;
-    const prevItems = items; // capture before any state update for diff later
+    const prevItems = items; // capture before state update for diff
 
-    // Optimistic update immediately — UI sees new items at once (may briefly show base64)
     setItems(newItems);
     saveToStorage(newItems);
 
     if (!uid) return;
 
-    // Upload any base64 images to Storage; replace with public URLs
-    const finalItems = await uploadItemImages(uid, newItems);
-    if (finalItems !== newItems) {
-      // Some images were uploaded — update state + cache with the URL versions
-      setItems(finalItems);
-      saveToStorage(finalItems);
-    }
-
     // Diff against pre-persist snapshot to decide what to upsert/delete
-    const newIds = new Set(finalItems.map(i => String(i.id)));
+    const newIds = new Set(newItems.map(i => String(i.id)));
     const removed = prevItems.filter(i => !newIds.has(String(i.id)));
-    const upserted = finalItems.filter(i => {
+    const upserted = newItems.filter(i => {
       const old = prevItems.find(j => String(j.id) === String(i.id));
-      return !old || JSON.stringify(old) !== JSON.stringify(i);
+      // Compare metadata only (no images) for the diff
+      return !old || JSON.stringify(stripImages(old)) !== JSON.stringify(stripImages(i));
     });
     removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
     if (upserted.length)
-      sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+      sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
   }
 
   function persistWishlist(w) {
@@ -153,11 +113,8 @@ export function useWardrobeData(user) {
     if (!uid) return;
     setSyncing(true);
     const t0 = performance.now();
-    console.log(`[sync] START uid=${uid.slice(0,8)}…`);
+    console.log(`[sync] START`);
 
-    // ── Timed fetch — all three in parallel ───────────────────────────────────
-    // Each timed() captures its own start so we see individual query times
-    // even though they run concurrently.
     const timed = (label, promise) => {
       const ts = performance.now();
       console.log(`[sync]   → ${label} fetch started`);
@@ -182,49 +139,30 @@ export function useWardrobeData(user) {
     if (dbSettings) syncSettingsFrom(dbSettings);
 
     if (dbItems !== null) {
-      let normalized = dbItems.map(normalizeItem).filter(Boolean);
+      const normalized = dbItems.map(normalizeItem).filter(Boolean);
 
-      // ── Migrate base64 images to Supabase Storage ──────────────────────────
-      // Only items without imageMigrated:true AND still carrying base64 data.
-      // On success: imageData becomes a URL and imageMigrated is set to true.
-      // On failure: item is unchanged and will be retried next sync.
-      const needsMigration = normalized.filter(i =>
-        !i.imageMigrated && i.imageData?.startsWith("data:")
-      );
-      if (needsMigration.length > 0) {
-        const tm = performance.now();
-        console.log(`[sync] migrating ${needsMigration.length} base64 image(s) to Storage (compress + upload full + thumb)…`);
-        const migrated = await Promise.all(needsMigration.map(async item => {
-          // Compress to final sizes before uploading — existing base64 may be huge
-          const [fullData, thumbData] = await Promise.all([
-            compressImage(item.imageData, 600, 0.7),
-            compressImage(item.imageData, 200, 0.4),
-          ]);
-          const [fullUrl, thumbUrl] = await Promise.all([
-            sbUploadImage(uid, String(item.id), fullData,  ""),
-            sbUploadImage(uid, String(item.id), thumbData, "_thumb"),
-          ]);
-          // imageMigrated:true only on success so failures retry next sync
-          if (fullUrl) {
-            return { ...item, imageData: fullUrl, imageThumb: thumbUrl || null, imageMigrated: true };
-          }
-          return item;
-        }));
-        const migratedMap = new Map(migrated.map(i => [String(i.id), i]));
-        normalized = normalized.map(i => migratedMap.get(String(i.id)) || i);
-        const uploaded = migrated.filter(i => i.imageMigrated);
-        if (uploaded.length)
-          sbUpsert("wardrobe_items", uploaded.map(i => ({ id: String(i.id), user_id: uid, data: i })));
-        console.log(`[sync] migration: ${(performance.now() - tm).toFixed(0)}ms — ${uploaded.length} uploaded, ${needsMigration.length - uploaded.length} failed`);
-      }
+      // Restore images from localStorage — Supabase stores metadata only
+      const localItems = loadFromStorage().map(normalizeItem);
+      const localImageMap = new Map(localItems.map(i => [String(i.id), i]));
+      const withImages = normalized.map(i => {
+        const local = localImageMap.get(String(i.id));
+        if (!local) return i;
+        return {
+          ...i,
+          imageData:         local.imageData         ?? i.imageData,
+          imageThumb:        local.imageThumb        ?? i.imageThumb,
+          originalImageData: local.originalImageData ?? i.originalImageData,
+          outfitPhotos:      local.outfitPhotos      ?? i.outfitPhotos,
+        };
+      });
 
       const sbIds = new Set(normalized.map(i => String(i.id)));
-      const localOnly = loadFromStorage().map(normalizeItem).filter(i => !sbIds.has(String(i.id)));
-      const merged = normalized.length > 0 ? [...normalized, ...localOnly] : localOnly;
+      const localOnly = localItems.filter(i => !sbIds.has(String(i.id)));
+      const merged = normalized.length > 0 ? [...withImages, ...localOnly] : localOnly;
       setItems(merged);
-      saveToStorage(merged);   // write here so next refresh is instant
+      saveToStorage(merged);
       if (normalized.length > 0 && localOnly.length)
-        sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: i })));
+        sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
     }
 
     if (dbWish !== null) {

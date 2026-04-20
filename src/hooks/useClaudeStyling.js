@@ -44,23 +44,16 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   async function analyzeInspo(e) {
     const file = e.target.files[0]; e.target.value = ""; if (!file) return;
 
-    console.log("[inspo] file selected:", file.name, "| type:", file.type, "| size:", file.size, "bytes");
-
     const dataUrl = await readFile(file);
-    console.log("[inspo] readFile done | dataUrl length:", dataUrl?.length, "| prefix:", dataUrl?.substring(0, 60));
 
     setInspoImage(dataUrl); setInspoResult(null); setLoadingInspo(true);
     try {
       // Compress aggressively before sending — full photos easily exceed serverless body limits.
-      // Max 800px on the longest dimension, JPEG 0.5 quality. Aspect ratio preserved by compressImage.
       const compressed = await compressImage(dataUrl, 400, 0.35);
-      console.log("[inspo] compressed dataUrl length:", compressed?.length, "(was:", dataUrl?.length, ")");
 
       const base64 = compressed.split(",")[1];
       const mediaType = "image/jpeg"; // compressImage always outputs JPEG
-      console.log("[inspo] FINAL base64 length:", base64?.length, "bytes (approx", Math.round(base64?.length * 0.75 / 1024), "KB) | mediaType:", mediaType);
 
-      // Fetch directly (not via callClaude) to expose the raw response for debugging
       const reqBody = {
         model: "claude-3-5-sonnet-latest",
         max_tokens: 800,
@@ -73,40 +66,29 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           ],
         }],
       };
-      console.log("[inspo] sending to /api/claude | model:", reqBody.model, "| messages[0].content types:", reqBody.messages[0].content.map(c => c.type));
 
       const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reqBody),
       });
-      console.log("[inspo] HTTP status:", res.status);
 
       const rawData = await res.json();
-      console.log("[inspo] raw API response:", JSON.stringify(rawData).substring(0, 600));
 
       if (rawData.error) {
-        console.error("[inspo] API error object:", rawData.error);
+        console.error("[inspo] API error:", rawData.error);
       }
 
       const text = rawData.content?.[0]?.text || "";
-      console.log("[inspo] extracted text length:", text.length, "| preview:", text.substring(0, 200));
-
-      if (!text) {
-        console.warn("[inspo] empty text — likely an API error above");
-      }
-
       const parsed = parseJsonObject(text);
-      console.log("[inspo] parseJsonObject result:", parsed);
 
       setInspoResult(parsed);
     } catch (err) {
-      console.error("[inspo] caught error:", err.message);
-      console.error("[inspo] stack:", err.stack);
+      console.error("[inspo] error:", err.message);
       setInspoResult({
         outfitName: "Inspiration Look",
         pieces: [],
-        why: err.message || "Unknown error — check console",
+        why: "Something went wrong. Please try again.",
         tip: "",
         gaps: [],
       });
