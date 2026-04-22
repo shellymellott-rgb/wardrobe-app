@@ -190,3 +190,32 @@ git push origin main
 Vercel is connected to the GitHub repo and auto-deploys on every push to `main`. No build command to run manually — Vite builds in the Vercel pipeline.
 
 The `vercel.json` configures the `api/` directory as serverless functions and rewrites `/api/*` accordingly.
+
+---
+
+## Deploy Log
+
+After every significant change, append a dated entry here with: what changed, why, and any manual steps required.
+
+---
+
+### 2026-04-19 — Private-bucket image system
+
+**What changed:**
+- `sbUploadImage` now returns the storage **path** instead of a URL. Callers store the path in `image_path` / `image_thumb_path` on the item.
+- Added `sbGetSignedUrls(paths, expiresIn=3600)` — batch `createSignedUrls` call; returns `{ [path]: signedUrl }`. Signed URLs are generated on-demand and never written to the DB.
+- Added `sbDeleteImage(userId, itemId)` — removes both new deterministic paths and legacy ad-hoc paths.
+- `normalizeItem()` now guarantees `image_path` and `image_thumb_path` fields on every item.
+- `stripImages()` in `useWardrobeData.js` passes `image_path`/`image_thumb_path` through to the DB (they live in `...rest`). **Do not add them to the destructure list.**
+- Added `wardrobe-image-cache` localStorage key (`IMAGE_CACHE_KEY`). Two entry types: base64 entries (no `expiry`) and signed-URL entries (with `expiry = Date.now() + 3600*1000`). Only signed-URL entries expire; base64 entries never do.
+- `saveToStorage` pre-strips `imageData`/`imageThumb` for path-based items before the 3-level quota fallback, and backs base64 images up to the image cache before any stripping.
+- `loadFromStorage` merges image cache back in on every read, skipping signed-URL entries with less than 5 minutes remaining.
+- `syncFromSupabase` does one batch `sbGetSignedUrls` call per session for all items missing a fresh signed URL, then writes results to the image cache with expiry.
+- Tab-focus sync suppressed for 30 seconds after any `persist()` call via `lastPersistAt` in localStorage — prevents a visibilitychange event from overwriting in-flight upload data.
+- Composite outfit cards (`CompositeOutfitCard.jsx`) — items sorted by `CATEGORY_ORDER` and stacked vertically at `3/5` aspect ratio; used in OutfitsView and HomeView.
+
+**Why:** Images were silently disappearing after upload because the level-3 localStorage quota fallback stripped all base64 `imageData` fields and there was no recovery path. The new architecture uses Supabase Storage as the source of truth for images; localStorage/cache serve as a warm layer with signed-URL caching.
+
+**Manual steps required:**
+1. In Supabase Dashboard → Storage → `wardrobe-images` → Settings: **uncheck "Public bucket"** to make it private.
+2. In Supabase SQL Editor, run the Storage RLS policy (see [Required Manual Supabase Setup](#required-manual-supabase-setup) above).
