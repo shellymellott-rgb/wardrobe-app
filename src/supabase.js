@@ -15,13 +15,22 @@ export const supabase = createClient(SB_URL, SB_KEY);
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
+// Deterministic paths for the private bucket.
+// Full:  {userId}/items/{itemId}/full.jpg
+// Thumb: {userId}/items/{itemId}/thumb.jpg
+function itemStoragePath(userId, itemId, isThumb = false) {
+  return `${userId}/items/${itemId}/${isThumb ? "thumb" : "full"}.jpg`;
+}
+
 /**
- * Upload a base64 data URL to the "wardrobe-images" Storage bucket.
- * Path: {userId}/{itemId}{suffix}.jpg  (suffix = "" | "_thumb")
- * Returns the public URL on success, null on failure.
+ * Upload a base64 data URL to the private "wardrobe-images" Storage bucket.
+ * Returns the storage PATH on success (not a URL — URLs expire and are generated
+ * on-demand via sbGetSignedUrls). Returns null on failure.
+ *
+ * Path: {userId}/items/{itemId}/full.jpg  or  thumb.jpg
  */
-export async function sbUploadImage(userId, itemId, dataUrl, suffix = "") {
-  const path = `${userId}/${itemId}${suffix}`;
+export async function sbUploadImage(userId, itemId, dataUrl, isThumb = false) {
+  const path = itemStoragePath(userId, itemId, isThumb);
   console.log(`[sb] uploadImage START: ${path} (${Math.round(dataUrl.length / 1024)}KB base64)`);
   try {
     const [header, base64] = dataUrl.split(",");
@@ -31,26 +40,55 @@ export async function sbUploadImage(userId, itemId, dataUrl, suffix = "") {
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const blob = new Blob([bytes], { type: mime });
-    const ext  = mime.includes("png") ? "png" : "jpg";
-    const fullPath = `${path}.${ext}`;
     const { error } = await supabase.storage
       .from("wardrobe-images")
-      .upload(fullPath, blob, { upsert: true, contentType: mime });
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (error) {
-      console.error(`[sb] uploadImage FAILED for ${fullPath}:`, error.message, "| status:", error.statusCode, "| hint:", error.hint || "none");
+      console.error(`[sb] uploadImage FAILED for ${path}:`, error.message, "| status:", error.statusCode, "| hint:", error.hint || "none");
       return null;
     }
-    const { data } = supabase.storage.from("wardrobe-images").getPublicUrl(fullPath);
-    console.log(`[sb] uploadImage OK: ${fullPath} → ${data.publicUrl.substring(0, 80)}...`);
-    return data.publicUrl;
+    console.log(`[sb] uploadImage OK: ${path}`);
+    return path;
   } catch (e) {
     console.error(`[sb] uploadImage ERROR for ${path}:`, e.message);
     return null;
   }
 }
 
+/**
+ * Batch-generate short-lived signed URLs for an array of Storage paths.
+ * Returns { [path]: signedUrl } — paths that errored are omitted.
+ * Default expiry: 1 hour (3600s).
+ */
+export async function sbGetSignedUrls(paths, expiresIn = 3600) {
+  if (!paths.length) return {};
+  try {
+    const { data, error } = await supabase.storage
+      .from("wardrobe-images")
+      .createSignedUrls(paths, expiresIn);
+    if (error) { console.error("[sb] getSignedUrls FAILED:", error.message); return {}; }
+    const map = {};
+    (data || []).forEach(({ path, signedUrl }) => {
+      if (path && signedUrl) map[path] = signedUrl;
+    });
+    console.log(`[sb] getSignedUrls: ${Object.keys(map).length}/${paths.length} resolved`);
+    return map;
+  } catch (e) {
+    console.error("[sb] getSignedUrls ERROR:", e.message);
+    return {};
+  }
+}
+
+/**
+ * Delete images for an item — covers both the new deterministic paths and the
+ * old ad-hoc paths used before this refactor, so orphaned files are cleaned up.
+ */
 export async function sbDeleteImage(userId, itemId) {
   const paths = [
+    // New deterministic paths
+    `${userId}/items/${itemId}/full.jpg`,
+    `${userId}/items/${itemId}/thumb.jpg`,
+    // Old paths (pre-migration cleanup)
     `${userId}/${itemId}.jpg`,
     `${userId}/${itemId}.png`,
     `${userId}/${itemId}_thumb.jpg`,

@@ -1,17 +1,27 @@
 import { useState } from "react";
-import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage } from "../supabase.js";
+import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage, sbGetSignedUrls } from "../supabase.js";
 import { normalizeItem } from "../utils/normalizeItem.js";
 import { STORAGE_KEY, WISHLIST_KEY, IMAGE_CACHE_KEY } from "../constants.js";
 
-// Strip all image fields before writing to Supabase — images live in Storage/localStorage
+// Strip transient/binary image fields before writing to Supabase DB.
+// image_path and image_thumb_path are in ...rest and pass through to the DB —
+// they are the only persistent image references.
 function stripImages({ imageData, imageThumb, originalImageData, outfitPhotos, imageMigrated, ...rest }) {
   return rest;
 }
 
 // ── Image-cache helpers ──────────────────────────────────────────────────────
-// A dedicated localStorage key that maps itemId → {imageData, imageThumb}.
-// This survives the level-3 quota fallback which strips images from the main
-// items array. On load, items without imageData check here first.
+//
+// Two kinds of entries:
+//   Base64 items  (no image_path): { imageData, imageThumb }
+//   Path-based    (has image_path): { imageData, imageThumb, expiry }
+//     where expiry = Date.now() + signedUrlExpiresIn*1000
+//     and imageData/imageThumb are signed URLs
+//
+// Signed URL cache entries are only used while expiry > now + 5 min.
+// After that, sync regenerates them from the stored image_path.
+
+const SIGNED_URL_EXPIRES_IN = 3600; // seconds (1 hour)
 
 function loadImageCache() {
   try {
@@ -22,33 +32,71 @@ function loadImageCache() {
   }
 }
 
+/**
+ * Persist signed URLs into the image cache with an expiry timestamp.
+ * Called immediately after sbGetSignedUrls resolves so offline loads
+ * can use the cached URLs for up to ~1 hour without re-syncing.
+ */
+function cacheSignedUrls(items, signedUrlMap) {
+  if (!Object.keys(signedUrlMap).length) return;
+  const expiry = Date.now() + SIGNED_URL_EXPIRES_IN * 1000;
+  try {
+    const cache = loadImageCache();
+    items.forEach(i => {
+      const id        = String(i.id);
+      const imageData  = i.image_path       ? (signedUrlMap[i.image_path]       || null) : null;
+      const imageThumb = i.image_thumb_path ? (signedUrlMap[i.image_thumb_path] || null) : null;
+      if (imageData || imageThumb) {
+        cache[id] = {
+          imageData:  imageData  || cache[id]?.imageData  || null,
+          imageThumb: imageThumb || cache[id]?.imageThumb || null,
+          expiry,
+        };
+      }
+    });
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
+    console.log(`[imgcache] cached signed URLs for ${items.length} items (expiry +${SIGNED_URL_EXPIRES_IN}s)`);
+  } catch (e) {
+    console.warn("[imgcache] failed to cache signed URLs:", e.message);
+  }
+}
+
+function isBase64(s) { return typeof s === "string" && s.startsWith("data:"); }
+
+/**
+ * Save base64 images to the dedicated cache key.
+ * - Path-based items (image_path set): removes any stale base64 cache entry
+ *   since the image is now in Storage; signed URLs are handled by cacheSignedUrls.
+ * - Base64 items (no image_path): saves imageData/imageThumb for quota fallback.
+ */
 function saveImageCache(items) {
-  // Build the new cache entries from this batch of items.
-  // Merge with the existing cache so items not in this batch aren't evicted.
   try {
     const existing = loadImageCache();
     const updated = { ...existing };
     items.forEach(i => {
       const id = String(i.id);
-      if (i.imageData || i.imageThumb) {
+      if (i.image_path) {
+        // Uploaded to Storage — remove stale base64 entries (not signed URL entries)
+        if (updated[id] && !updated[id].expiry) {
+          delete updated[id];
+        }
+        // Leave valid signed URL entries (those with expiry) untouched.
+      } else if (isBase64(i.imageData) || isBase64(i.imageThumb)) {
         updated[id] = {
           imageData:  i.imageData  || null,
           imageThumb: i.imageThumb || null,
+          // no expiry — base64 never expires
         };
       }
-      // If both are null/missing, leave the existing cache entry alone —
-      // the image may have been stripped from the item but not from the cache yet.
     });
     localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(updated));
     console.log(`[imgcache] saved ${Object.keys(updated).length} image entries`);
   } catch (e) {
-    // Quota hit on the image cache itself — try saving only the entries that
-    // have changed in this batch (most important: newly-added images).
     console.warn("[imgcache] quota on full cache, falling back to batch-only save:", e.message);
     try {
       const batchCache = {};
       items.forEach(i => {
-        if (i.imageData || i.imageThumb) {
+        if (!i.image_path && (isBase64(i.imageData) || isBase64(i.imageThumb))) {
           batchCache[String(i.id)] = {
             imageData:  i.imageData  || null,
             imageThumb: i.imageThumb || null,
@@ -63,7 +111,6 @@ function saveImageCache(items) {
   }
 }
 
-// Remove stale cache entries for items that no longer exist.
 function pruneImageCache(currentIds) {
   try {
     const cache = loadImageCache();
@@ -76,9 +123,25 @@ function pruneImageCache(currentIds) {
 }
 
 /**
+ * Apply signed URLs (or cached signed URLs) onto an array of items.
+ * signedUrlMap maps storage path → signed URL string.
+ * Items without image_path are unchanged.
+ */
+function applySignedUrls(items, signedUrlMap) {
+  return items.map(i => {
+    if (!i.image_path && !i.image_thumb_path) return i;
+    const imageData  = i.image_path       ? (signedUrlMap[i.image_path]       || i.imageData  || null) : i.imageData;
+    const imageThumb = i.image_thumb_path ? (signedUrlMap[i.image_thumb_path] || i.imageThumb || null) : i.imageThumb;
+    if (imageData === i.imageData && imageThumb === i.imageThumb) return i;
+    return { ...i, imageData, imageThumb };
+  });
+}
+
+/**
  * For any item whose imageData/imageThumb is still a base64 data URL,
- * upload it to Supabase Storage and replace with the permanent public URL.
- * If an upload fails the base64 is preserved so localStorage retains the image.
+ * upload it to Supabase Storage and store the path in image_path/image_thumb_path.
+ * On success, generates signed URLs and sets imageData/imageThumb in memory.
+ * On failure, keeps base64 so localStorage retains the image.
  * Returns the same array reference only when there was nothing to upload.
  */
 async function uploadItemImages(uid, items) {
@@ -95,6 +158,8 @@ async function uploadItemImages(uid, items) {
   );
   console.log(`[persist] uploadItemImages: uploading ${toUpload.length} item(s) to Storage`);
 
+  let uploadedPaths = [];
+
   const result = await Promise.all(items.map(async item => {
     const needsFull  = item.imageData?.startsWith("data:");
     const needsThumb = item.imageThumb?.startsWith("data:");
@@ -104,20 +169,21 @@ async function uploadItemImages(uid, items) {
     const updated = { ...item };
 
     if (needsFull) {
-      const url = await sbUploadImage(uid, String(item.id), item.imageData, "");
-      if (url) {
-        console.log(`[persist] ✓ full image uploaded for "${item.name}": ${url.substring(0, 80)}...`);
-        updated.imageData = url;
+      const path = await sbUploadImage(uid, String(item.id), item.imageData, false);
+      if (path) {
+        updated.image_path = path;
+        uploadedPaths.push(path);
+        console.log(`[persist] ✓ full uploaded for "${item.name}": ${path}`);
       } else {
         console.error(`[persist] ✗ Storage upload FAILED for "${item.name}" — keeping base64 in localStorage`);
-        // updated.imageData remains as base64
       }
     }
     if (needsThumb) {
-      const url = await sbUploadImage(uid, String(item.id), item.imageThumb, "_thumb");
-      if (url) {
-        console.log(`[persist] ✓ thumb uploaded for "${item.name}": ${url.substring(0, 80)}...`);
-        updated.imageThumb = url;
+      const path = await sbUploadImage(uid, String(item.id), item.imageThumb, true);
+      if (path) {
+        updated.image_thumb_path = path;
+        uploadedPaths.push(path);
+        console.log(`[persist] ✓ thumb uploaded for "${item.name}": ${path}`);
       } else {
         console.error(`[persist] ✗ Storage thumb upload FAILED for "${item.name}"`);
       }
@@ -125,25 +191,40 @@ async function uploadItemImages(uid, items) {
 
     return updated;
   }));
+
+  // Batch-generate signed URLs for all newly uploaded paths and apply to items.
+  // This gives immediate display while keeping only paths in persistent storage.
+  if (uploadedPaths.length) {
+    const signedUrlMap = await sbGetSignedUrls(uploadedPaths);
+    const withUrls = applySignedUrls(result, signedUrlMap);
+    cacheSignedUrls(withUrls, signedUrlMap);
+    return withUrls;
+  }
+
   return result;
 }
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 
-function isBase64(s) { return typeof s === "string" && s.startsWith("data:"); }
-
 export function loadFromStorage() {
   try {
     const r = localStorage.getItem(STORAGE_KEY);
     const parsed = r ? JSON.parse(r) : [];
+    const cache  = loadImageCache();
+    const now    = Date.now();
+    const FIVE_MIN = 5 * 60 * 1000;
 
-    // Merge image cache into any items that lost their images due to quota fallback
-    const cache = loadImageCache();
     const cacheHits = [];
     const merged = parsed.map(item => {
-      if (item.imageData && item.imageThumb) return item; // already has both
+      // Items that already have both images (e.g., base64 in main array) need no patch.
+      if (item.imageData && item.imageThumb) return item;
+
       const cached = cache[String(item.id)];
       if (!cached) return item;
+
+      // Signed URL cache entries respect expiry — skip if < 5 min remaining.
+      if (cached.expiry && cached.expiry < now + FIVE_MIN) return item;
+
       const patched = {
         ...item,
         imageData:  item.imageData  || cached.imageData  || null,
@@ -165,17 +246,23 @@ export function loadFromStorage() {
 }
 
 export function saveToStorage(items) {
-  // Always write the image cache first — this is a backup that survives
-  // the level-3 fallback below and lets loadFromStorage restore images.
-  saveImageCache(items);
+  // Strip transient signed URLs from path-based items before persisting.
+  // Signed URLs expire; image_path/image_thumb_path are permanent and stay.
+  // Items without image_path keep their imageData/imageThumb (base64 fallback).
+  const toSave = items.map(i =>
+    i.image_path ? { ...i, imageData: null, imageThumb: null } : i
+  );
 
-  const totalItems = items.length;
-  const withImages = items.filter(i => i.imageData || i.imageThumb).length;
+  // Save base64 image cache for non-path items (quota fallback backup).
+  saveImageCache(toSave);
 
-  // Level 1 — full save including all images
+  const totalItems = toSave.length;
+  const withImages = toSave.filter(i => i.imageData || i.imageThumb || i.image_path).length;
+
+  // Level 1 — full save
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    console.log(`[storage] saved ${totalItems} items (${withImages} with images) — level 1 (full)`);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    console.log(`[storage] saved ${totalItems} items (${withImages} with image ref) — level 1 (full)`);
     return;
   } catch (e) {
     if (e.name !== "QuotaExceededError" && e.code !== 22 && e.code !== 1014) {
@@ -185,9 +272,9 @@ export function saveToStorage(items) {
     console.warn("[storage] level-1 quota exceeded, trying level 2");
   }
 
-  // Level 2 — drop originalImageData + outfitPhotos (largest fields)
+  // Level 2 — drop originalImageData + outfitPhotos
   try {
-    const l2 = items.map(({ originalImageData, outfitPhotos, ...rest }) => rest);
+    const l2 = toSave.map(({ originalImageData, outfitPhotos, ...rest }) => rest);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(l2));
     console.warn(`[storage] saved ${totalItems} items — level 2 (no originals/outfit photos)`);
     return;
@@ -195,11 +282,9 @@ export function saveToStorage(items) {
     console.warn("[storage] level-2 quota exceeded, trying level 3");
   }
 
-  // Level 3 — strip base64 imageData/imageThumb from the main array.
-  // The image cache (saved above) still has the base64 values, so
-  // loadFromStorage will restore them on the next read.
+  // Level 3 — strip any remaining base64 (path-based items already have null imageData)
   try {
-    const l3 = items.map(i => ({
+    const l3 = toSave.map(i => ({
       ...i,
       imageData:         isBase64(i.imageData)  ? null : i.imageData,
       imageThumb:        isBase64(i.imageThumb) ? null : i.imageThumb,
@@ -207,7 +292,7 @@ export function saveToStorage(items) {
       outfitPhotos:      null,
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(l3));
-    console.warn(`[storage] saved ${totalItems} items — level 3 (base64 stripped to cache; Storage URLs kept)`);
+    console.warn(`[storage] saved ${totalItems} items — level 3 (base64 stripped to cache; paths kept)`);
   } catch (e3) {
     console.error("[storage] saveToStorage failed at all levels:", e3.message);
   }
@@ -233,18 +318,18 @@ export function useWardrobeData(user) {
 
   async function persist(newItems) {
     const uid = user?.id;
-    const prevItems = items; // capture before state update for diff
+    const prevItems = items;
 
     console.log(`[persist] called with ${newItems.length} items, uid=${uid || "none"}`);
-    const newWithImg = newItems.filter(i => i.imageData || i.imageThumb);
-    console.log(`[persist] items with imageData/imageThumb: ${newWithImg.length}`);
+    const newWithImg = newItems.filter(i => i.imageData || i.imageThumb || i.image_path);
+    console.log(`[persist] items with image refs: ${newWithImg.length}`);
     newWithImg.forEach(i => {
-      const full  = i.imageData  ? (isBase64(i.imageData)  ? `base64 (${Math.round(i.imageData.length/1024)}KB)` : "URL: "+i.imageData.substring(0,60)) : "null";
-      const thumb = i.imageThumb ? (isBase64(i.imageThumb) ? `base64 (${Math.round(i.imageThumb.length/1024)}KB)` : "URL: "+i.imageThumb.substring(0,60)) : "null";
-      console.log(`[persist]   "${i.name}" imageData=${full} imageThumb=${thumb}`);
+      const full  = i.imageData  ? (isBase64(i.imageData)  ? `base64 (${Math.round(i.imageData.length/1024)}KB)` : "URL") : "null";
+      const thumb = i.imageThumb ? (isBase64(i.imageThumb) ? `base64 (${Math.round(i.imageThumb.length/1024)}KB)` : "URL") : "null";
+      const path  = i.image_path ? i.image_path : "none";
+      console.log(`[persist]   "${i.name}" full=${full} thumb=${thumb} path=${path}`);
     });
 
-    // Optimistic update — show immediately (images may still be base64 briefly)
     setItems(newItems);
     saveToStorage(newItems);
 
@@ -253,21 +338,15 @@ export function useWardrobeData(user) {
       return;
     }
 
-    // Upload any base64 images to Supabase Storage; replace with permanent URLs.
-    // On upload failure, the returned items still carry the original base64 —
-    // we save that to localStorage so the image is never silently lost.
     const finalItems = await uploadItemImages(uid, newItems);
     if (finalItems !== newItems) {
-      // uploadItemImages did work — save result (URLs where upload succeeded,
-      // base64 where it failed, so localStorage always has the image)
-      console.log("[persist] uploadItemImages done, saving finalItems to state + localStorage");
+      console.log("[persist] uploadItemImages done, saving finalItems");
       setItems(finalItems);
       saveToStorage(finalItems);
     } else {
-      console.log("[persist] uploadItemImages: no work done (already URLs or no images)");
+      console.log("[persist] uploadItemImages: no work done");
     }
 
-    // Diff against pre-persist snapshot and upsert only changed metadata rows
     const newIds = new Set(finalItems.map(i => String(i.id)));
     const removed = prevItems.filter(i => !newIds.has(String(i.id)));
     const upserted = finalItems.filter(i => {
@@ -279,7 +358,6 @@ export function useWardrobeData(user) {
     if (upserted.length)
       sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
 
-    // Prune stale image cache entries
     pruneImageCache(finalItems.map(i => i.id));
   }
 
@@ -309,10 +387,16 @@ export function useWardrobeData(user) {
 
   /**
    * Pull data from Supabase and merge with local state.
-   * Image restore priority: current in-memory state → image cache → localStorage → nothing.
-   * In-memory state takes priority because it may already hold Storage URLs from this session.
-   * Image cache is checked before localStorage because it's the dedicated backup for images
-   * that were stripped from the main items array by the level-3 quota fallback.
+   *
+   * Image restore priority for each item:
+   *  1. image_path in DB row → batch-generate signed URLs (most authoritative)
+   *  2. Current in-memory React state (may have valid signed URL from this session)
+   *  3. Image cache (signed URL with valid expiry, or base64)
+   *  4. localStorage items map
+   *
+   * Signed URLs are generated in one batch call after merging, then cached.
+   * "Broken rows" (Storage file exists but image_path missing from DB) are fixed
+   * during persist() — the next edit+save of that item will set image_path.
    */
   async function syncFromSupabase(uid, syncSettingsFrom) {
     if (!uid) return;
@@ -345,31 +429,37 @@ export function useWardrobeData(user) {
     if (dbItems !== null) {
       const normalized = dbItems.map(normalizeItem).filter(Boolean);
 
-      // Build image lookup maps:
-      // 1. stateMap — current React state (may have Storage URLs from this session)
-      // 2. imageCache — dedicated image backup (survives level-3 quota fallback)
-      // 3. localMap — full localStorage items (may have base64 from before quota)
-      const stateMap  = new Map(items.map(i => [String(i.id), i]));
+      const stateMap   = new Map(items.map(i => [String(i.id), i]));
       const imageCache = loadImageCache();
       const localItems = loadFromStorage().map(normalizeItem);
-      const localMap  = new Map(localItems.map(i => [String(i.id), i]));
+      const localMap   = new Map(localItems.map(i => [String(i.id), i]));
 
       console.log(`[sync] image restore maps: stateMap=${stateMap.size}, imageCache=${Object.keys(imageCache).length}, localMap=${localMap.size}`);
 
+      const now = Date.now();
+      const FIVE_MIN = 5 * 60 * 1000;
+
+      // Merge: prefer DB paths (most authoritative); restore other image fields from
+      // state/cache/local for items the DB doesn't have paths for yet.
       const withImages = normalized.map(i => {
-        const id = String(i.id);
+        const id       = String(i.id);
         const stateSrc = stateMap.get(id);
-        const cacheSrc = imageCache[id];
+        const cached   = imageCache[id];
         const localSrc = localMap.get(id);
 
-        const imageData  = stateSrc?.imageData  || cacheSrc?.imageData  || localSrc?.imageData  || null;
-        const imageThumb = stateSrc?.imageThumb || cacheSrc?.imageThumb || localSrc?.imageThumb || null;
-        const originalImageData = stateSrc?.originalImageData || localSrc?.originalImageData || null;
-        const outfitPhotos = stateSrc?.outfitPhotos || localSrc?.outfitPhotos || null;
+        // image_path/image_thumb_path come from DB via normalizeItem — they are canonical.
+        // imageData/imageThumb: prefer state (may be fresh signed URL from this session),
+        // then cache (if not expired), then local.
+        const cachedValid = cached && (!cached.expiry || cached.expiry > now + FIVE_MIN);
 
-        if (imageData || imageThumb) {
-          console.log(`[sync] restored image for "${i.name || id}": ${imageData ? (isBase64(imageData) ? 'base64' : 'URL') : 'none'}`);
-        }
+        const imageData  = stateSrc?.imageData  ||
+                           (cachedValid ? cached.imageData  : null) ||
+                           localSrc?.imageData  || null;
+        const imageThumb = stateSrc?.imageThumb ||
+                           (cachedValid ? cached.imageThumb : null) ||
+                           localSrc?.imageThumb || null;
+        const originalImageData = stateSrc?.originalImageData || localSrc?.originalImageData || null;
+        const outfitPhotos      = stateSrc?.outfitPhotos      || localSrc?.outfitPhotos      || null;
 
         const patch = {};
         if (imageData)         patch.imageData         = imageData;
@@ -379,13 +469,29 @@ export function useWardrobeData(user) {
         return { ...i, ...patch };
       });
 
-      const sbIds = new Set(normalized.map(i => String(i.id)));
+      // Collect all Storage paths that need signed URLs.
+      // Items that already have a fresh signed URL in memory can skip.
+      const pathsToSign = [];
+      withImages.forEach(i => {
+        if (i.image_path       && !i.imageData?.startsWith("https://"))  pathsToSign.push(i.image_path);
+        if (i.image_thumb_path && !i.imageThumb?.startsWith("https://")) pathsToSign.push(i.image_thumb_path);
+      });
+
+      let mergedWithUrls = withImages;
+      if (pathsToSign.length) {
+        console.log(`[sync] generating signed URLs for ${pathsToSign.length} paths`);
+        const signedUrlMap = await sbGetSignedUrls(pathsToSign);
+        mergedWithUrls = applySignedUrls(withImages, signedUrlMap);
+        cacheSignedUrls(mergedWithUrls, signedUrlMap);
+      }
+
+      const sbIds     = new Set(normalized.map(i => String(i.id)));
       const localOnly = localItems.filter(i => !sbIds.has(String(i.id)));
-      const merged = normalized.length > 0 ? [...withImages, ...localOnly] : localOnly;
-      console.log(`[sync] merged: ${merged.length} items (${withImages.length} from Supabase, ${localOnly.length} local-only)`);
+      const merged    = normalized.length > 0 ? [...mergedWithUrls, ...localOnly] : localOnly;
+      console.log(`[sync] merged: ${merged.length} items (${mergedWithUrls.length} from Supabase, ${localOnly.length} local-only)`);
       setItems(merged);
       saveToStorage(merged);
-      // Push any local-only items up to Supabase (metadata only)
+
       if (normalized.length > 0 && localOnly.length)
         sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
     }

@@ -30,6 +30,8 @@ export function normalizeItem(raw) {
     sleeveLength: raw.sleeveLength || "N/A",
     length: raw.length || "N/A",
     season: raw.season || "All Year",
+    image_path:       raw.image_path       || null,
+    image_thumb_path: raw.image_thumb_path || null,
   };
 }
 
