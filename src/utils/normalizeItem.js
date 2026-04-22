@@ -44,6 +44,7 @@ export function emptyForm() {
     tags:[],customTag:"",
     comments:"",datePurchased:"",price:"",
     imageData:null,imageThumb:null,originalImageData:null,
+    customColors:[],
   };
 }
 

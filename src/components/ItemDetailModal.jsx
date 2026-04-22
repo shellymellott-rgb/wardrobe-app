@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { fmtMaterials } from "../utils/normalizeItem.js";
+import { COLORS } from "../constants.js";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
 import FormFields from "./FormFields.jsx";
 
@@ -46,7 +47,7 @@ export default function ItemDetailModal({
       <div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}>
           <button onClick={()=>{setSelectedItem(null);setWornDateInput(null);}} style={ghostBtn}>← Back</button>
-          <button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:"",materials:selectedItem.materials||(selectedItem.material?[selectedItem.material]:[])});}} style={{...chipStyle(false),fontSize:10}}>Edit</button>
+          <button onClick={()=>{setEditing(true);setEditForm({...selectedItem,customColor:"",customMaterial:"",customColors:COLORS.includes(selectedItem.color)||!selectedItem.color?[]:[selectedItem.color],materials:selectedItem.materials||(selectedItem.material?[selectedItem.material]:[])});}} style={{...chipStyle(false),fontSize:10}}>Edit</button>
         </div>
 
         {selectedItem.imageData

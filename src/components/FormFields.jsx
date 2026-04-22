@@ -20,6 +20,20 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
   function toggleTag(tag) {
     setForm(f => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag] }));
   }
+  function addCustomColor() {
+    const raw = form.customColor?.trim();
+    if (!raw) return;
+    const color = raw.charAt(0).toUpperCase() + raw.slice(1);
+    const presets = COLORS.filter(c => c !== "Other");
+    const all = [...presets, ...(form.customColors || [])];
+    const existing = all.find(c => c.toLowerCase() === color.toLowerCase());
+    if (existing) {
+      setForm(f => ({ ...f, color: existing, customColor: "" }));
+    } else {
+      setForm(f => ({ ...f, customColors: [...(f.customColors || []), color], color, customColor: "" }));
+    }
+  }
+
   function addCustomTag() {
     if (!form.customTag?.trim()) return;
     const tag = form.customTag.trim();
@@ -86,8 +100,21 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>{categories.map(c=><button key={c} type="button" onClick={()=>setForm(f=>({...f,category:c}))} style={chipStyle(form.category===c)}>{c}</button>)}</div>
 
       <label style={labelStyle}>Color</label>
-      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{COLORS.map(c=><button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>)}</div>
-      {form.color==="Other" && <input value={form.customColor} onChange={e=>setForm(f=>({...f,customColor:e.target.value}))} placeholder="Enter color" style={inputStyle}/>}
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+        {COLORS.filter(c=>c!=="Other").map(c=>(
+          <button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>
+        ))}
+        {(form.customColors||[]).map(c=>(
+          <span key={c} style={{...chipStyle(form.color===c),display:"inline-flex",alignItems:"center",gap:4}}>
+            <span onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={{cursor:"pointer"}}>{c}</span>
+            <span onClick={()=>setForm(f=>({...f,customColors:(f.customColors||[]).filter(x=>x!==c),color:f.color===c?"":f.color}))} style={{cursor:"pointer",opacity:0.7}}>×</span>
+          </span>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:8}}>
+        <input value={form.customColor||""} onChange={e=>setForm(f=>({...f,customColor:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addCustomColor();}} placeholder="Custom color (e.g. Yellow)..." style={{...inputStyle,marginBottom:0,flex:1}}/>
+        <button onClick={addCustomColor} style={{...chipStyle(false),padding:"4px 14px"}}>+</button>
+      </div>
 
       <label style={labelStyle}>Material (select all that apply)</label>
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>

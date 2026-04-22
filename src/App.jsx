@@ -341,7 +341,7 @@ export default function WardrobeApp() {
   function saveEdit() {
     const { originalImageData, ...ef } = editForm;
     const updated = wardrobe.items.map(i => i.id===ef.id
-      ? normalizeItem({ ...ef, color: ef.color==="Other"?(ef.customColor||""):ef.color })
+      ? normalizeItem(ef)
       : i
     );
     if (ef.brand) wardrobe.addBrand(ef.brand);
