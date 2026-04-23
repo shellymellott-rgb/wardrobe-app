@@ -76,11 +76,19 @@ function saveImageCache(items) {
     items.forEach(i => {
       const id = String(i.id);
       if (i.image_path) {
-        // Uploaded to Storage — remove stale base64 entries (not signed URL entries)
-        if (updated[id] && !updated[id].expiry) {
-          delete updated[id];
+        if (isBase64(i.imageData) || isBase64(i.imageThumb)) {
+          // Upload succeeded but signed URL not yet obtained (or sbGetSignedUrls failed).
+          // Preserve base64 as an emergency fallback so images survive a reload.
+          updated[id] = {
+            imageData:  i.imageData  || null,
+            imageThumb: i.imageThumb || null,
+            // no expiry — base64 never expires
+          };
+        } else {
+          // Has path and no base64 — signed URLs are working, safe to remove stale base64.
+          if (updated[id] && !updated[id].expiry) delete updated[id];
+          // Leave valid signed URL entries (those with expiry) untouched.
         }
-        // Leave valid signed URL entries (those with expiry) untouched.
       } else if (isBase64(i.imageData) || isBase64(i.imageThumb)) {
         updated[id] = {
           imageData:  i.imageData  || null,
@@ -246,15 +254,17 @@ export function loadFromStorage() {
 }
 
 export function saveToStorage(items) {
-  // Strip transient signed URLs from path-based items before persisting.
-  // Signed URLs expire; image_path/image_thumb_path are permanent and stay.
+  // Back up to image cache FIRST, before any stripping.
+  // Pass the ORIGINAL items so saveImageCache can preserve base64 that is
+  // still present on path-based items (meaning signed URL hasn't been obtained yet).
+  saveImageCache(items);
+
+  // Strip transient data from path-based items before writing to localStorage.
+  // Signed URLs expire and must not be persisted; image_path is permanent and stays.
   // Items without image_path keep their imageData/imageThumb (base64 fallback).
   const toSave = items.map(i =>
     i.image_path ? { ...i, imageData: null, imageThumb: null } : i
   );
-
-  // Save base64 image cache for non-path items (quota fallback backup).
-  saveImageCache(toSave);
 
   const totalItems = toSave.length;
   const withImages = toSave.filter(i => i.imageData || i.imageThumb || i.image_path).length;
