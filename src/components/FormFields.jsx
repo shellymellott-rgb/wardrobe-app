@@ -3,7 +3,7 @@ import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import ImageEditor from "./ImageEditor.jsx";
 
-export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories }) {
+export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [] }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
   const showLength = ["Bottoms","Dresses"].includes(form.category);
   const [dragOver, setDragOver] = useState(false);
@@ -104,7 +104,12 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
         {COLORS.filter(c=>c!=="Other").map(c=>(
           <button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>
         ))}
-        {(form.customColors||[]).map(c=>(
+        {/* App-wide custom colors (from existing items) — selectable, no × */}
+        {allCustomColors.map(c=>(
+          <button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>
+        ))}
+        {/* Session-local custom colors (added in this form session, not yet on any item) */}
+        {(form.customColors||[]).filter(c=>!allCustomColors.includes(c)).map(c=>(
           <span key={c} style={{...chipStyle(form.color===c),display:"inline-flex",alignItems:"center",gap:4}}>
             <span onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={{cursor:"pointer"}}>{c}</span>
             <span onClick={()=>setForm(f=>({...f,customColors:(f.customColors||[]).filter(x=>x!==c),color:f.color===c?"":f.color}))} style={{cursor:"pointer",opacity:0.7}}>×</span>

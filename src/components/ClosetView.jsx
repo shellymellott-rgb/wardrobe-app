@@ -5,7 +5,7 @@ import { chipStyle } from "../styles.js";
 export default function ClosetView({
   items, filtered, activeCategory, setActiveCategory, allCategories,
   activeFilters, setActiveFilters, showFilters, setShowFilters,
-  brands, allTags, evaluateItem, syncing,
+  brands, allTags, allCustomColors = [], evaluateItem, syncing,
 }) {
   const [search, setSearch] = useState("");
 
@@ -176,7 +176,7 @@ export default function ClosetView({
             </div>
             {/* Filter groups */}
             {[
-              { key:"color",    label:"Color",    opts:COLORS },
+              { key:"color",    label:"Color",    opts:[...COLORS.filter(c=>c!=="Other"), ...allCustomColors] },
               { key:"season",   label:"Season",   opts:SEASONS },
               { key:"material", label:"Material", opts:MATERIALS },
               ...(brands.length ? [{ key:"brand", label:"Brand", opts:brands }] : []),

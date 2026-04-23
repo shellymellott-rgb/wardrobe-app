@@ -15,7 +15,7 @@ export default function ItemDetailModal({
   openItemChat,
   openFilePicker, onImageDrop, setCropSrc, setCropTarget,
   outfitPhotoRef, addOutfitPhoto,
-  brands, addBrand, allCategories,
+  brands, addBrand, allCategories, allCustomColors = [],
   stylingNotesInput, setStylingNotesInput,
 }) {
   useEffect(() => { if (selectedItem) setStylingNotesInput(selectedItem.stylingNotes || ""); }, [selectedItem?.id]);
@@ -35,7 +35,7 @@ export default function ItemDetailModal({
             onImageClick={()=>openFilePicker("edit")}
             onImageDrop={onImageDrop}
             onRecrop={()=>{setCropTarget("edit");setCropSrc(editForm?.originalImageData);}}
-            brands={brands} onAddBrand={addBrand} categories={allCategories}
+            brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors}
           />
         </div>
       </div>

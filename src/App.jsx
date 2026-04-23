@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase, sbLoadOutfits, sbDeleteImage } from "./supabase.js";
-import { CATEGORIES } from "./constants.js";
+import { CATEGORIES, COLORS } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
 import { readFile, compressImage, generateImageVersions } from "./utils/imageUtils.js";
@@ -401,6 +401,8 @@ export default function WardrobeApp() {
   });
   const underloved = wardrobe.items.filter(i => !i.wornDates?.length);
   const allTags = [...new Set(wardrobe.items.flatMap(i=>i.tags||[]))];
+  const PRESET_COLOR_SET = new Set(COLORS.filter(c => c !== "Other"));
+  const allCustomColors = [...new Set(wardrobe.items.map(i=>i.color).filter(c=>c&&!PRESET_COLOR_SET.has(c)))].sort();
 
   // ── Early returns ───────────────────────────────────────────────────────────
   // Don't block on authLoading — localStorage items render immediately.
@@ -475,7 +477,7 @@ export default function WardrobeApp() {
           allCategories={allCategories}
           activeFilters={activeFilters} setActiveFilters={setActiveFilters}
           showFilters={showFilters} setShowFilters={setShowFilters}
-          brands={wardrobe.brands} allTags={allTags}
+          brands={wardrobe.brands} allTags={allTags} allCustomColors={allCustomColors}
           evaluateItem={evaluateItem}
           syncing={wardrobe.syncing}
         />
@@ -519,7 +521,7 @@ export default function WardrobeApp() {
         <AddItemView
           items={wardrobe.items} persist={wardrobe.persist}
           addBrand={wardrobe.addBrand} brands={wardrobe.brands}
-          allCategories={allCategories}
+          allCategories={allCategories} allCustomColors={allCustomColors}
           addForm={addForm} setAddForm={setAddForm}
           scanningImage={scanningImage}
           openFilePicker={openFilePicker}
@@ -565,7 +567,7 @@ export default function WardrobeApp() {
           openFilePicker={openFilePicker} onImageDrop={file => handleImageFile(file, "edit")}
           setCropSrc={setCropSrc} setCropTarget={setCropTarget}
           outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
-          brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories}
+          brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories} allCustomColors={allCustomColors}
           stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
         />
       )}

@@ -8,7 +8,7 @@ import { callClaude } from "../utils/callClaude.js";
 import FormFields from "./FormFields.jsx";
 
 export default function AddItemView({
-  items, persist, addBrand, brands, allCategories,
+  items, persist, addBrand, brands, allCategories, allCustomColors = [],
   // addForm is lifted to App so the crop callback can update it
   addForm, setAddForm,
   scanningImage,
@@ -116,7 +116,7 @@ export default function AddItemView({
 
       {addMode==="photo" && (<>
         {scanningImage && <div style={{textAlign:"center",padding:"16px 0",color:"#b8976a"}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading image...</div><div style={{fontSize:10,color:"#555",marginTop:4}}>Extracting brand, color, details</div></div>}
-        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories}/>
+        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors}/>
         <button onClick={addItem} disabled={!addForm.name||scanningImage} style={{width:"100%",background:addForm.name&&!scanningImage?"#e8e2d8":"#1a1a1a",color:addForm.name&&!scanningImage?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name&&!scanningImage?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
       </>)}
 
@@ -128,7 +128,7 @@ export default function AddItemView({
         </div>
         {fetchingUrl && <div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}
         {urlError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{urlError}</div>}
-        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories}/>
+        <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors}/>
         <button onClick={addItem} disabled={!addForm.name} style={{width:"100%",background:addForm.name?"#e8e2d8":"#1a1a1a",color:addForm.name?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
       </>)}
 
