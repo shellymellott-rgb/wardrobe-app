@@ -10,5 +10,9 @@ export async function callClaude(system, userContent, maxTokens = 1000) {
     }),
   });
   const data = await res.json();
+  if (!res.ok || data.error) {
+    const msg = typeof data.error === "object" ? data.error?.message : (data.error || `HTTP ${res.status}`);
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
   return data.content?.[0]?.text || "";
 }

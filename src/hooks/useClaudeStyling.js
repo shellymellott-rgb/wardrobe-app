@@ -22,16 +22,25 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     setLoadingOutfit(true); setOutfits([]); setOutfitText("");
     try {
       const text = await callClaude(buildStyleSystem(), OUTFIT_PROMPT(items.map(stripForClaude), occasion), 1000);
+      console.log("[outfits] response preview:", text?.slice(0, 200));
       setOutfits(parseJsonArray(text));
-    } catch {
+    } catch (e) {
+      console.error("[outfits] primary failed:", e.message);
       try {
         const fallback = await callClaude(
           buildStyleSystem(),
           `Shelly's wardrobe:\n${items.map(stripForClaude).map(i=>`- [${i.category}] ${i.name}`).join("\n")}\n${occasion?`Occasion: ${occasion}`:"Everyday outfits."}\nGive 3 outfit combos. Direct, editorial.`,
           1000
         );
-        setOutfitText(fallback);
-      } catch {}
+        if (fallback) {
+          setOutfitText(fallback);
+        } else {
+          setOutfitText("Could not generate outfits. Please try again.");
+        }
+      } catch (e2) {
+        console.error("[outfits] fallback failed:", e2.message);
+        setOutfitText("Could not generate outfits. Please try again.");
+      }
     }
     setLoadingOutfit(false);
   }
