@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { fmtMaterials } from "../utils/normalizeItem.js";
 import { COLORS } from "../constants.js";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
@@ -19,6 +19,7 @@ export default function ItemDetailModal({
   stylingNotesInput, setStylingNotesInput,
 }) {
   useEffect(() => { if (selectedItem) setStylingNotesInput(selectedItem.stylingNotes || ""); }, [selectedItem?.id]);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   if (!selectedItem) return null;
 
@@ -91,7 +92,14 @@ export default function ItemDetailModal({
           {wornDateInput===null ? (
             <div style={{display:"flex",gap:8}}>
               <button type="button" onClick={()=>setWornDateInput(new Date().toISOString().split("T")[0])} style={{flex:1,background:"transparent",border:"1px solid #333",color:"#e8e2d8",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Mark Worn</button>
-              <button type="button" onClick={()=>removeItem(selectedItem.id)} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button>
+              {confirmRemove
+                ? <div style={{display:"flex",gap:8,flex:1}}>
+                    <span style={{flex:1,display:"flex",alignItems:"center",fontSize:10,color:"#8a4a4a",letterSpacing:0.5}}>Remove this item?</span>
+                    <button type="button" onClick={()=>removeItem(selectedItem.id)} style={{background:"#3a2020",border:"1px solid #6a3030",color:"#e07070",borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Yes, remove</button>
+                    <button type="button" onClick={()=>setConfirmRemove(false)} style={{background:"transparent",border:"1px solid #333",color:"#666",borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Cancel</button>
+                  </div>
+                : <button type="button" onClick={()=>setConfirmRemove(true)} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button>
+              }
             </div>
           ) : wornDateInput==="done" ? (
             <div style={{padding:"10px 14px",background:"#1a1a2a",border:"1px solid #333",borderRadius:3,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a6a",textAlign:"center"}}>✓ Logged</div>
