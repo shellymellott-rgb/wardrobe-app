@@ -60,7 +60,14 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
       setIsTransparent(true);
     } catch (e) {
       console.error("[editor] background removal failed:", e);
-      setError("Could not remove background. Check your connection and try again.");
+      const msg = e?.message || String(e);
+      if (msg.includes("SharedArrayBuffer") || msg.includes("crossOriginIsolated")) {
+        setError("Background removal requires cross-origin isolation. Try reloading the page.");
+      } else if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch")) {
+        setError("Could not download the AI model. Check your connection and try again.");
+      } else {
+        setError(`Could not remove background: ${msg}`);
+      }
     }
     setProcessing(false);
   }
