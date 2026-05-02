@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase, sbLoadOutfits, sbDeleteImage } from "./supabase.js";
+import { supabase, sbLoadOutfits } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
@@ -345,7 +345,6 @@ export default function WardrobeApp() {
       : i
     );
     if (ef.brand) wardrobe.addBrand(ef.brand);
-    if (ef.imageData?.startsWith("data:")) sbDeleteImage(user.id, ef.id);
     wardrobe.persist(updated);
     localStorage.setItem("lastPersistAt", Date.now().toString());
     setSelectedItem(updated.find(i=>i.id===ef.id));

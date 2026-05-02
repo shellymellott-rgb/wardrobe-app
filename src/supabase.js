@@ -79,24 +79,6 @@ export async function sbGetSignedUrls(paths, expiresIn = 3600) {
   }
 }
 
-/**
- * Delete images for an item — covers both the new deterministic paths and the
- * old ad-hoc paths used before this refactor, so orphaned files are cleaned up.
- */
-export async function sbDeleteImage(userId, itemId) {
-  const paths = [
-    // New deterministic paths
-    `${userId}/items/${itemId}/full.jpg`,
-    `${userId}/items/${itemId}/thumb.jpg`,
-    // Old paths (pre-migration cleanup)
-    `${userId}/${itemId}.jpg`,
-    `${userId}/${itemId}.png`,
-    `${userId}/${itemId}_thumb.jpg`,
-    `${userId}/${itemId}_thumb.png`,
-  ];
-  const { error } = await supabase.storage.from("wardrobe-images").remove(paths);
-  if (error) console.error("[sb] deleteImage FAILED:", error.message);
-}
 
 export async function sbUpsert(table, rows) {
   if (!rows.length) return;
