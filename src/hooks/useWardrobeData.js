@@ -483,8 +483,11 @@ export function useWardrobeData(user) {
       // Items that already have a fresh signed URL in memory can skip.
       const pathsToSign = [];
       withImages.forEach(i => {
-        if (i.image_path       && !i.imageData?.startsWith("https://"))  pathsToSign.push(i.image_path);
-        if (i.image_thumb_path && !i.imageThumb?.startsWith("https://")) pathsToSign.push(i.image_thumb_path);
+        const id = String(i.id);
+        const cached = loadImageCache()[id];
+        const urlFresh = cached?.expiry && cached.expiry > Date.now() + FIVE_MIN;
+        if (i.image_path       && (!i.imageData?.startsWith("https://")  || !urlFresh)) pathsToSign.push(i.image_path);
+        if (i.image_thumb_path && (!i.imageThumb?.startsWith("https://") || !urlFresh)) pathsToSign.push(i.image_thumb_path);
       });
 
       let mergedWithUrls = withImages;
