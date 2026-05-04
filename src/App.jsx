@@ -210,6 +210,25 @@ export default function WardrobeApp() {
   const [view, setView] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
 
+  useEffect(() => {
+    const onPopState = () => {
+      const state = window.history.state;
+      if (state?.selectedItemId) {
+        const item = wardrobe.items.find(i => String(i.id) === String(state.selectedItemId));
+        if (item) { setSelectedItem(item); return; }
+      }
+      setSelectedItem(null);
+      setEditing(false);
+      if (state?.view) setView(state.view);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [wardrobe.items]);
+
+  useEffect(() => {
+    if (!selectedItem) window.history.pushState({ view }, "");
+  }, [view]);
+
   // ── Closet filters ──────────────────────────────────────────────────────────
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeFilters, setActiveFilters] = useState({});
@@ -315,6 +334,7 @@ export default function WardrobeApp() {
   // ── Item actions ────────────────────────────────────────────────────────────
   async function evaluateItem(item) {
     setSelectedItem(item); setEditing(false); setWornDateInput(null);
+    window.history.pushState({ view, selectedItemId: item.id }, "");
     await styling.evaluateItem(item);
   }
 
@@ -336,6 +356,7 @@ export default function WardrobeApp() {
   function removeItem(id) {
     wardrobe.persist(wardrobe.items.filter(i=>i.id!==id));
     setSelectedItem(null); styling.setItemEval(""); setEditing(false); setWornDateInput(null);
+    window.history.pushState({ view }, "");
   }
 
   function saveEdit() {
