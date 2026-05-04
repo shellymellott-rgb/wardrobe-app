@@ -520,6 +520,7 @@ export default function WardrobeApp() {
         <AddItemView
           items={wardrobe.items} persist={wardrobe.persist}
           addBrand={wardrobe.addBrand} brands={wardrobe.brands}
+          customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
           allCategories={allCategories} allCustomColors={allCustomColors}
           addForm={addForm} setAddForm={setAddForm}
           scanningImage={scanningImage}
@@ -567,6 +568,7 @@ export default function WardrobeApp() {
           setCropSrc={setCropSrc} setCropTarget={setCropTarget}
           outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
           brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories} allCustomColors={allCustomColors}
+          customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
           stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
         />
       )}

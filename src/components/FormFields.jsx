@@ -3,7 +3,7 @@ import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import ImageEditor from "./ImageEditor.jsx";
 
-export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [] }) {
+export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [], customCategories = [], onAddCustomCategory }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
   const showLength = ["Bottoms","Dresses"].includes(form.category);
   const [dragOver, setDragOver] = useState(false);
@@ -32,6 +32,16 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
     } else {
       setForm(f => ({ ...f, customColors: [...(f.customColors || []), color], color, customColor: "" }));
     }
+  }
+
+  const [customCatInput, setCustomCatInput] = useState("");
+  function addCustomCategoryLocal() {
+    const raw = customCatInput.trim();
+    if (!raw) return;
+    const cat = raw.charAt(0).toUpperCase() + raw.slice(1);
+    setForm(f => ({...f, category: cat}));
+    if (onAddCustomCategory) onAddCustomCategory(cat);
+    setCustomCatInput("");
   }
 
   function addCustomTag() {
@@ -97,7 +107,14 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
       </div>
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,marginBottom:5}}><label style={{...labelStyle,marginTop:0,marginBottom:0}}>Category</label></div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>{categories.map(c=><button key={c} type="button" onClick={()=>setForm(f=>({...f,category:c}))} style={chipStyle(form.category===c)}>{c}</button>)}</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+        {categories.map(c=><button key={c} type="button" onClick={()=>setForm(f=>({...f,category:c}))} style={chipStyle(form.category===c)}>{c}</button>)}
+        {customCategories.filter(c=>!categories.includes(c)).map(c=><button key={c} type="button" onClick={()=>setForm(f=>({...f,category:f.category===c?"":c}))} style={chipStyle(form.category===c)}>{c}</button>)}
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:10}}>
+        <input value={customCatInput} onChange={e=>setCustomCatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomCategoryLocal();}} placeholder="Custom category..." style={{...inputStyle,marginBottom:0,flex:1}}/>
+        <button onClick={addCustomCategoryLocal} style={{...chipStyle(false),padding:"4px 14px"}}>+</button>
+      </div>
 
       <label style={labelStyle}>Color</label>
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>

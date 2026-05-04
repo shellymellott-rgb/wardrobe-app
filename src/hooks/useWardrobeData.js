@@ -324,6 +324,10 @@ export function useWardrobeData(user) {
     try { const b = localStorage.getItem("wardrobe-brands"); return b ? JSON.parse(b) : []; }
     catch { return []; }
   });
+  const [customCategories, setCustomCategories] = useState(() => {
+    try { const c = localStorage.getItem("wardrobe-custom-categories"); return c ? JSON.parse(c) : []; }
+    catch { return []; }
+  });
   const [syncing, setSyncing] = useState(false);
 
   async function persist(newItems) {
@@ -393,6 +397,13 @@ export function useWardrobeData(user) {
     const updated = [...brands, brand].sort();
     setBrands(updated);
     try { localStorage.setItem("wardrobe-brands", JSON.stringify(updated)); } catch {}
+  }
+
+  function addCustomCategory(cat) {
+    if (!cat || customCategories.includes(cat)) return;
+    const updated = [...customCategories, cat].sort();
+    setCustomCategories(updated);
+    try { localStorage.setItem("wardrobe-custom-categories", JSON.stringify(updated)); } catch {}
   }
 
   /**
@@ -527,6 +538,7 @@ export function useWardrobeData(user) {
     items, setItems, persist,
     wishlist, setWishlist, persistWishlist,
     brands, addBrand,
+    customCategories, addCustomCategory,
     syncing, syncFromSupabase,
   };
 }
