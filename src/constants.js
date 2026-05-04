@@ -1,7 +1,7 @@
 export const CATEGORIES = ["Tops","Bottoms","Dresses","Outerwear","Shoes","Accessories"];
 export const COLORS = ["Black","White","Cream","Tan","Camel","Navy","Grey","Brown","Olive","Blush","Red","Blue","Green","Other"];
 export const SEASONS = ["All Year","Spring/Summer","Fall/Winter"];
-export const SLEEVE_LENGTHS = ["N/A","Sleeveless","Short Sleeve","Long Sleeve"];
+export const SLEEVE_LENGTHS = ["N/A","Sleeveless","Cap Sleeve","Short Sleeve","3/4 Sleeve","Long Sleeve"];
 export const LENGTHS = ["N/A","Cropped","Mini","Midi","Full"];
 export const MATERIALS = ["Cotton","Linen","Silk","Wool","Cashmere","Denim","Knit","Leather","Polyester","Other"];
 export const PRESET_TAGS = {
