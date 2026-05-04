@@ -12,12 +12,19 @@ function extractImageUrl(html) {
               html.match(/"image"\s*:\s*\[\s*"(https?:[^"]+)"/i) ||
               html.match(/"image"\s*:\s*\{\s*"url"\s*:\s*"(https?:[^"]+)"/i);
   if (ld) return ld[1];
-  // First large img src (skip icons/logos/trackers)
-  const imgs = [...html.matchAll(/<img[^>]+src="(https?[^"]+)"/gi)];
-  for (const m of imgs) {
-    const src = m[1];
-    if (!src.match(/logo|icon|sprite|banner|header|pixel|tracking|1x1|badge|avatar/i) &&
-        src.match(/\.(jpg|jpeg|png|webp)/i)) return src;
+  // First large img src or data-src (lazy-loaded), or first srcset URL
+  const imgPatterns = [
+    /<img[^>]+src="(https?[^"]+)"/gi,
+    /<img[^>]+data-src="(https?[^"]+)"/gi,
+    /<img[^>]+srcset="(https?[^\s,"]+)/gi,
+  ];
+  for (const pattern of imgPatterns) {
+    const imgs = [...html.matchAll(pattern)];
+    for (const m of imgs) {
+      const src = m[1];
+      if (!src.match(/logo|icon|sprite|banner|header|pixel|tracking|1x1|badge|avatar/i) &&
+          src.match(/\.(jpg|jpeg|png|webp)/i)) return src;
+    }
   }
   return null;
 }
