@@ -47,18 +47,29 @@ export default function AddItemView({
         price: parsed.price || f.price,
       }));
       if (parsed.brand) addBrand(parsed.brand);
-      // Background fetch for image + price. Guards on each field prevent overwriting user edits.
+      // Background fetch for image + full page text. Re-ask Claude with real page data.
       fetch("/api/claude", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ fetchUrl:urlInput.trim() }) })
         .then(r => r.json())
-        .then(pageData => {
-          if (pageData.imageData || pageData.price) {
-            setAddForm(f => ({
-              ...f,
-              price: pageData.price || f.price,
-              imageData: f.imageData || pageData.imageData || null,
-              originalImageData: f.originalImageData || pageData.imageData || null,
-            }));
+        .then(async pageData => {
+          const updates = {};
+          if (pageData.imageData) { updates.imageData = pageData.imageData; updates.originalImageData = pageData.imageData; }
+          if (pageData.price) updates.price = pageData.price;
+          if (pageData.pageText) {
+            try {
+              const text2 = await callClaude(URL_PROMPT, [{ type:"text", text:`Extract product details from this webpage content:\n\n${pageData.pageText}` }], 500);
+              const p2 = parseJsonObject(text2);
+              if (p2.name)    updates.name    = p2.name;
+              if (p2.brand)   { updates.brand = p2.brand; addBrand(p2.brand); }
+              if (p2.color)   updates.color   = p2.color;
+              if (p2.material) updates.materials = [p2.material];
+              if (p2.category) updates.category = p2.category;
+              if (p2.season)  updates.season  = p2.season;
+              if (p2.sleeveLength) updates.sleeveLength = p2.sleeveLength;
+              if (p2.length)  updates.length  = p2.length;
+              if (p2.price)   updates.price   = p2.price;
+            } catch {}
           }
+          if (Object.keys(updates).length) setAddForm(f => ({ ...f, ...updates }));
         })
         .catch(() => {});
     } catch (err) {
