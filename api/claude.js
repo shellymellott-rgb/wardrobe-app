@@ -23,6 +23,20 @@ function extractImageUrl(html) {
 }
 
 async function fetchPageHtml(url) {
+  // 0. ScrapingBee — handles JS-rendered pages
+  if (process.env.SCRAPINGBEE_API_KEY) {
+    try {
+      const sbUrl = 'https://app.scrapingbee.com/api/v1/?' + new URLSearchParams({
+        api_key: process.env.SCRAPINGBEE_API_KEY,
+        url: url,
+        render_js: 'true',
+        premium_proxy: 'false',
+      });
+      const r = await fetch(sbUrl, { signal: AbortSignal.timeout(10000) });
+      if (r.ok) return await r.text();
+    } catch {}
+  }
+
   // 1. Direct fetch with mobile UA
   try {
     const r = await fetch(url, {
