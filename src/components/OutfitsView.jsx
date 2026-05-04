@@ -259,9 +259,15 @@ export default function OutfitsView({
       {outfits.length > 0 && (
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
           {outfits.map((outfit, oi) => {
-            const outfitItems = (outfit.pieces||[])
-              .map(name => items.find(i => i.name===name || i.name.toLowerCase()===name.toLowerCase()))
-              .filter(Boolean);
+            const outfitItems = (outfit.pieces||[]).map(name => {
+              const q = name.toLowerCase().trim();
+              return (
+                items.find(i => i.name.toLowerCase() === q) ||
+                items.find(i => i.name.toLowerCase().includes(q) || q.includes(i.name.toLowerCase())) ||
+                items.find(i => q.split(/\s+/).filter(w => w.length > 3).some(w => i.name.toLowerCase().includes(w))) ||
+                null
+              );
+            }).filter(Boolean);
             return (
               <div key={oi} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:8,overflow:"hidden"}}>
                 <CompositeOutfitCard items={outfitItems} />
