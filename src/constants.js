@@ -5,7 +5,7 @@ export const SLEEVE_LENGTHS = ["N/A","Sleeveless","Cap Sleeve","Short Sleeve","3
 export const LENGTHS = ["N/A","Cropped","Mini","Midi","Full"];
 export const MATERIALS = ["Cotton","Linen","Silk","Wool","Cashmere","Denim","Knit","Leather","Polyester","Other"];
 export const PRESET_TAGS = {
-  Style:["Casual","Dressy","Work","Beach/Boat","Travel"],
+  Style:["Casual","Leisure","Dressy","Work","Beach/Boat","Travel"],
   Practical:["Needs Under Layer","Needs Tailoring","Travel-Friendly","Runs Small","Runs Large"],
 };
 
