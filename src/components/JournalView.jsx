@@ -38,6 +38,17 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
   const entryMap = {};
   journalEntries.forEach(e => { entryMap[e.date] = e; });
 
+  // Build a map of date -> worn items for dates with no journal entry
+  const wornMap = {};
+  items.forEach(item => {
+    (item.wornDates || []).forEach(date => {
+      if (!entryMap[date]) {
+        if (!wornMap[date]) wornMap[date] = [];
+        wornMap[date].push(item);
+      }
+    });
+  });
+
   const selectedEntry = entryMap[selectedDate];
 
   // Calendar helpers
@@ -114,15 +125,6 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
     const daysInMonth = getDaysInMonth(calYear, calMonth);
     const firstDay = getFirstDayOfMonth(calYear, calMonth);
     const cells = [];
-    // Build a map of date -> first worn item for dates with no journal entry
-    const wornMap = {};
-    items.forEach(item => {
-      (item.wornDates || []).forEach(date => {
-        if (!entryMap[date] && !wornMap[date]) {
-          wornMap[date] = item;
-        }
-      });
-    });
     for (let i = 0; i < firstDay; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
@@ -141,7 +143,8 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
             if (!day) return <div key={i}/>;
             const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
             const entry = entryMap[dateStr];
-            const wornItem = !entry ? wornMap[dateStr] : null;
+            const wornItems = !entry ? (wornMap[dateStr] || []) : [];
+            const wornItem = wornItems[0] || null;
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             return (
@@ -284,6 +287,23 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
             )}
             <div style={{padding:"0 16px 14px",display:"flex",gap:8}}>
               <button onClick={()=>{ setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${selectedEntry.item_ids.map(id=>items.find(i=>String(i.id)===String(id))?.name).filter(Boolean).join(", ")}`); setView?.("chat"); }} style={{...ghostBtn,fontSize:9,flex:1,textAlign:"center"}}>Chat about this →</button>
+            </div>
+          </div>
+        ) : wornMap[selectedDate]?.length > 0 ? (
+          <div style={{padding:"12px 16px"}}>
+            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:10}}>Items worn</div>
+            <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none"}}>
+              {(wornMap[selectedDate] || []).map(item => (
+                <div key={item.id} style={{flexShrink:0,width:72}}>
+                  <div style={{width:72,height:96,background:"#141414",borderRadius:6,overflow:"hidden",border:"1px solid #1e1e1e"}}>
+                    {(item.imageThumb||item.imageData) && <img src={item.imageThumb??item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+                  </div>
+                  <div style={{fontSize:8,color:"#555",marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:"12px 0 2px",display:"flex",gap:8}}>
+              <button onClick={()=>{ setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${(wornMap[selectedDate]||[]).map(i=>i.name).join(", ")}`); setView?.("chat"); }} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:4,padding:"6px 12px",fontSize:9,letterSpacing:1,textTransform:"uppercase",color:"#888",cursor:"pointer",flex:1,textAlign:"center"}}>Chat about this →</button>
             </div>
           </div>
         ) : (
