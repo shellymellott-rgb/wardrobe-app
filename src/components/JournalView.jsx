@@ -140,14 +140,19 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                 background: isSelected ? "#e8e2d8" : isToday ? "#1a1a1a" : "transparent",
                 border: isToday && !isSelected ? "1px solid #333" : "1px solid transparent",
                 borderRadius:4,
-                aspectRatio:"1",
+                aspectRatio:"3/4",
                 display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
                 position:"relative",overflow:"hidden",
               }}>
                 {entry?.photo
-                  ? <img src={entry.photo} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.6}}/>
+                  ? <img src={entry.photo} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.7}}/>
                   : entry?.item_ids?.length > 0
-                    ? <div style={{position:"absolute",inset:0,background:"#b8976a22"}}/>
+                    ? (() => {
+                        const firstItem = items.find(i => String(i.id) === String(entry.item_ids[0]));
+                        return firstItem?.imageThumb || firstItem?.imageData
+                          ? <img src={firstItem.imageThumb ?? firstItem.imageData} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.5}}/>
+                          : <div style={{position:"absolute",inset:0,background:"#b8976a33"}}/>;
+                      })()
                     : null
                 }
                 <div style={{position:"relative",fontSize:10,fontWeight:isToday||isSelected?600:400,color:isSelected?"#111":isToday?"#e8e2d8":"#888"}}>{day}</div>
