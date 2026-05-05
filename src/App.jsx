@@ -457,10 +457,10 @@ export default function WardrobeApp() {
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginTop:18,fontFamily:"'DM Sans', system-ui, sans-serif",flexWrap:"wrap"}}>
-          {navBtn("Home",    view==="home",    ()=>setView("home"))}
-          {navBtn("Closet",  view==="closet",  ()=>setView("closet"))}
-          {navBtn("Outfits", view==="outfits", ()=>setView("outfits"))}
-          {navBtn("Wishlist",view==="wishlist",()=>setView("wishlist"))}
+          {navBtn("Home",    view==="home",    ()=>{setView("home");window.history.pushState({view:"home"},"");})}
+          {navBtn("Closet",  view==="closet",  ()=>{setView("closet");window.history.pushState({view:"closet"},"");})}
+          {navBtn("Outfits", view==="outfits", ()=>{setView("outfits");window.history.pushState({view:"outfits"},"");})}
+          {navBtn("Wishlist",view==="wishlist",()=>{setView("wishlist");window.history.pushState({view:"wishlist"},"");})}
         </div>
       </div>
 
@@ -476,7 +476,7 @@ export default function WardrobeApp() {
           markWorn={markWorn}
           evaluateItem={evaluateItem}
           setView={setView}
-          onAddItem={()=>{setView("add");setAddForm(emptyForm());}}
+          onAddItem={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           weatherEnabled={settings.weatherEnabled}
           weatherOutfit={weatherOutfit}
           weatherLoading={weatherLoading}
@@ -597,7 +597,7 @@ export default function WardrobeApp() {
       {/* FAB — Add Item */}
       {!cropSrc && view!=="add" && !selectedItem && !showSettings && !styling.itemChatModal && (
         <button
-          onClick={()=>{setView("add");setAddForm(emptyForm());}}
+          onClick={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           style={{
             position:"fixed",bottom:28,right:24,
             width:52,height:52,borderRadius:"50%",
