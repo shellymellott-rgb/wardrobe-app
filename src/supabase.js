@@ -179,3 +179,37 @@ export async function sbDeleteOutfit(id) {
   const { error } = await supabase.from("outfits").delete().eq("id", id);
   if (error) console.error("[sb] deleteOutfit FAILED:", error.message);
 }
+
+export async function sbLoadJournalEntries(userId) {
+  try {
+    const { data, error } = await supabase
+      .from("journal_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false });
+    if (error) { console.error("[sb] loadJournalEntries FAILED:", error.message); return null; }
+    return data;
+  } catch (e) { console.error("[sb] loadJournalEntries ERROR:", e.message); return null; }
+}
+
+export async function sbSaveJournalEntry(entry) {
+  try {
+    const { error } = await supabase
+      .from("journal_entries")
+      .upsert(entry, { onConflict: "id" });
+    if (error) { console.error("[sb] saveJournalEntry FAILED:", error.message); return false; }
+    return true;
+  } catch (e) { console.error("[sb] saveJournalEntry ERROR:", e.message); return false; }
+}
+
+export async function sbDeleteJournalEntry(id, userId) {
+  try {
+    const { error } = await supabase
+      .from("journal_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) { console.error("[sb] deleteJournalEntry FAILED:", error.message); return false; }
+    return true;
+  } catch (e) { console.error("[sb] deleteJournalEntry ERROR:", e.message); return false; }
+}

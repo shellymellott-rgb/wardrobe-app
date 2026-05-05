@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase, sbLoadOutfits } from "./supabase.js";
+import { supabase, sbLoadOutfits, sbLoadJournalEntries, sbSaveJournalEntry, sbDeleteJournalEntry } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
 import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
@@ -21,6 +21,7 @@ import ClosetView from "./components/ClosetView.jsx";
 import AddItemView from "./components/AddItemView.jsx";
 import OutfitsView from "./components/OutfitsView.jsx";
 import WishlistView from "./components/WishlistView.jsx";
+import JournalView from "./components/JournalView.jsx";
 import ChatView from "./components/ChatView.jsx";
 import ItemDetailModal from "./components/ItemDetailModal.jsx";
 import ItemChatModal from "./components/ItemChatModal.jsx";
@@ -210,6 +211,25 @@ export default function WardrobeApp() {
   }
 
   useEffect(() => { loadSavedOutfits(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Journal ─────────────────────────────────────────────────────────────────
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [journalLoading, setJournalLoading] = useState(false);
+
+  async function loadJournalEntries() {
+    if (!user?.id) return;
+    setJournalLoading(true);
+    try {
+      const data = await sbLoadJournalEntries(user.id);
+      setJournalEntries(data ?? []);
+    } catch (e) {
+      console.error("[loadJournalEntries]", e.message);
+    } finally {
+      setJournalLoading(false);
+    }
+  }
+
+  useEffect(() => { loadJournalEntries(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState("home");
@@ -466,6 +486,7 @@ export default function WardrobeApp() {
           {navBtn("Closet",  view==="closet",  ()=>{setView("closet");window.history.pushState({view:"closet"},"");})}
           {navBtn("Outfits", view==="outfits", ()=>{setView("outfits");window.history.pushState({view:"outfits"},"");})}
           {navBtn("Wishlist",view==="wishlist",()=>{setView("wishlist");window.history.pushState({view:"wishlist"},"");})}
+          {navBtn("Journal", view==="journal", ()=>{setView("journal");window.history.pushState({view:"journal"},"");})}
         </div>
       </div>
 
@@ -525,6 +546,22 @@ export default function WardrobeApp() {
 
       {view==="wishlist" && (
         <WishlistView wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}/>
+      )}
+
+      {view==="journal" && (
+        <JournalView
+          items={wardrobe.items}
+          user={user}
+          journalEntries={journalEntries}
+          journalLoading={journalLoading}
+          onEntrySaved={loadJournalEntries}
+          onEntryDeleted={loadJournalEntries}
+          markWorn={markWorn}
+          setChatInput={styling.setChatInput}
+          setView={setView}
+          sbSaveJournalEntry={sbSaveJournalEntry}
+          sbDeleteJournalEntry={sbDeleteJournalEntry}
+        />
       )}
 
       {view==="chat" && (
