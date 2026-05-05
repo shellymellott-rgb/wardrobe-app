@@ -3,6 +3,8 @@ import { fmtMaterials } from "../utils/normalizeItem.js";
 import { COLORS } from "../constants.js";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
 import FormFields from "./FormFields.jsx";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function ItemDetailModal({
   selectedItem, setSelectedItem,
@@ -105,7 +107,13 @@ export default function ItemDetailModal({
             <div style={{padding:"10px 14px",background:"#1a1a2a",border:"1px solid #333",borderRadius:3,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a6a",textAlign:"center"}}>✓ Logged</div>
           ) : (
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <input type="date" value={wornDateInput} onChange={e=>setWornDateInput(e.target.value)} style={{...inputStyle,marginBottom:0,flex:1}}/>
+              <DatePicker
+                selected={wornDateInput && wornDateInput !== "done" ? new Date(wornDateInput) : null}
+                onChange={date => setWornDateInput(date ? date.toISOString().split("T")[0] : "")}
+                dateFormat="MM/dd/yyyy"
+                placeholderText="mm/dd/yyyy"
+                className="wardrobe-datepicker"
+              />
               <button type="button" onClick={()=>{markWorn(selectedItem.id,wornDateInput);setWornDateInput("done");setTimeout(()=>setWornDateInput(null),1200);}} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"10px 14px",fontSize:11,letterSpacing:1,cursor:"pointer",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>Log Date</button>
               <button type="button" onClick={()=>setWornDateInput(null)} style={{...ghostBtn,fontSize:18,padding:"0 4px",flexShrink:0}}>✕</button>
             </div>

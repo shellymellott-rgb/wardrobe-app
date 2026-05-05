@@ -2,6 +2,8 @@ import { useState } from "react";
 import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import ImageEditor from "./ImageEditor.jsx";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [], customCategories = [], onAddCustomCategory }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
@@ -183,7 +185,14 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
 
       <div style={{marginTop:10}}>
         <label style={labelStyle}>Date Purchased</label>
-        <input type="date" value={form.datePurchased} onChange={e=>setForm(f=>({...f,datePurchased:e.target.value}))} style={inputStyle}/>
+        <DatePicker
+          selected={form.datePurchased ? new Date(form.datePurchased) : null}
+          onChange={date => setForm(f => ({...f, datePurchased: date ? date.toISOString().split("T")[0] : ""}))}
+          dateFormat="MM/dd/yyyy"
+          placeholderText="mm/dd/yyyy"
+          style={inputStyle}
+          className="wardrobe-datepicker"
+        />
         <label style={labelStyle}>Price ($)</label>
         <input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" style={inputStyle}/>
       </div>
