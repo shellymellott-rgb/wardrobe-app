@@ -199,9 +199,14 @@ export default function WardrobeApp() {
   async function loadSavedOutfits() {
     if (!user?.id) return;
     setOutfitsLoading(true);
-    const data = await sbLoadOutfits(user.id);
-    setSavedOutfits(data ?? []);
-    setOutfitsLoading(false);
+    try {
+      const data = await sbLoadOutfits(user.id);
+      setSavedOutfits(data ?? []);
+    } catch (e) {
+      console.error("[loadSavedOutfits]", e.message);
+    } finally {
+      setOutfitsLoading(false);
+    }
   }
 
   useEffect(() => { loadSavedOutfits(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps

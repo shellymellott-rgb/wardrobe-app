@@ -22,6 +22,7 @@ export default function ItemDetailModal({
 }) {
   useEffect(() => { if (selectedItem) setStylingNotesInput(selectedItem.stylingNotes || ""); }, [selectedItem?.id]);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  useEffect(() => { setConfirmRemove(false); }, [selectedItem?.id]);
 
   if (!selectedItem) return null;
 

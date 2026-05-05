@@ -32,9 +32,13 @@ export default function OutfitsView({
 
     const id = crypto.randomUUID();
     const name = inspoResult.outfitName || "Inspo Look";
-    await sbCreateOutfit({ id, user_id: user.id, name }, matchedIds);
-    setInspoSaved(true);
-    onOutfitSaved?.();
+    try {
+      await sbCreateOutfit({ id, user_id: user.id, name }, matchedIds);
+      setInspoSaved(true);
+      onOutfitSaved?.();
+    } catch (e) {
+      console.error("[saveInspoOutfit]", e.message);
+    }
   }
 
   return (

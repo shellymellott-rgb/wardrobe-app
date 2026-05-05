@@ -185,14 +185,15 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
 
       <div style={{marginTop:10}}>
         <label style={labelStyle}>Date Purchased</label>
-        <DatePicker
-          selected={form.datePurchased ? new Date(form.datePurchased) : null}
-          onChange={date => setForm(f => ({...f, datePurchased: date ? date.toISOString().split("T")[0] : ""}))}
-          dateFormat="MM/dd/yyyy"
-          placeholderText="mm/dd/yyyy"
-          style={inputStyle}
-          className="wardrobe-datepicker"
-        />
+        <div style={inputStyle}>
+          <DatePicker
+            selected={form.datePurchased ? new Date(form.datePurchased) : null}
+            onChange={date => setForm(f => ({...f, datePurchased: date ? date.toISOString().split("T")[0] : ""}))}
+            dateFormat="MM/dd/yyyy"
+            placeholderText="mm/dd/yyyy"
+            className="wardrobe-datepicker"
+          />
+        </div>
         <label style={labelStyle}>Price ($)</label>
         <input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" style={inputStyle}/>
       </div>
