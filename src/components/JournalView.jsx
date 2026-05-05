@@ -114,6 +114,15 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
     const daysInMonth = getDaysInMonth(calYear, calMonth);
     const firstDay = getFirstDayOfMonth(calYear, calMonth);
     const cells = [];
+    // Build a map of date -> first worn item for dates with no journal entry
+    const wornMap = {};
+    items.forEach(item => {
+      (item.wornDates || []).forEach(date => {
+        if (!entryMap[date] && !wornMap[date]) {
+          wornMap[date] = item;
+        }
+      });
+    });
     for (let i = 0; i < firstDay; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
@@ -132,6 +141,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
             if (!day) return <div key={i}/>;
             const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
             const entry = entryMap[dateStr];
+            const wornItem = !entry ? wornMap[dateStr] : null;
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             return (
@@ -153,10 +163,12 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                           ? <img src={firstItem.imageThumb ?? firstItem.imageData} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.5}}/>
                           : <div style={{position:"absolute",inset:0,background:"#b8976a33"}}/>;
                       })()
-                    : null
+                  : wornItem?.imageThumb || wornItem?.imageData
+                    ? <img src={wornItem.imageThumb ?? wornItem.imageData} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:0.35}}/>
+                  : null
                 }
                 <div style={{position:"relative",fontSize:10,fontWeight:isToday||isSelected?600:400,color:isSelected?"#111":isToday?"#e8e2d8":"#888"}}>{day}</div>
-                {entry && <div style={{position:"relative",width:4,height:4,borderRadius:"50%",background:isSelected?"#b8976a":"#b8976a",marginTop:1}}/>}
+                {(entry || wornItem) && <div style={{position:"relative",width:4,height:4,borderRadius:"50%",background:"#b8976a",marginTop:1}}/>}
               </div>
             );
           })}
