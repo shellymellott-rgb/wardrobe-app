@@ -30,9 +30,9 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
     const all = [...presets, ...(form.customColors || [])];
     const existing = all.find(c => c.toLowerCase() === color.toLowerCase());
     if (existing) {
-      setForm(f => ({ ...f, color: existing, customColor: "" }));
+      setForm(f => { const cur = f.color ? f.color.split("/").map(s=>s.trim()).filter(Boolean) : []; return {...f, color: [...cur, existing].join(" / "), customColor: ""}; });
     } else {
-      setForm(f => ({ ...f, customColors: [...(f.customColors || []), color], color, customColor: "" }));
+      setForm(f => { const cur = f.color ? f.color.split("/").map(s=>s.trim()).filter(Boolean) : []; return {...f, customColors: [...(f.customColors||[]), color], color: [...cur, color].join(" / "), customColor: ""}; });
     }
   }
 
@@ -121,17 +121,17 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
       <label style={labelStyle}>Color</label>
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
         {COLORS.filter(c=>c!=="Other").map(c=>(
-          <button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>
+          <button key={c} onClick={()=>{const colors=form.color?form.color.split("/").map(s=>s.trim()).filter(Boolean):[];const isSelected=colors.includes(c);const next=isSelected?colors.filter(x=>x!==c):[...colors,c];setForm(f=>({...f,color:next.join(" / ")}));}} style={chipStyle(form.color?form.color.split("/").map(s=>s.trim()).includes(c):false)}>{c}</button>
         ))}
         {/* App-wide custom colors (from existing items) — selectable, no × */}
         {allCustomColors.map(c=>(
-          <button key={c} onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={chipStyle(form.color===c)}>{c}</button>
+          <button key={c} onClick={()=>{const colors=form.color?form.color.split("/").map(s=>s.trim()).filter(Boolean):[];const isSelected=colors.includes(c);const next=isSelected?colors.filter(x=>x!==c):[...colors,c];setForm(f=>({...f,color:next.join(" / ")}));}} style={chipStyle(form.color?form.color.split("/").map(s=>s.trim()).includes(c):false)}>{c}</button>
         ))}
         {/* Session-local custom colors (added in this form session, not yet on any item) */}
         {(form.customColors||[]).filter(c=>!allCustomColors.includes(c)).map(c=>(
-          <span key={c} style={{...chipStyle(form.color===c),display:"inline-flex",alignItems:"center",gap:4}}>
-            <span onClick={()=>setForm(f=>({...f,color:f.color===c?"":c}))} style={{cursor:"pointer"}}>{c}</span>
-            <span onClick={()=>setForm(f=>({...f,customColors:(f.customColors||[]).filter(x=>x!==c),color:f.color===c?"":f.color}))} style={{cursor:"pointer",opacity:0.7}}>×</span>
+          <span key={c} style={{...chipStyle(form.color?form.color.split("/").map(s=>s.trim()).includes(c):false),display:"inline-flex",alignItems:"center",gap:4}}>
+            <span onClick={()=>{const colors=form.color?form.color.split("/").map(s=>s.trim()).filter(Boolean):[];const isSelected=colors.includes(c);const next=isSelected?colors.filter(x=>x!==c):[...colors,c];setForm(f=>({...f,color:next.join(" / ")}));}} style={{cursor:"pointer"}}>{c}</span>
+            <span onClick={()=>setForm(f=>({...f,customColors:(f.customColors||[]).filter(x=>x!==c),color:(f.color?f.color.split("/").map(s=>s.trim()).filter(x=>x!==c):[]).join(" / ")}))} style={{cursor:"pointer",opacity:0.7}}>×</span>
           </span>
         ))}
       </div>
