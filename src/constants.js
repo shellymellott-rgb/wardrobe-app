@@ -1,4 +1,12 @@
 export const CATEGORIES = ["Tops","Bottoms","Dresses","Outerwear","Shoes","Accessories"];
+export const ITEM_TYPES = {
+  Tops: ["Tank", "Tee", "Button-Down", "Blouse", "Sweater", "Cardigan", "Hoodie", "Crop Top"],
+  Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings"],
+  Dresses: ["Midi", "Maxi", "Mini", "Wrap", "Shirt Dress"],
+  Outerwear: ["Jacket", "Blazer", "Coat", "Vest", "Cardigan"],
+  Shoes: ["Boots", "Sandals", "Sneakers", "Flats", "Heels", "Loafers", "Flip Flops", "Clogs", "Mules"],
+  Accessories: ["Bag", "Belt", "Jewelry", "Hat", "Scarf", "Sunglasses"],
+};
 export const COLORS = ["Black","White","Cream","Tan","Camel","Navy","Grey","Brown","Olive","Blush","Red","Blue","Green","Other"];
 export const SEASONS = ["All Year","Spring/Summer","Fall/Winter"];
 export const SLEEVE_LENGTHS = ["N/A","Sleeveless","Cap Sleeve","Short Sleeve","3/4 Sleeve","Long Sleeve"];

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { COLORS, SEASONS, MATERIALS } from "../constants.js";
+import { COLORS, SEASONS, MATERIALS, ITEM_TYPES } from "../constants.js";
 import { chipStyle } from "../styles.js";
 
 export default function ClosetView({
@@ -81,6 +81,20 @@ export default function ClosetView({
           }}>{cat}</button>
         ))}
       </div>
+
+      {ITEM_TYPES[activeCategory] && (
+        <div style={{display:"flex",gap:6,padding:"0 16px 6px",overflowX:"auto",scrollbarWidth:"none"}}>
+          {ITEM_TYPES[activeCategory].map(t => (
+            <button key={t} onClick={()=>toggleFilter("itemType", t)} style={{
+              background:isActive("itemType",t)?"#e8e2d820":"transparent",
+              color:isActive("itemType",t)?"#e8e2d8":"#444",
+              border:`1px solid ${isActive("itemType",t)?"#e8e2d840":"#1a1a1a"}`,
+              borderRadius:20,padding:"4px 12px",fontSize:9,letterSpacing:1.5,
+              textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",
+            }}>{t}</button>
+          ))}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div style={{padding:"6px 16px 12px",display:"flex",alignItems:"center",gap:8}}>

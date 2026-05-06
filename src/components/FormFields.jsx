@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS } from "../constants.js";
+import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS, ITEM_TYPES } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import ImageEditor from "./ImageEditor.jsx";
 import DatePicker from "react-datepicker";
@@ -117,6 +117,19 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
         <input value={customCatInput} onChange={e=>setCustomCatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomCategoryLocal();}} placeholder="Custom category..." style={{...inputStyle,marginBottom:0,flex:1}}/>
         <button onClick={addCustomCategoryLocal} style={{...chipStyle(false),padding:"4px 14px"}}>+</button>
       </div>
+
+      {ITEM_TYPES[form.category] && (
+        <>
+          <label style={labelStyle}>Type</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>
+            {ITEM_TYPES[form.category].map(t => (
+              <button key={t} type="button"
+                onClick={()=>setForm(f=>({...f, itemType: f.itemType===t ? "" : t}))}
+                style={chipStyle(form.itemType===t)}>{t}</button>
+            ))}
+          </div>
+        </>
+      )}
 
       <label style={labelStyle}>Color</label>
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>

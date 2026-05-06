@@ -442,6 +442,7 @@ export default function WardrobeApp() {
     if (fv("material").length && !fv("material").some(m=>(i.materials||[]).includes(m))) return false;
     if (fv("brand").length && !fv("brand").includes(i.brand)) return false;
     if (fv("tag").length && !fv("tag").some(t=>(i.tags||[]).includes(t))) return false;
+    if (fv("itemType").length && !fv("itemType").includes(i.itemType || "")) return false;
     return true;
   });
   const underloved = wardrobe.items.filter(i => !i.wornDates?.length);
