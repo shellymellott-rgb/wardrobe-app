@@ -73,11 +73,11 @@ export default function HomeView({
 
       {/* ── Greeting ─────────────────────────────────────────── */}
       <div style={{padding:"32px 24px 28px"}}>
-        <div style={{fontSize:10,color:"#444",letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>
+        <div style={{fontSize:11,color:"#666",letterSpacing:1,marginBottom:6,fontWeight:400}}>
           {timeLabel}
         </div>
-        <div style={{fontFamily:"Georgia, serif",fontSize:30,fontStyle:"italic",
-          letterSpacing:"-0.5px",lineHeight:1.2,color:"#e8e2d8"}}>
+        <div style={{fontFamily:"Georgia, serif",fontSize:32,fontStyle:"italic",
+          letterSpacing:"-0.5px",lineHeight:1.15,color:"#e8e2d8"}}>
           What are we wearing today?
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function HomeView({
       {/* ── Weather Outfit ───────────────────────────────────── */}
       {weatherEnabled && hasEnoughItems && (
         <div style={{padding:"0 24px",marginBottom:32}}>
-          <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555",marginBottom:14}}>Today's Weather</div>
+          <div style={{fontSize:11,letterSpacing:0.5,color:"#888",fontWeight:500,marginBottom:14}}>Today's Weather</div>
           <WeatherOutfitCard
             weatherOutfit={weatherOutfit}
             weatherLoading={weatherLoading}
@@ -103,7 +103,7 @@ export default function HomeView({
       {/* ── Outfit of the Day ────────────────────────────────── */}
       <div style={{padding:"0 24px",marginBottom:40}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555"}}>Today's Look</div>
+          <div style={{fontSize:11,letterSpacing:0.5,color:"#888",fontWeight:500}}>Today's Look</div>
           {outfits.length > 0 && (
             <button onClick={()=>setView("outfits")}
               style={{background:"none",border:"none",color:"#888",fontSize:11,cursor:"pointer",fontFamily:"'DM Sans',system-ui,sans-serif"}}>
@@ -181,8 +181,9 @@ export default function HomeView({
                 onClick={generateOutfits}
                 style={{
                   width:"100%",background:"#e8e2d8",color:"#111",border:"none",
-                  borderRadius:8,padding:"14px",fontSize:11,letterSpacing:2.5,
-                  textTransform:"uppercase",cursor:"pointer",fontWeight:700,
+                  borderRadius:8,padding:"16px",fontSize:13,letterSpacing:0.5,
+                  textTransform:"none",cursor:"pointer",fontWeight:600,
+                  fontFamily:"'DM Sans', system-ui, sans-serif",
                 }}
               >
                 Generate Outfits
@@ -236,7 +237,7 @@ export default function HomeView({
       {underloved.length > 0 && (
         <div style={{marginBottom:40}}>
           <div style={{padding:"0 24px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555"}}>
+            <div style={{fontSize:11,letterSpacing:0.5,color:"#888",fontWeight:500}}>
               Never Worn
               <span style={{color:"#b8976a",marginLeft:8,fontSize:11,fontWeight:600,letterSpacing:0}}>{underloved.length}</span>
             </div>
@@ -275,20 +276,19 @@ export default function HomeView({
 
       {/* ── Quick Actions ────────────────────────────────────── */}
       <div style={{padding:"0 24px",marginBottom:40}}>
-        <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555",marginBottom:14}}>Quick Actions</div>
+        <div style={{fontSize:11,letterSpacing:0.5,color:"#888",fontWeight:500,marginBottom:14}}>Quick Actions</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           {[
-            { emoji:"📸", title:"Outfit Inspo", body:"Upload a photo, recreate the look", action:()=>setView("outfits") },
-            { emoji:"💬", title:"Ask Stylist",  body:"Chat about your wardrobe",          action:()=>setView("chat") },
-          ].map(({emoji,title,body,action}) => (
-            <button key={title} onClick={action} style={{
+            { label:"Outfit Inspo →", body:"Upload a photo, recreate the look", action:()=>setView("outfits") },
+            { label:"Ask Stylist →",  body:"Chat about your wardrobe",          action:()=>setView("chat") },
+          ].map(({label,body,action}) => (
+            <button key={label} onClick={action} style={{
               ...card,
-              padding:"18px 16px",textAlign:"left",cursor:"pointer",
-              border:"1px solid #2a2a2a",
+              padding:"20px 18px",textAlign:"left",cursor:"pointer",
+              border:"1px solid #222",
             }}>
-              <div style={{fontSize:22,marginBottom:10,lineHeight:1}}>{emoji}</div>
-              <div style={{fontSize:13,color:"#e8e2d8",fontWeight:600,marginBottom:4}}>{title}</div>
-              <div style={{fontSize:11,color:"#666",lineHeight:1.4}}>{body}</div>
+              <div style={{fontSize:14,color:"#e8e2d8",fontWeight:500,marginBottom:6,letterSpacing:-0.2}}>{label}</div>
+              <div style={{fontSize:11,color:"#555",lineHeight:1.5}}>{body}</div>
             </button>
           ))}
         </div>
@@ -297,12 +297,11 @@ export default function HomeView({
       {/* ── Insights ─────────────────────────────────────────── */}
       {insights.length > 0 && (
         <div style={{padding:"0 24px"}}>
-          <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555",marginBottom:14}}>Insights</div>
+          <div style={{fontSize:11,letterSpacing:0.5,color:"#888",fontWeight:500,marginBottom:14}}>Insights</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {insights.map((insight,i) => (
-              <div key={i} style={{...card,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
-                <div style={{width:5,height:5,borderRadius:"50%",background:"#b8976a",flexShrink:0}}/>
-                <div style={{fontSize:13,color:"#c8c0b0",lineHeight:1.5}}>{insight}</div>
+              <div key={i} style={{...card,padding:"16px 18px"}}>
+                <div style={{fontSize:13,color:"#999",lineHeight:1.6}}>{insight}</div>
               </div>
             ))}
           </div>
