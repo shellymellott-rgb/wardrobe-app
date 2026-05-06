@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { generateImageVersions } from "../utils/imageUtils.js";
 
 function blobToDataUrl(blob) {
@@ -42,6 +42,10 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
   const [processing, setProcessing]   = useState(false);
   const [applying, setApplying]       = useState(false);
   const [error, setError]             = useState(null);
+  const [eraseMode, setEraseMode] = useState(false);
+  const [brushSize, setBrushSize] = useState(20);
+  const canvasRef = useRef(null);
+  const isDrawing = useRef(false);
 
   const changed = current !== imageData;
 
@@ -89,6 +93,58 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
     setCurrent(imageData);
     setIsTransparent(false);
     setError(null);
+    setEraseMode(false);
+  }
+
+  useEffect(() => {
+    if (!eraseMode || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = current;
+  }, [eraseMode, current]);
+
+  function getPos(e, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  function erase(e) {
+    if (!isDrawing.current || !canvasRef.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const { x, y } = getPos(e, canvas);
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function startErase(e) {
+    isDrawing.current = true;
+    erase(e);
+  }
+
+  function stopErase() {
+    if (!isDrawing.current) return;
+    isDrawing.current = false;
+    const dataUrl = canvasRef.current.toDataURL("image/png");
+    setCurrent(dataUrl);
+    setIsTransparent(true);
   }
 
   return (
@@ -140,6 +196,18 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
               This may take 15–45 seconds.
             </div>
           </div>
+        ) : eraseMode ? (
+          <canvas
+            ref={canvasRef}
+            style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",cursor:"crosshair",touchAction:"none"}}
+            onMouseDown={startErase}
+            onMouseMove={erase}
+            onMouseUp={stopErase}
+            onMouseLeave={stopErase}
+            onTouchStart={startErase}
+            onTouchMove={erase}
+            onTouchEnd={stopErase}
+          />
         ) : (
           <img
             src={current}
@@ -174,6 +242,31 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
             cursor: processing||applying ? "not-allowed" : "pointer",fontWeight:600,
           }}
         >{processing ? "Processing…" : "✦  Remove Background"}</button>
+
+        {isTransparent && !processing && !applying && (
+          <>
+            <button
+              onClick={()=>setEraseMode(m=>!m)}
+              style={{
+                width:"100%",
+                background:eraseMode?"#e8e2d8":"transparent",
+                border:`1px solid ${eraseMode?"#e8e2d8":"#333"}`,
+                color:eraseMode?"#111":"#e8e2d8",
+                borderRadius:8,padding:"14px",
+                fontSize:11,letterSpacing:2.5,textTransform:"uppercase",
+                cursor:"pointer",fontWeight:600,
+              }}
+            >{eraseMode ? "✓ Done Erasing" : "✦ Erase"}</button>
+            {eraseMode && (
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"0 4px"}}>
+                <div style={{fontSize:9,color:"#555",letterSpacing:1,textTransform:"uppercase",whiteSpace:"nowrap"}}>Brush</div>
+                <input type="range" min={5} max={60} value={brushSize} onChange={e=>setBrushSize(Number(e.target.value))}
+                  style={{flex:1,accentColor:"#e8e2d8"}}/>
+                <div style={{fontSize:9,color:"#555",width:20,textAlign:"right"}}>{brushSize}</div>
+              </div>
+            )}
+          </>
+        )}
 
         {changed && !processing && !applying && (
           <button
