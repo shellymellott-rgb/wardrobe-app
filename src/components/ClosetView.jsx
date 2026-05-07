@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { COLORS, SEASONS, MATERIALS, ITEM_TYPES } from "../constants.js";
-import { chipStyle } from "../styles.js";
+import { T, ML, tabStyle, chipB } from "../theme.js";
 
 export default function ClosetView({
   items, filtered, activeCategory, setActiveCategory, allCategories,
@@ -20,7 +20,6 @@ export default function ClosetView({
     );
   }, [filtered, search]);
 
-  // Count active filters, supporting both legacy string values and new arrays
   const activeFilterCount = useMemo(() =>
     Object.values(activeFilters).reduce((n, v) =>
       n + (Array.isArray(v) ? v.length : (v ? 1 : 0)), 0
@@ -44,124 +43,130 @@ export default function ClosetView({
     return v === value;
   }
 
+  const cats = ["All", ...allCategories, "To Go"];
+
   return (
-    <div style={{fontFamily:"'DM Sans', system-ui, sans-serif"}}>
+    <div style={{ fontFamily: T.sans, background: T.bg }}>
 
       {/* Search bar */}
-      <div style={{padding:"12px 16px 6px"}}>
-        <div style={{position:"relative"}}>
+      <div style={{ padding: "20px 28px", borderBottom: `1px solid ${T.rule}` }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ ...ML, color: T.ink3, flexShrink: 0 }}>SEARCH —</span>
           <input
             value={search}
-            onChange={e=>setSearch(e.target.value)}
-            placeholder="Search pieces..."
+            onChange={e => setSearch(e.target.value)}
+            placeholder="name, brand, color…"
             style={{
-              width:"100%",background:"#141414",border:"1px solid #1e1e1e",
-              borderRadius:24,padding:"10px 16px 10px 36px",
-              fontSize:12,color:"#e8e2d8",outline:"none",
-              boxSizing:"border-box",fontFamily:"'DM Sans', system-ui, sans-serif",
+              flex: 1, background: "transparent", border: "none", outline: "none",
+              fontFamily: T.serif, fontStyle: "italic", fontSize: 22, color: T.ink,
+              padding: 0,
             }}
           />
-          <span style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",color:"#444",fontSize:15,pointerEvents:"none",lineHeight:1}}>⌕</span>
           {search && (
-            <button onClick={()=>setSearch("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,lineHeight:1,padding:0}}>×</button>
+            <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: T.ink3, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
           )}
         </div>
       </div>
 
       {/* Category tabs */}
-      <div style={{display:"flex",gap:6,padding:"6px 16px 6px",overflowX:"auto",scrollbarWidth:"none"}}>
-        {["All", ...allCategories, "To Go"].map(cat => (
-          <button key={cat} onClick={()=>setActiveCategory(cat)} style={{
-            background:activeCategory===cat?"#e8e2d8":"transparent",
-            color:activeCategory===cat?"#111":"#555",
-            border:`1px solid ${activeCategory===cat?"#e8e2d8":"#222"}`,
-            borderRadius:20,padding:"5px 14px",fontSize:10,letterSpacing:1.5,
-            textTransform:"uppercase",cursor:"pointer",
-            fontWeight:activeCategory===cat?600:400,whiteSpace:"nowrap",
-          }}>{cat}</button>
-        ))}
+      <div style={{ borderBottom: `1px solid ${T.rule}`, padding: "0 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 22, overflowX: "auto", scrollbarWidth: "none" }}>
+          {cats.map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)} style={tabStyle(activeCategory === cat)}>
+              {cat}
+            </button>
+          ))}
+        </div>
+        <span style={{ ...ML, color: T.ink3, flexShrink: 0, marginLeft: 16 }}>{displayItems.length} PIECES</span>
       </div>
 
+      {/* ItemType sub-tabs */}
       {ITEM_TYPES[activeCategory] && (
-        <div style={{display:"flex",gap:6,padding:"0 16px 6px",overflowX:"auto",scrollbarWidth:"none"}}>
+        <div style={{ padding: "0 28px", borderBottom: `1px solid ${T.rule}`, display: "flex", gap: 18, overflowX: "auto", scrollbarWidth: "none" }}>
           {ITEM_TYPES[activeCategory].map(t => (
-            <button key={t} onClick={()=>toggleFilter("itemType", t)} style={{
-              background:isActive("itemType",t)?"#e8e2d820":"transparent",
-              color:isActive("itemType",t)?"#e8e2d8":"#444",
-              border:`1px solid ${isActive("itemType",t)?"#e8e2d840":"#1a1a1a"}`,
-              borderRadius:20,padding:"4px 12px",fontSize:9,letterSpacing:1.5,
-              textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",
-            }}>{t}</button>
+            <button key={t} onClick={() => toggleFilter("itemType", t)} style={tabStyle(isActive("itemType", t))}>
+              {t}
+            </button>
           ))}
         </div>
       )}
 
-      {/* Filter bar */}
-      <div style={{padding:"6px 16px 12px",display:"flex",alignItems:"center",gap:8}}>
+      {/* Filter row */}
+      <div style={{ padding: "10px 28px", borderBottom: `1px solid ${T.rule}`, display: "flex", alignItems: "center", gap: 12 }}>
         <button
-          onClick={()=>setShowFilters(true)}
+          onClick={() => setShowFilters(true)}
           style={{
-            display:"flex",alignItems:"center",gap:6,
-            background:"#111",border:"1px solid #222",borderRadius:20,
-            padding:"6px 14px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",
-            color:activeFilterCount>0?"#e8e2d8":"#555",cursor:"pointer",
+            background: "transparent", border: `1px solid ${T.rule}`, color: activeFilterCount > 0 ? T.ink : T.ink3,
+            fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase",
+            padding: "6px 14px", cursor: "pointer",
           }}
         >
-          ⊞ Filter
-          {activeFilterCount > 0 && (
-            <span style={{background:"#b8976a",color:"#111",borderRadius:10,padding:"1px 6px",fontSize:8,fontWeight:700,letterSpacing:0}}>
-              {activeFilterCount}
-            </span>
-          )}
+          ⊞ Filter{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
         </button>
         {activeFilterCount > 0 && (
-          <button onClick={()=>setActiveFilters({})} style={{background:"none",border:"none",color:"#555",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>
+          <button onClick={() => setActiveFilters({})} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
             Clear
           </button>
         )}
-        <div style={{marginLeft:"auto",fontSize:10,color:"#333"}}>{displayItems.length} pieces</div>
       </div>
 
       {/* Grid */}
       {displayItems.length === 0 ? (
         syncing && items.length === 0 ? (
-          // Loading skeleton — shown while Supabase sync is in flight and nothing cached locally
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,padding:"0 0 1px"}}>
-            {Array.from({length:9}).map((_,i) => (
-              <div key={i} style={{aspectRatio:"3/4",background:"#141414",animation:"pulse 1.4s ease-in-out infinite",animationDelay:`${i*0.08}s`}}/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)" }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} style={{ aspectRatio: "3/4", background: T.paper, animation: "pulse 1.4s ease-in-out infinite", animationDelay: `${i * 0.08}s`, borderRight: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }} />
             ))}
           </div>
         ) : (
-          <div style={{textAlign:"center",padding:"60px 24px",color:"#444"}}>
-            <div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
-              {items.length > 0 ? "No matches" : "Nothing here yet"}
-            </div>
-            <div style={{fontSize:11,color:"#333"}}>
+          <div style={{ textAlign: "center", padding: "80px 28px", color: T.ink3 }}>
+            <div style={{ ...ML, marginBottom: 8 }}>{items.length > 0 ? "No matches" : "Nothing here yet"}</div>
+            <div style={{ fontSize: 12, fontFamily: T.sans, color: T.ink3 }}>
               {items.length > 0 ? "Try different filters or search" : "Add your first piece"}
             </div>
           </div>
         )
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,padding:"0 0 1px"}}>
-          {displayItems.map(item => (
-            <div key={item.id} onClick={()=>evaluateItem(item)}
-              style={{position:"relative",aspectRatio:"3/4",background:"#111",cursor:"pointer",overflow:"hidden"}}>
-              {item.imageData
-                ? <img src={item.imageThumb ?? item.imageData} alt={item.name} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-                : <div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:6,boxSizing:"border-box"}}>
-                    <div style={{fontSize:8,color:"#2a2a2a",textAlign:"center",lineHeight:1.4}}>{item.name}</div>
-                  </div>
-              }
-              {/* Name overlay — minimal, bottom-anchored */}
-              <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,0.65))",padding:"20px 6px 5px"}}>
-                {item.name && <div style={{fontSize:9,fontWeight:500,color:"rgba(232,226,216,0.9)",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>}
-                {(item.brand || item.category) && <div style={{fontSize:8,color:"rgba(255,255,255,0.3)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.brand || item.category}</div>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)" }}>
+          {displayItems.map((item, idx) => (
+            <div
+              key={item.id}
+              onClick={() => evaluateItem(item)}
+              style={{
+                position: "relative", cursor: "pointer", overflow: "hidden",
+                borderRight: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`,
+                background: T.paper,
+              }}
+            >
+              {/* Photo */}
+              <div style={{ aspectRatio: "3/4", overflow: "hidden" }}>
+                {item.imageData
+                  ? <img src={item.imageThumb ?? item.imageData} alt={item.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: T.paper }}>
+                      <div style={{ ...ML, color: T.rule, textAlign: "center", padding: 8 }}>{item.name}</div>
+                    </div>
+                }
               </div>
-              {/* Status badges */}
-              {item.status==="donate" && <div style={{position:"absolute",top:4,right:4,background:"rgba(200,96,16,0.9)",color:"#fff",borderRadius:2,padding:"1px 5px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Donate</div>}
-              {item.status==="sell"   && <div style={{position:"absolute",top:4,right:4,background:"rgba(58,122,74,0.9)",color:"#fff",borderRadius:2,padding:"1px 5px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>Sell</div>}
-              {!item.status && !item.wornDates?.length && <div style={{position:"absolute",top:4,right:4,background:"rgba(184,151,106,0.85)",color:"#111",borderRadius:2,padding:"1px 4px",fontSize:7,letterSpacing:1,fontWeight:700,textTransform:"uppercase"}}>New</div>}
-              {item.wornDates?.length > 0 && <div style={{position:"absolute",top:4,left:4,background:"rgba(0,0,0,0.45)",color:"rgba(255,255,255,0.3)",borderRadius:2,padding:"1px 4px",fontSize:7}}>×{item.wornDates.length}</div>}
+              {/* NEW badge */}
+              {!item.status && !item.wornDates?.length && (
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.hot, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>NEW</div>
+              )}
+              {/* DONATE / SELL badges */}
+              {item.status === "donate" && (
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.cobalt, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Donate</div>
+              )}
+              {item.status === "sell" && (
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.sage, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Sell</div>
+              )}
+              {/* Metadata */}
+              <div style={{ padding: "10px 12px 12px" }}>
+                <div style={{ ...ML, color: T.ink3, fontSize: 9, marginBottom: 4 }}>
+                  <span style={{ color: T.cobalt }}>{String(idx + 1).padStart(3, "0")}</span>
+                  {item.brand && <> · <span>{item.brand.toUpperCase()}</span></>}
+                </div>
+                <div style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.ink, lineHeight: 1.2, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                {item.color && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.color}</div>}
+              </div>
             </div>
           ))}
         </div>
@@ -169,38 +174,38 @@ export default function ClosetView({
 
       {/* Filter bottom sheet */}
       {showFilters && (
-        <div style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.7)"}} onClick={()=>setShowFilters(false)}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.4)" }} onClick={() => setShowFilters(false)}>
           <div
-            style={{position:"absolute",bottom:0,left:0,right:0,background:"#0d0d0d",borderRadius:"20px 20px 0 0",padding:"0 24px 40px",maxHeight:"78vh",overflowY:"auto"}}
-            onClick={e=>e.stopPropagation()}
+            style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: T.bg, borderTop: `1px solid ${T.rule}`, padding: "0 28px 40px", maxHeight: "78vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}
           >
             {/* Handle */}
-            <div style={{width:36,height:4,background:"#2a2a2a",borderRadius:2,margin:"14px auto 20px"}}/>
+            <div style={{ width: 36, height: 3, background: T.rule, margin: "14px auto 20px" }} />
             {/* Header */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-              <div style={{fontSize:14,fontWeight:600,color:"#e8e2d8",fontFamily:"Georgia,serif",fontStyle:"italic"}}>Filter</div>
-              <div style={{display:"flex",gap:16,alignItems:"center"}}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+              <span style={{ fontFamily: T.serif, fontSize: 22, color: T.ink }}>Filter</span>
+              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                 {activeFilterCount > 0 && (
-                  <button onClick={()=>setActiveFilters({})} style={{background:"none",border:"none",color:"#b8976a",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>
+                  <button onClick={() => setActiveFilters({})} style={{ background: "none", border: "none", color: T.hot, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
                     Clear all
                   </button>
                 )}
-                <button onClick={()=>setShowFilters(false)} style={{background:"none",border:"none",color:"#555",fontSize:22,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
+                <button onClick={() => setShowFilters(false)} style={{ background: "none", border: "none", color: T.ink3, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
               </div>
             </div>
             {/* Filter groups */}
             {[
-              { key:"color",    label:"Color",    opts:[...COLORS.filter(c=>c!=="Other"), ...allCustomColors] },
-              { key:"season",   label:"Season",   opts:SEASONS },
-              { key:"material", label:"Material", opts:MATERIALS },
-              ...(brands.length ? [{ key:"brand", label:"Brand", opts:brands }] : []),
-              ...(allTags.length ? [{ key:"tag",  label:"Tags",  opts:allTags }] : []),
+              { key: "color",    label: "Color",    opts: [...COLORS.filter(c => c !== "Other"), ...allCustomColors] },
+              { key: "season",   label: "Season",   opts: SEASONS },
+              { key: "material", label: "Material", opts: MATERIALS },
+              ...(brands.length ? [{ key: "brand", label: "Brand", opts: brands }] : []),
+              ...(allTags.length ? [{ key: "tag",  label: "Tags",  opts: allTags }] : []),
             ].map(({ key, label, opts }) => (
-              <div key={key} style={{marginBottom:22}}>
-                <div style={{fontSize:9,letterSpacing:2.5,textTransform:"uppercase",color:"#555",marginBottom:10}}>{label}</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              <div key={key} style={{ marginBottom: 24 }}>
+                <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>{label}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {opts.map(o => (
-                    <button key={o} onClick={()=>toggleFilter(key, o)} style={{...chipStyle(isActive(key,o)),padding:"5px 12px"}}>
+                    <button key={o} onClick={() => toggleFilter(key, o)} style={chipB(isActive(key, o))}>
                       {o}
                     </button>
                   ))}
@@ -209,8 +214,8 @@ export default function ClosetView({
             ))}
             {/* Apply */}
             <button
-              onClick={()=>setShowFilters(false)}
-              style={{width:"100%",background:"#e8e2d8",color:"#111",border:"none",borderRadius:6,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",fontWeight:700,marginTop:8}}
+              onClick={() => setShowFilters(false)}
+              style={{ width: "100%", background: T.cobalt, color: T.bg, border: "none", borderRadius: 0, padding: "14px", fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase", cursor: "pointer", marginTop: 8 }}
             >
               Show {displayItems.length} pieces
             </button>

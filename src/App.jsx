@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase, sbLoadOutfits, sbLoadJournalEntries, sbSaveJournalEntry, sbDeleteJournalEntry } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
-import { navBtn, ghostBtn } from "./styles.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
 import { readFile, compressImage, generateImageVersions } from "./utils/imageUtils.js";
 import { IMAGE_SCAN_PROMPT, WEATHER_OUTFIT_PROMPT } from "./constants.js";
@@ -13,6 +12,7 @@ import { parseJsonObject } from "./utils/parseJson.js";
 import { useSettings } from "./hooks/useSettings.js";
 import { useWardrobeData } from "./hooks/useWardrobeData.js";
 import { useClaudeStyling } from "./hooks/useClaudeStyling.js";
+import { T, tabStyle, ML } from "./theme.js";
 
 import LoginScreen from "./components/LoginScreen.jsx";
 import CropModal from "./components/CropModal.jsx";
@@ -458,36 +458,45 @@ export default function WardrobeApp() {
   const isDataLoading = authLoading || wardrobe.syncing;
 
   return (
-    <div style={{minHeight:"100vh",background:"#111",color:"#e8e2d8",fontFamily:"Georgia, 'Times New Roman', serif",maxWidth:900,margin:"0 auto",position:"relative"}}>
+    <div style={{minHeight:"100vh",background:T.bg,color:T.ink,fontFamily:T.sans,maxWidth:960,margin:"0 auto",position:"relative"}}>
       {cropSrc && <CropModal imageSrc={cropSrc} onDone={onCropDone} onCancel={onCropCancel}/>}
       <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileSelected} style={{display:"none"}}/>
       <input ref={importRef} type="file" accept=".json" onChange={importWardrobe} style={{display:"none"}}/>
       <input ref={outfitPhotoRef} type="file" accept="image/*" onChange={addOutfitPhoto} style={{display:"none"}}/>
 
       {/* Header */}
-      <div style={{padding:"28px 24px 18px",borderBottom:"1px solid #222"}}>
-        {/* Syncing indicator — thin pulsing bar at top */}
+      <div style={{
+        position:"sticky",top:0,zIndex:100,
+        background:T.bg,borderBottom:`1px solid ${T.rule}`,
+        padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",
+        height:48,gap:24,
+      }}>
+        {/* Syncing indicator */}
         {isDataLoading && (
-          <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"#b8976a",opacity:0.5,animation:"pulse 1.2s ease-in-out infinite"}}/>
+          <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:T.cobalt,opacity:0.4,animation:"pulse 1.2s ease-in-out infinite"}}/>
         )}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div>
-            <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,letterSpacing:5,color:"#555",textTransform:"uppercase",marginBottom:5}}>Personal Closet</div>
-            <div style={{fontSize:28,fontStyle:"italic",letterSpacing:-0.5}}>Wardrobe</div>
-          </div>
-          <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
-            <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:20,fontWeight:300}}>{wardrobe.items.length}</div>
-            <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:9,letterSpacing:2,color:isDataLoading?"#b8976a":"#555",textTransform:"uppercase"}}>{isDataLoading ? "syncing..." : "pieces"}</div>
-            {!isDataLoading && underloved.length>0 && <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",fontSize:10,color:"#b8976a"}}>{underloved.length} unworn</div>}
-            <button onClick={()=>setShowSettings(true)} style={{background:showSettings?"#e8e2d820":"transparent",border:`1px solid ${showSettings?"#e8e2d840":"#2a2a2a"}`,color:showSettings?"#e8e2d8":"#888",fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:4,borderRadius:3,letterSpacing:1,fontFamily:"'DM Sans', system-ui, sans-serif"}}>⚙ Settings</button>
+        {/* Left: wordmark + separator + tabs */}
+        <div style={{display:"flex",alignItems:"center",gap:20,flex:1,minWidth:0}}>
+          <span style={{fontFamily:T.serif,fontSize:22,color:T.ink,whiteSpace:"nowrap",lineHeight:1}}>Wardrobe</span>
+          <span style={{width:1,height:18,background:T.rule,flexShrink:0}}/>
+          <div style={{display:"flex",gap:20,overflowX:"auto",scrollbarWidth:"none"}}>
+            {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+              <button key={v} onClick={()=>{setView(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
+            ))}
           </div>
         </div>
-        <div style={{display:"flex",gap:6,marginTop:18,fontFamily:"'DM Sans', system-ui, sans-serif",flexWrap:"wrap"}}>
-          {navBtn("Home",    view==="home",    ()=>{setView("home");window.history.pushState({view:"home"},"");})}
-          {navBtn("Closet",  view==="closet",  ()=>{setView("closet");window.history.pushState({view:"closet"},"");})}
-          {navBtn("Outfits", view==="outfits", ()=>{setView("outfits");window.history.pushState({view:"outfits"},"");})}
-          {navBtn("Wishlist",view==="wishlist",()=>{setView("wishlist");window.history.pushState({view:"wishlist"},"");})}
-          {navBtn("Journal", view==="journal", ()=>{setView("journal");window.history.pushState({view:"journal"},"");})}
+        {/* Right: piece count + settings */}
+        <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+          <span style={{...ML,color:T.ink3,whiteSpace:"nowrap"}}>
+            {wardrobe.items.length} PIECES
+            {underloved.length > 0 && (
+              <> · <span style={{background:T.blush,color:T.hot,padding:"2px 6px"}}>{underloved.length} UNWORN</span></>
+            )}
+          </span>
+          <button
+            onClick={()=>setShowSettings(true)}
+            style={{...ML,background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,padding:"5px 10px",cursor:"pointer"}}
+          >SETTINGS</button>
         </div>
       </div>
 
@@ -642,16 +651,16 @@ export default function WardrobeApp() {
         <button
           onClick={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           style={{
-            position:"fixed",bottom:28,right:24,
-            width:52,height:52,borderRadius:"50%",
-            background:"#e8e2d8",color:"#111",
-            border:"none",fontSize:28,fontWeight:300,lineHeight:1,
-            cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-            boxShadow:"0 4px 24px rgba(0,0,0,0.5)",zIndex:50,
-            fontFamily:"'DM Sans',system-ui,sans-serif",
+            position:"fixed",bottom:28,right:28,
+            background:T.cobalt,color:T.bg,
+            border:"none",borderRadius:0,
+            padding:"12px 20px",
+            fontFamily:T.mono,fontSize:10,letterSpacing:".22em",textTransform:"uppercase",
+            cursor:"pointer",
+            boxShadow:"0 2px 16px rgba(42,74,214,0.35)",zIndex:50,
           }}
           aria-label="Add item"
-        >+</button>
+        >+ Add Item</button>
       )}
 
       {styling.itemChatModal && (
