@@ -41,6 +41,21 @@ create table if not exists outfit_items (
 );
 create index if not exists outfit_items_outfit_id_idx on outfit_items (outfit_id);
 
+-- ── Journal entries (added 2026-05-07) ───────────────────────────────────────
+-- One row per logged or planned outfit day.
+
+create table if not exists journal_entries (
+  id         text        primary key,          -- client-generated: crypto.randomUUID()
+  user_id    text        not null,
+  date       date        not null,
+  photo      text,
+  item_ids   text[]      default '{}',
+  notes      text        default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists journal_entries_user_date_idx on journal_entries (user_id, date desc);
+
 -- ── Row Level Security ────────────────────────────────────────────────────────
 -- user_id is stored as text matching auth.uid()::text (Google OAuth UUID).
 -- Each policy uses auth.uid()::text so the comparison type-matches.
@@ -49,6 +64,7 @@ alter table wardrobe_items    enable row level security;
 alter table wardrobe_wishlist enable row level security;
 alter table outfits           enable row level security;
 alter table outfit_items      enable row level security;
+alter table journal_entries   enable row level security;
 
 -- wardrobe_items: users can only read/write their own rows
 drop policy if exists "users own their items"    on wardrobe_items;
@@ -77,6 +93,13 @@ create policy "users own their outfit items"
   on outfit_items for all
   using  (exists (select 1 from outfits where outfits.id = outfit_id and outfits.user_id = auth.uid()::text))
   with check (exists (select 1 from outfits where outfits.id = outfit_id and outfits.user_id = auth.uid()::text));
+
+-- journal_entries: users can only read/write their own entries
+drop policy if exists "users own their journal entries" on journal_entries;
+create policy "users own their journal entries"
+  on journal_entries for all
+  using  (user_id = auth.uid()::text)
+  with check (user_id = auth.uid()::text);
 
 -- ── One-time data cleanup: strip base64 image blobs from existing rows ────────
 -- Run this ONCE in the Supabase SQL Editor to remove base64 imageData that was

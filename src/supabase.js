@@ -13,6 +13,10 @@ if (!SB_URL || !SB_KEY) {
 
 export const supabase = createClient(SB_URL, SB_KEY);
 
+function settingsId(uid) {
+  return `__settings__:${uid}`;
+}
+
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 // Deterministic paths for the private bucket.
@@ -97,7 +101,7 @@ export async function sbLoad(table, uid) {
     .from(table)
     .select("data")
     .eq("user_id", uid)
-    .neq("id", "__settings__")
+    .not("id", "like", "__settings__%")
     .order("created_at", { ascending: true });
   const dur = (performance.now() - t).toFixed(0);
   if (error) {
@@ -111,18 +115,28 @@ export async function sbLoad(table, uid) {
 }
 
 export async function sbSaveSettings(settings, uid) {
-  await sbUpsert("wardrobe_items", [{ id: "__settings__", user_id: uid, data: settings }]);
+  await sbUpsert("wardrobe_items", [{ id: settingsId(uid), user_id: uid, data: settings }]);
 }
 
 export async function sbLoadSettings(uid) {
   const { data, error } = await supabase
     .from("wardrobe_items")
     .select("data")
-    .eq("id", "__settings__")
+    .eq("id", settingsId(uid))
     .eq("user_id", uid)
     .maybeSingle();
   if (error) { console.error("[sb] loadSettings FAILED:", error.message); return null; }
-  return data?.data ?? null;
+  if (data?.data) return data.data;
+
+  // Backward-compatible fallback for the original single-user settings row.
+  const legacy = await supabase
+    .from("wardrobe_items")
+    .select("data")
+    .eq("id", "__settings__")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (legacy.error) { console.error("[sb] load legacy settings FAILED:", legacy.error.message); return null; }
+  return legacy.data?.data ?? null;
 }
 
 // ── Outfits ───────────────────────────────────────────────────────────────────
@@ -139,7 +153,11 @@ export async function sbCreateOutfit({ id, user_id, name, date_worn = null }, it
   if (itemIds.length) {
     const rows = itemIds.map(item_id => ({ outfit_id: id, item_id: String(item_id) }));
     const { error: itemsErr } = await supabase.from("outfit_items").insert(rows);
-    if (itemsErr) console.error("[sb] saveOutfitItems FAILED:", itemsErr.message);
+    if (itemsErr) {
+      console.error("[sb] saveOutfitItems FAILED:", itemsErr.message);
+      await supabase.from("outfits").delete().eq("id", id).eq("user_id", user_id);
+      return null;
+    }
   }
   return id;
 }

@@ -1,3 +1,6 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+
 function extractImageUrl(html) {
   // og:image
   const og = html.match(/<meta[^>]+property="og:image[^"]*"[^>]+content="([^"]+)"/i) ||
@@ -27,6 +30,61 @@ function extractImageUrl(html) {
     }
   }
   return null;
+}
+
+function isPrivateIp(host) {
+  const version = isIP(host);
+  if (version === 4) {
+    const parts = host.split(".").map(Number);
+    return (
+      parts[0] === 10 ||
+      parts[0] === 127 ||
+      (parts[0] === 169 && parts[1] === 254) ||
+      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === 192 && parts[1] === 168) ||
+      host === "0.0.0.0"
+    );
+  }
+  if (version === 6) {
+    const normalized = host.toLowerCase();
+    return (
+      normalized === "::1" ||
+      normalized === "::" ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe80:")
+    );
+  }
+  return false;
+}
+
+async function validateFetchUrl(fetchUrl) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(fetchUrl);
+  } catch {
+    return { error: "invalid fetchUrl" };
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return { error: "fetchUrl must be http or https" };
+  }
+
+  const host = parsedUrl.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!host || host === "localhost" || host.endsWith(".localhost") || isPrivateIp(host)) {
+    return { error: "fetchUrl host is not allowed" };
+  }
+
+  try {
+    const addresses = await lookup(host, { all: true });
+    if (!addresses.length || addresses.some(({ address }) => isPrivateIp(address))) {
+      return { error: "fetchUrl host is not allowed" };
+    }
+  } catch {
+    return { error: "could not resolve fetchUrl host" };
+  }
+
+  return { url: parsedUrl.toString() };
 }
 
 async function fetchPageHtml(url) {
@@ -102,19 +160,11 @@ export default async function handler(req, res) {
     const { fetchUrl, ...claudeBody } = req.body;
 
     if (fetchUrl) {
-      // Validate URL is a safe https URL
-      let parsedUrl;
-      try {
-        parsedUrl = new URL(fetchUrl);
-      } catch {
-        return res.status(400).json({ error: 'invalid fetchUrl' });
-      }
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        return res.status(400).json({ error: 'fetchUrl must be http or https' });
-      }
+      const safeUrl = await validateFetchUrl(fetchUrl);
+      if (safeUrl.error) return res.status(400).json({ error: safeUrl.error });
 
       try {
-        const html = await fetchPageHtml(fetchUrl);
+        const html = await fetchPageHtml(safeUrl.url);
         if (!html) {
           return res.status(200).json({ pageText: '', imageUrl: null, imageData: null, price: null, fetchStatus: 0 });
         }

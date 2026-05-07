@@ -32,7 +32,7 @@ export default function AddItemView({
     setFetchingUrl(true); setUrlError("");
     try {
       const text = await callClaude(URL_PROMPT, [{ type:"text", text:`Product URL: ${urlInput.trim()}\n\nExtract product details using your knowledge of this retailer/brand from the URL. Make your best guess even if uncertain.` }], 500);
-      if (!text) { setUrlError("No response from Claude — check VITE_ANTHROPIC_API_KEY in Vercel env vars"); setFetchingUrl(false); return; }
+      if (!text) { setUrlError("No response from Claude — check ANTHROPIC_API_KEY in Vercel env vars"); setFetchingUrl(false); return; }
       const parsed = parseJsonObject(text);
       setAddForm(f => ({
         ...f,
