@@ -243,7 +243,7 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
           }}
         >{processing ? "Processing…" : "✦  Remove Background"}</button>
 
-        {isTransparent && !processing && !applying && (
+        {!processing && !applying && (
           <>
             <button
               onClick={()=>setEraseMode(m=>!m)}
