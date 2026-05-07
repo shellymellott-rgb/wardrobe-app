@@ -6,4 +6,12 @@ export default defineConfig({
   test: {
     environment: "node",
   },
+  optimizeDeps: {
+    exclude: ["@imgly/background-removal"],
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+    },
+  },
 })
