@@ -261,6 +261,7 @@ export default function WardrobeApp() {
 
   // ── Item detail ──────────────────────────────────────────────────────────────
   const [selectedItem, setSelectedItem] = useState(null);
+  const [itemNavList, setItemNavList] = useState([]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [wornDateInput, setWornDateInput] = useState(null);
@@ -370,8 +371,9 @@ export default function WardrobeApp() {
   }
 
   // ── Item actions ────────────────────────────────────────────────────────────
-  async function evaluateItem(item) {
+  async function evaluateItem(item, navList) {
     setSelectedItem(item); setEditing(false); setWornDateInput(null);
+    if (navList) setItemNavList(navList);
     window.history.pushState({ view, selectedItemId: item.id }, "");
     await styling.evaluateItem(item);
   }
@@ -559,7 +561,7 @@ export default function WardrobeApp() {
           generateOutfits={styling.generateOutfits}
           occasion={styling.occasion} setOccasion={styling.setOccasion}
           markWorn={markWorn}
-          evaluateItem={evaluateItem}
+          evaluateItem={(item) => evaluateItem(item, underloved)}
           setView={setView}
           onAddItem={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           weatherEnabled={settings.weatherEnabled}
@@ -583,7 +585,7 @@ export default function WardrobeApp() {
           activeFilters={activeFilters} setActiveFilters={setActiveFilters}
           showFilters={showFilters} setShowFilters={setShowFilters}
           brands={wardrobe.brands} allTags={allTags} allCustomColors={allCustomColors}
-          evaluateItem={evaluateItem}
+          evaluateItem={(item) => evaluateItem(item, filtered)}
           syncing={wardrobe.syncing}
         />
       )}
@@ -683,6 +685,8 @@ export default function WardrobeApp() {
           editing={editing} setEditing={setEditing}
           editForm={editForm} setEditForm={setEditForm} saveEdit={saveEdit}
           saving={saving} saveError={saveError}
+          itemNavList={itemNavList}
+          onNavigate={(item) => evaluateItem(item, itemNavList)}
           markWorn={markWorn} removeWornDate={removeWornDate} removeItem={removeItem}
           wornDateInput={wornDateInput} setWornDateInput={setWornDateInput}
           setItemStatus={setItemStatus}

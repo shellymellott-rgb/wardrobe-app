@@ -11,6 +11,7 @@ export default function ItemDetailModal({
   items, persist,
   itemEval, loadingEval,
   editing, setEditing, editForm, setEditForm, saveEdit, saving = false, saveError = "",
+  itemNavList = [], onNavigate,
   markWorn, removeWornDate, removeItem,
   wornDateInput, setWornDateInput,
   setItemStatus,
@@ -74,6 +75,29 @@ export default function ItemDetailModal({
           </div>
         )}
         <button onClick={()=>outfitPhotoRef.current.click()} style={{width:"100%",background:"transparent",border:"1px dashed #2a2a2a",color:"#666",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:14}}>+ Add Outfit Photo</button>
+
+        {itemNavList.length > 1 && (() => {
+          const idx = itemNavList.findIndex(i => String(i.id) === String(selectedItem.id));
+          const prev = idx > 0 ? itemNavList[idx - 1] : null;
+          const next = idx < itemNavList.length - 1 ? itemNavList[idx + 1] : null;
+          return (
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <button
+                onClick={() => prev && onNavigate(prev)}
+                disabled={!prev}
+                style={{background:"none",border:"none",color:prev?"#e8e2d8":"#333",fontSize:20,cursor:prev?"pointer":"default",padding:"4px 8px",lineHeight:1}}
+              >←</button>
+              <div style={{fontSize:9,color:"#555",letterSpacing:2,textTransform:"uppercase"}}>
+                {idx + 1} / {itemNavList.length}
+              </div>
+              <button
+                onClick={() => next && onNavigate(next)}
+                disabled={!next}
+                style={{background:"none",border:"none",color:next?"#e8e2d8":"#333",fontSize:20,cursor:next?"pointer":"default",padding:"4px 8px",lineHeight:1}}
+              >→</button>
+            </div>
+          );
+        })()}
 
         <div style={{fontFamily:"Georgia, serif",fontSize:20,fontStyle:"italic",marginBottom:3}}>{selectedItem.name||"Unnamed"}</div>
         {selectedItem.brand && <div style={{fontSize:11,color:"#777",marginBottom:8}}>{selectedItem.brand}</div>}
