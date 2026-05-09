@@ -52,7 +52,7 @@ export default function WishlistView({ wishlist, persistWishlist }) {
   const orderedItems = [...grouped.Need, ...grouped.Saved, ...grouped.Maybe];
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ minHeight: "100vh", paddingBottom: 100 }}>
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <div style={{ padding: "40px 28px 24px", borderBottom: `1px solid ${T.rule}`, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -64,14 +64,14 @@ export default function WishlistView({ wishlist, persistWishlist }) {
         </div>
         <button
           onClick={() => setAddingWish(true)}
-          style={{ background: T.hot, color: T.bg, border: "none", borderRadius: 0, padding: "10px 20px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer" }}
+          style={{ background: T.hot, color: "#fff", border: "none", borderRadius: 0, padding: "10px 20px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer" }}
         >+ Add Item</button>
       </div>
 
       {/* ── Add form modal ────────────────────────────────── */}
       {addingWish && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.5)", overflowY: "auto" }}>
-          <div style={{ maxWidth: 480, margin: "0 auto", background: T.bg, minHeight: "100vh", padding: "28px 28px 100px" }}>
+          <div style={{ maxWidth: 480, margin: "0 auto", background: T.surface, minHeight: "100vh", padding: "28px 28px 100px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <span style={{ fontFamily: T.serif, fontSize: 22, color: T.ink }}>Add to Wishlist</span>
               <button onClick={() => setAddingWish(false)} style={{ background: "none", border: "none", color: T.ink3, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
@@ -116,7 +116,7 @@ export default function WishlistView({ wishlist, persistWishlist }) {
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={addWishItem} style={{ flex: 1, background: T.hot, color: T.bg, border: "none", borderRadius: 0, padding: "14px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Save</button>
+              <button onClick={addWishItem} style={{ flex: 1, background: T.hot, color: "#fff", border: "none", borderRadius: 0, padding: "14px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Save</button>
               <button onClick={() => setAddingWish(false)} style={{ ...chipB(false), padding: "14px 20px" }}>Cancel</button>
             </div>
           </div>

@@ -10,7 +10,7 @@ export const ghostBtn = {
 export function chipStyle(active) {
   return {
     background: active ? T.ink : "transparent",
-    color: active ? T.bg : T.ink2,
+    color: active ? '#fff' : T.ink2,
     border: `1px solid ${T.rule}`,
     borderRadius: 0, padding: "6px 14px", fontSize: 10, letterSpacing: ".18em",
     cursor: "pointer", whiteSpace: "nowrap", fontFamily: T.mono,

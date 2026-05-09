@@ -160,7 +160,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                 aspectRatio: "1/1",
                 borderRight: col < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.bg,
+                background: isSelected ? T.ink : T.surface,
               }}>
                 {photo && !isSelected && (
                   <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
@@ -168,7 +168,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                 <div style={{
                   position: "absolute", top: 4, left: 5,
                   fontFamily: T.mono, fontSize: 10, fontWeight: 400,
-                  color: isSelected ? T.bg : photo ? "#fff" : isToday ? T.hot : T.ink3,
+                  color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3,
                 }}>
                   {String(day).padStart(2, "0")}
                 </div>
@@ -221,12 +221,12 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                 aspectRatio: "1/1",
                 borderRight: i < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.bg,
+                background: isSelected ? T.ink : T.surface,
               }}>
                 {photo && !isSelected && (
                   <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 )}
-                <div style={{ position: "absolute", top: 4, left: 5, fontFamily: T.mono, fontSize: 10, color: isSelected ? T.bg : photo ? "#fff" : isToday ? T.hot : T.ink3 }}>
+                <div style={{ position: "absolute", top: 4, left: 5, fontFamily: T.mono, fontSize: 10, color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3 }}>
                   {String(dObj.getDate()).padStart(2, "0")}
                 </div>
               </div>
@@ -238,7 +238,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
   }
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ minHeight: "100vh", paddingBottom: 100 }}>
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <div style={{ padding: "40px 28px 20px", borderBottom: `1px solid ${T.rule}`, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -269,7 +269,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
             {selectedEntry && (
               <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
             )}
-            <button onClick={openEntryForm} style={{ background: T.ink, color: T.bg, border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+            <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
               {selectedEntry ? "Edit" : isFuture ? "+ Plan" : "+ Log"}
             </button>
           </div>
@@ -335,7 +335,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
       {/* ── Entry form ────────────────────────────────────── */}
       {showEntryForm && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.5)", overflowY: "auto" }}>
-          <div style={{ maxWidth: 480, margin: "0 auto", background: T.bg, minHeight: "100vh", padding: "28px 28px 100px" }}>
+          <div style={{ maxWidth: 480, margin: "0 auto", background: T.surface, minHeight: "100vh", padding: "28px 28px 100px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div style={{ fontFamily: T.serif, fontSize: 22, color: T.ink }}>{isFuture ? "Plan Outfit" : "Log Outfit"} · {formatDate(selectedDate)}</div>
               <button onClick={() => setShowEntryForm(false)} style={{ background: "none", border: "none", color: T.ink3, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
@@ -365,7 +365,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
                     <div style={{ width: 64, height: 85, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
                       {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                     </div>
-                    <button onClick={() => setEntryItemIds(ids => ids.filter(id => id !== String(item.id)))} style={{ position: "absolute", top: -4, right: -4, background: T.ink, border: "none", borderRadius: "50%", width: 16, height: 16, color: T.bg, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                    <button onClick={() => setEntryItemIds(ids => ids.filter(id => id !== String(item.id)))} style={{ position: "absolute", top: -4, right: -4, background: T.ink, border: "none", borderRadius: "50%", width: 16, height: 16, color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                     <div style={{ fontFamily: T.sans, fontSize: 7, color: T.ink3, marginTop: 2, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                   </div>
                 ))}
@@ -393,7 +393,7 @@ export default function JournalView({ items, user, journalEntries, journalLoadin
 
             <button onClick={saveEntry} disabled={saving || (!entryPhoto && entryItemIds.length === 0)} style={{
               width: "100%", background: saving || (!entryPhoto && entryItemIds.length === 0) ? T.rule : T.cobalt,
-              color: saving || (!entryPhoto && entryItemIds.length === 0) ? T.ink3 : T.bg,
+              color: saving || (!entryPhoto && entryItemIds.length === 0) ? T.ink3 : "#fff",
               border: "none", borderRadius: 0, padding: "14px",
               fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase",
               cursor: "pointer",

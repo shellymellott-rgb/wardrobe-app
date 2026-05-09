@@ -1,19 +1,17 @@
-import { chipStyle } from "../styles.js";
+import { T, ML } from "../theme.js";
 
 const OCCASION_CHIPS = ["Errands","Work from home","Dinner","Travel","Casual day","Boat day"];
-
-const card = { background:"#161616", border:"1px solid #262626", borderRadius:12 };
-const divider = { borderTop:"1px solid #1e1e1e", margin:"0 16px" };
+const CREAM = "#f5f1e8";
 
 function OutfitSection({ label, pieces, why }) {
   if (!pieces?.length) return null;
   return (
-    <div>
-      <div style={{fontSize:9, letterSpacing:2.5, textTransform:"uppercase", color:"#555", marginBottom:8}}>{label}</div>
+    <div style={{ marginBottom:12 }}>
+      <div style={{ ...ML, fontSize:9, color:"rgba(245,241,232,.45)", marginBottom:8 }}>{label}</div>
       {pieces.map((name, i) => (
-        <div key={i} style={{fontSize:13, color:"#e8e2d8", marginBottom:5, lineHeight:1.4}}>· {name}</div>
+        <div key={i} style={{ fontFamily:T.sans, fontSize:13, color:"rgba(245,241,232,.9)", marginBottom:5, lineHeight:1.4 }}>· {name}</div>
       ))}
-      {why && <div style={{fontSize:11, color:"#777", marginTop:8, lineHeight:1.6}}>{why}</div>}
+      {why && <div style={{ fontFamily:T.sans, fontSize:11, color:"rgba(245,241,232,.55)", marginTop:8, lineHeight:1.6, fontStyle:"italic" }}>{why}</div>}
     </div>
   );
 }
@@ -23,33 +21,50 @@ export default function WeatherOutfitCard({
   weatherOccasion, setWeatherOccasion, weatherSaved,
   getWeatherOutfit, saveWeatherOutfit, resetWeatherOutfit,
 }) {
-  const font = { fontFamily:"'DM Sans', system-ui, sans-serif" };
+  const cardBase = {
+    background: T.inkSurface,
+    borderTop: `3px solid ${T.citron}`,
+    padding: "24px 22px 20px",
+    margin: "0 20px",
+  };
 
   // ── Idle ───────────────────────────────────────────────────────────────────
   if (!weatherOutfit && !weatherLoading && !weatherError) {
     return (
-      <div style={{...card, padding:"18px 20px", ...font}}>
-        <div style={{fontSize:13, fontWeight:600, color:"#e8e2d8", marginBottom:14}}>
-          What should I wear today?
+      <div style={cardBase}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:14 }}>
+          <div style={{ ...ML, fontSize:9.5, color:"rgba(245,241,232,.6)" }}>Weather Outfit</div>
         </div>
-        <div style={{display:"flex", gap:6, flexWrap:"wrap", marginBottom:16}}>
-          {OCCASION_CHIPS.map(c => (
-            <button key={c}
-              onClick={() => setWeatherOccasion(weatherOccasion === c ? "" : c)}
-              style={{...chipStyle(weatherOccasion === c), padding:"4px 10px", fontSize:9}}
-            >{c}</button>
-          ))}
+        <h3 style={{ fontFamily:T.serif, fontSize:28, fontWeight:400, color:CREAM, letterSpacing:"-.015em", margin:"0 0 18px", lineHeight:1.05 }}>
+          What should I <em style={{ fontStyle:"italic", color:T.citron }}>wear</em> today?
+        </h3>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:18 }}>
+          {OCCASION_CHIPS.map(c => {
+            const active = weatherOccasion === c;
+            return (
+              <button key={c}
+                onClick={() => setWeatherOccasion(active ? "" : c)}
+                style={{
+                  border:0,
+                  background: active ? T.citron : CREAM,
+                  color: T.ink,
+                  padding:"8px 12px",
+                  fontFamily:T.mono, fontSize:10, letterSpacing:".18em", textTransform:"uppercase",
+                  cursor:"pointer", fontWeight: active ? 500 : 400,
+                }}
+              >{c}</button>
+            );
+          })}
         </div>
         <button
           onClick={getWeatherOutfit}
           style={{
-            width:"100%", background:"#e8e2d8", color:"#111", border:"none",
-            borderRadius:8, padding:"13px", fontSize:11, letterSpacing:2.5,
-            textTransform:"uppercase", cursor:"pointer", fontWeight:700,
+            width:"100%", padding:"14px", border:0,
+            background:T.citron, color:T.ink,
+            fontFamily:T.mono, fontSize:10.5, letterSpacing:".24em", textTransform:"uppercase",
+            cursor:"pointer", fontWeight:500,
           }}
-        >
-          {weatherOccasion ? `Get outfit — ${weatherOccasion}` : "Get outfit suggestion"}
-        </button>
+        >→ {weatherOccasion ? `Get outfit — ${weatherOccasion}` : "Get outfit suggestion"}</button>
       </div>
     );
   }
@@ -57,8 +72,8 @@ export default function WeatherOutfitCard({
   // ── Loading ────────────────────────────────────────────────────────────────
   if (weatherLoading) {
     return (
-      <div style={{...card, padding:"24px 20px", textAlign:"center", ...font}}>
-        <div style={{fontSize:11, color:"#b8976a", letterSpacing:3, textTransform:"uppercase"}}>
+      <div style={{ ...cardBase, textAlign:"center" }}>
+        <div style={{ ...ML, fontSize:11, color:T.citron, letterSpacing:".22em" }}>
           Checking weather…
         </div>
       </div>
@@ -68,15 +83,15 @@ export default function WeatherOutfitCard({
   // ── Error ──────────────────────────────────────────────────────────────────
   if (weatherError) {
     return (
-      <div style={{...card, padding:"18px 20px", ...font}}>
-        <div style={{fontSize:12, color:"#8a5a5a", marginBottom:12, lineHeight:1.5}}>{weatherError}</div>
-        <div style={{display:"flex", gap:16}}>
+      <div style={cardBase}>
+        <div style={{ fontFamily:T.sans, fontSize:12, color:"rgba(245,241,232,.55)", marginBottom:14, lineHeight:1.5 }}>{weatherError}</div>
+        <div style={{ display:"flex", gap:16 }}>
           <button onClick={getWeatherOutfit}
-            style={{fontSize:10, color:"#666", letterSpacing:1.5, textTransform:"uppercase", background:"none", border:"none", cursor:"pointer", padding:0}}>
+            style={{ ...ML, fontSize:10, color:"rgba(245,241,232,.6)", background:"none", border:"none", cursor:"pointer", padding:0 }}>
             Try again
           </button>
           <button onClick={resetWeatherOutfit}
-            style={{fontSize:10, color:"#444", letterSpacing:1.5, textTransform:"uppercase", background:"none", border:"none", cursor:"pointer", padding:0}}>
+            style={{ ...ML, fontSize:10, color:"rgba(245,241,232,.35)", background:"none", border:"none", cursor:"pointer", padding:0 }}>
             Change location
           </button>
         </div>
@@ -86,77 +101,55 @@ export default function WeatherOutfitCard({
 
   // ── Result ─────────────────────────────────────────────────────────────────
   const hasBackup = weatherOutfit.backup?.length > 0;
-  const hasGaps   = weatherOutfit.gaps?.length > 0;
+  const weatherInfo = weatherOutfit.weather
+    ? `${weatherOutfit.weather.tempHigh}°/${weatherOutfit.weather.tempLow}° · ${weatherOutfit.weather.condition}`
+    : null;
 
   return (
-    <div style={{...card, overflow:"hidden", ...font}}>
-      {/* Weather + occasion bar */}
-      <div style={{padding:"11px 16px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8}}>
-        <div>
-          <div style={{fontSize:11, color:"#888"}}>{weatherOutfit.weather?.summary}</div>
-          {weatherOccasion && (
-            <div style={{fontSize:9, color:"#b8976a", letterSpacing:1.5, textTransform:"uppercase", marginTop:3}}>{weatherOccasion}</div>
-          )}
+    <div style={cardBase}>
+      {/* Header row */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:14 }}>
+        <div style={{ ...ML, fontSize:9.5, color:"rgba(245,241,232,.6)" }}>
+          Weather Outfit{weatherInfo ? ` · ${weatherInfo}` : ""}{weatherOccasion ? ` · ${weatherOccasion}` : ""}
         </div>
-        <button onClick={resetWeatherOutfit}
-          style={{fontSize:9, color:"#444", letterSpacing:1, textTransform:"uppercase", background:"none", border:"none", cursor:"pointer", padding:0, flexShrink:0}}>
-          ↺ Change
-        </button>
+        <button onClick={resetWeatherOutfit} style={{ ...ML, fontSize:9.5, color:T.citron, background:"none", border:"none", cursor:"pointer", padding:0 }}>↻ Refresh</button>
       </div>
 
-      {/* Main outfit */}
-      <div style={{padding:"14px 16px"}}>
-        <OutfitSection label="Today's pick" pieces={weatherOutfit.main} why={weatherOutfit.mainWhy} />
-        {weatherOutfit.layer && (
-          <div style={{fontSize:11, color:"#b8976a", marginTop:10}}>✦ {weatherOutfit.layer}</div>
-        )}
-        {weatherOutfit.avoid && (
-          <div style={{fontSize:10, color:"#555", marginTop:6}}>Avoid: {weatherOutfit.avoid}</div>
-        )}
-      </div>
-
-      {/* Backup outfit */}
-      {hasBackup && (
-        <>
-          <div style={divider}/>
-          <div style={{padding:"14px 16px"}}>
-            <OutfitSection label="Also works" pieces={weatherOutfit.backup} why={weatherOutfit.backupWhy} />
-          </div>
-        </>
+      {weatherOutfit.weather?.summary && (
+        <div style={{ fontFamily:T.sans, fontSize:12, color:"rgba(245,241,232,.55)", marginBottom:14, lineHeight:1.5 }}>
+          {weatherOutfit.weather.summary}
+        </div>
       )}
 
-      {/* Gaps */}
-      {hasGaps && (
+      <OutfitSection label="Today's pick" pieces={weatherOutfit.main} why={weatherOutfit.mainWhy} />
+
+      {weatherOutfit.layer && (
+        <div style={{ fontFamily:T.sans, fontSize:11, color:T.citron, marginBottom:10 }}>✦ {weatherOutfit.layer}</div>
+      )}
+
+      {hasBackup && (
         <>
-          <div style={divider}/>
-          <div style={{padding:"12px 16px"}}>
-            <div style={{fontSize:9, letterSpacing:2.5, textTransform:"uppercase", color:"#555", marginBottom:6}}>
-              Your closet is missing
-            </div>
-            {weatherOutfit.gaps.map((g, i) => (
-              <div key={i} style={{fontSize:11, color:"#666", marginBottom:3}}>· {g}</div>
-            ))}
-          </div>
+          <div style={{ borderTop:"1px solid rgba(245,241,232,.12)", margin:"12px 0" }} />
+          <OutfitSection label="Also works" pieces={weatherOutfit.backup} why={weatherOutfit.backupWhy} />
         </>
       )}
 
       {/* Actions */}
-      <div style={{...divider}}/>
-      <div style={{padding:"12px 16px", display:"flex", gap:16, alignItems:"center"}}>
+      <div style={{ borderTop:"1px solid rgba(245,241,232,.12)", marginTop:12, paddingTop:12, display:"flex", gap:16, alignItems:"center" }}>
         <button
           onClick={saveWeatherOutfit}
           disabled={weatherSaved}
           style={{
-            fontSize:10, letterSpacing:1.5, textTransform:"uppercase", cursor:weatherSaved?"default":"pointer",
+            ...ML, fontSize:9.5, cursor: weatherSaved ? "default" : "pointer",
             background:"none", border:"none", padding:0,
-            color: weatherSaved ? "#3a7a4a" : "#888",
+            color: weatherSaved ? T.citron : "rgba(245,241,232,.6)",
           }}
         >
-          {weatherSaved ? "✓ Saved to Outfits" : "Save for later"}
+          {weatherSaved ? "✓ Saved" : "Save for later"}
         </button>
         <button onClick={getWeatherOutfit}
-          style={{fontSize:10, color:"#444", letterSpacing:1.5, textTransform:"uppercase", background:"none", border:"none", cursor:"pointer", padding:0, marginLeft:"auto"}}>
-          ↺ Refresh
+          style={{ ...ML, fontSize:9.5, color:"rgba(245,241,232,.35)", background:"none", border:"none", cursor:"pointer", padding:0, marginLeft:"auto" }}>
+          ↺ New suggestion
         </button>
       </div>
     </div>

@@ -52,7 +52,7 @@ export default function OutfitsView({
   }
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ minHeight: "100vh", paddingBottom: 100 }}>
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <div style={{ padding: "40px 28px 24px", borderBottom: `1px solid ${T.rule}` }}>
@@ -77,7 +77,7 @@ export default function OutfitsView({
           disabled={loadingOutfit || items.length < 2}
           style={{
             width: "100%", background: items.length < 2 ? T.rule : T.cobalt,
-            color: items.length < 2 ? T.ink3 : T.bg,
+            color: items.length < 2 ? T.ink3 : "#fff",
             border: "none", borderRadius: 0, padding: "16px",
             fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em",
             textTransform: "uppercase",
@@ -176,7 +176,7 @@ export default function OutfitsView({
                 <div onClick={() => setLightboxOpen(true)} style={{ position: "relative", width: "100%", paddingBottom: "100%", cursor: "zoom-in", overflow: "hidden" }}>
                   <img src={inspoImage} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }} />
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent,rgba(10,10,10,0.8))", padding: "28px 16px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                    <div style={{ fontFamily: T.serif, fontSize: 18, color: T.bg }}>{inspoResult.outfitName}</div>
+                    <div style={{ fontFamily: T.serif, fontSize: 18, color: "#fff" }}>{inspoResult.outfitName}</div>
                     <button onClick={e => { e.stopPropagation(); setInspoResult(null); setInspoImage(null); setInspoSaved(false); setLightboxOpen(false); }}
                       style={{ background: "none", border: `1px solid rgba(255,255,255,0.3)`, color: "rgba(255,255,255,0.6)", padding: "3px 8px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", cursor: "pointer", textTransform: "uppercase" }}>New photo</button>
                   </div>
@@ -238,7 +238,7 @@ export default function OutfitsView({
                     fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase",
                     cursor: inspoSaved ? "default" : "pointer",
                     background: inspoSaved ? "transparent" : T.cobalt,
-                    color: inspoSaved ? T.sage : T.bg,
+                    color: inspoSaved ? T.sage : "#fff",
                   }}>
                     {inspoSaved ? "✓ Outfit saved" : "Save outfit"}
                   </button>

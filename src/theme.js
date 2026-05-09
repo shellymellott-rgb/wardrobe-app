@@ -1,19 +1,29 @@
-// Direction B — "Gallery White" design tokens
+// Direction B — "Gallery White" design tokens (final)
 export const T = {
-  bg:     '#ffffff',
-  paper:  '#fafaf8',
-  ink:    '#0a0a0a',
-  ink2:   '#3a3a3a',
-  ink3:   '#999999',
-  rule:   '#e5e3df',
-  hot:    '#d6422a',
-  cobalt: '#2a4ad6',
-  citron: '#e8d84a',
-  sage:   '#3a6b4a',
-  blush:  '#f4d4cc',
-  serif:  '"Instrument Serif", "Times New Roman", serif',
-  sans:   '"Inter", system-ui, sans-serif',
-  mono:   '"DM Mono", ui-monospace, monospace',
+  // Surfaces
+  bg:         '#dcd6c8',   // outer page — warm sand, frames the white column
+  surface:    '#ffffff',   // primary content surface — TRUE white
+  paper:      '#f4efe2',   // warm cream band — accent only, NOT default bg
+  heroSage:   '#2d4a3f',   // deep sage hero — Home top block
+  inkSurface: '#0a0a0a',   // weather card / dark inversions — pure black
+  // Ink
+  ink:  '#0a0a0a',
+  ink2: '#3a3a3a',
+  ink3: '#8a8378',
+  // Rules — two weights
+  rule:       '#d8d2c2',   // soft sand hairline, used inside grids
+  ruleStrong: '#0a0a0a',   // strong black rule, section dividers only
+  // Accents
+  hot:    '#d6422a',   // tomato red — Wishlist, NEW badges, chapter 1
+  cobalt: '#2d4a8a',   // softened ink-navy — italic headlines
+  citron: '#e8d84a',   // citron yellow — hero italic, Generate CTA, weather
+  sage:   '#3a6b4a',   // mid sage — chapter 3 divider, Journal year
+  blush:  '#f4d4cc',   // soft blush — bg for UNWORN chip
+  cream:  '#f4efe2',   // cream text on dark sage hero
+  // Fonts
+  serif: '"Instrument Serif", "Times New Roman", serif',
+  sans:  '"Inter", system-ui, sans-serif',
+  mono:  '"DM Mono", ui-monospace, monospace',
 };
 
 /** BTab / nav tab button style */
@@ -39,7 +49,7 @@ export const ML = {
   fontSize: 10,
   letterSpacing: '.22em',
   textTransform: 'uppercase',
-  color: '#999999',
+  color: '#8a8378',
 };
 
 /** Occasion / filter chip */
@@ -47,7 +57,7 @@ export function chipB(active = false) {
   return {
     border: `1px solid ${T.rule}`,
     background: active ? T.ink : 'transparent',
-    color: active ? T.bg : T.ink2,
+    color: active ? '#fff' : T.ink2,
     padding: '8px 14px',
     fontFamily: T.mono,
     fontSize: 10,

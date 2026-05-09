@@ -276,6 +276,17 @@ export default function WardrobeApp() {
   const fileInputRef = useRef();
   const importRef = useRef();
   const outfitPhotoRef = useRef();
+  const headerRef = useRef();
+  const [narrowHeader, setNarrowHeader] = useState(typeof window !== "undefined" && window.innerWidth < 720);
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) setNarrowHeader(e.contentRect.width < 720);
+    });
+    ro.observe(headerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   // ── Auth actions ────────────────────────────────────────────────────────────
   async function signInWithGoogle() {
@@ -458,47 +469,78 @@ export default function WardrobeApp() {
   const isDataLoading = authLoading || wardrobe.syncing;
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,color:T.ink,fontFamily:T.sans,maxWidth:960,margin:"0 auto",position:"relative"}}>
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:T.sans}}>
+    <div style={{maxWidth:1200,margin:"0 auto",background:T.surface,minHeight:"100vh",borderLeft:`1px solid ${T.rule}`,borderRight:`1px solid ${T.rule}`,position:"relative",color:T.ink}}>
       {cropSrc && <CropModal imageSrc={cropSrc} onDone={onCropDone} onCancel={onCropCancel}/>}
       <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileSelected} style={{display:"none"}}/>
       <input ref={importRef} type="file" accept=".json" onChange={importWardrobe} style={{display:"none"}}/>
       <input ref={outfitPhotoRef} type="file" accept="image/*" onChange={addOutfitPhoto} style={{display:"none"}}/>
 
-      {/* Header */}
-      <div style={{
-        position:"sticky",top:0,zIndex:100,
-        background:T.bg,borderBottom:`1px solid ${T.rule}`,
-        padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",
-        height:48,gap:24,
-      }}>
-        {/* Syncing indicator */}
-        {isDataLoading && (
-          <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:T.cobalt,opacity:0.4,animation:"pulse 1.2s ease-in-out infinite"}}/>
-        )}
-        {/* Left: wordmark + separator + tabs */}
-        <div style={{display:"flex",alignItems:"center",gap:20,flex:1,minWidth:0}}>
-          <span style={{fontFamily:T.serif,fontSize:22,color:T.ink,whiteSpace:"nowrap",lineHeight:1}}>Wardrobe</span>
-          <span style={{width:1,height:18,background:T.rule,flexShrink:0}}/>
-          <div style={{display:"flex",gap:20,overflowX:"auto",scrollbarWidth:"none"}}>
-            {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
-              <button key={v} onClick={()=>{setView(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
-            ))}
+      {/* Header — container-responsive */}
+      {narrowHeader ? (
+        /* ── Narrow: hamburger ── */
+        <div ref={headerRef} style={{borderBottom:`1px solid ${T.ruleStrong}`,background:T.surface,position:"sticky",top:0,zIndex:100}}>
+          {isDataLoading && <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:T.citron,opacity:0.7,animation:"pulse 1.2s ease-in-out infinite"}}/>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px"}}>
+            {/* Hamburger */}
+            <button onClick={()=>setNavOpen(o=>!o)} aria-label="Menu" style={{border:0,background:"transparent",padding:4,cursor:"pointer",display:"flex",flexDirection:"column",gap:4,width:22}}>
+              <span style={{height:1.5,background:T.ink,display:"block",transition:"transform 180ms",transform:navOpen?"translateY(5.5px) rotate(45deg)":"none"}}/>
+              <span style={{height:1.5,background:T.ink,display:"block",opacity:navOpen?0:1}}/>
+              <span style={{height:1.5,background:T.ink,display:"block",transition:"transform 180ms",transform:navOpen?"translateY(-5.5px) rotate(-45deg)":"none"}}/>
+            </button>
+            <div style={{fontFamily:T.serif,fontSize:22,color:T.ink,letterSpacing:"-.01em"}}>Wardrobe</div>
+            {underloved.length > 0
+              ? <div style={{fontFamily:T.mono,fontSize:9.5,letterSpacing:".18em",color:T.hot,background:T.blush,padding:"3px 6px",textTransform:"uppercase"}}>{underloved.length}</div>
+              : <div style={{width:22}}/>
+            }
+          </div>
+          {navOpen && (
+            <div style={{borderTop:`1px solid ${T.rule}`,padding:"8px 20px 16px",display:"flex",flexDirection:"column",gap:2,background:T.surface}}>
+              {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+                <button key={v} onClick={()=>{setView(v);setNavOpen(false);window.history.pushState({view:v},"");}} style={{
+                  border:0,background:"transparent",textAlign:"left",cursor:"pointer",
+                  fontFamily:T.mono,fontSize:11,letterSpacing:".22em",textTransform:"uppercase",
+                  color:view===v?T.ink:T.ink2,
+                  padding:"12px 0",borderBottom:`1px solid ${T.rule}`,
+                  display:"flex",justifyContent:"space-between",alignItems:"center",
+                }}>
+                  <span>{label}</span>
+                  {view===v && <span style={{color:T.hot}}>●</span>}
+                </button>
+              ))}
+              <div style={{fontFamily:T.mono,fontSize:9.5,letterSpacing:".18em",color:T.ink3,textTransform:"uppercase",paddingTop:14,display:"flex",justifyContent:"space-between"}}>
+                <span>{wardrobe.items.length} pieces · {underloved.length} unworn</span>
+                <span onClick={()=>{setShowSettings(true);setNavOpen(false);}} style={{cursor:"pointer"}}>Settings →</span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── Wide: single row ── */
+        <div ref={headerRef} style={{borderBottom:`1px solid ${T.ruleStrong}`,background:T.surface,position:"sticky",top:0,zIndex:100,padding:"14px 28px"}}>
+          {isDataLoading && <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:T.citron,opacity:0.7,animation:"pulse 1.2s ease-in-out infinite"}}/>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:24}}>
+            {/* Left: wordmark + separator + tabs */}
+            <div style={{display:"flex",gap:24,alignItems:"center",minWidth:0}}>
+              <div style={{fontFamily:T.serif,fontSize:22,color:T.ink,letterSpacing:"-.01em",flexShrink:0}}>Wardrobe</div>
+              <div style={{width:1,height:14,background:T.rule,flexShrink:0}}/>
+              <div style={{display:"flex",gap:22,flexShrink:0}}>
+                {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+                  <button key={v} onClick={()=>{setView(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {/* Right: piece count + UNWORN + SETTINGS */}
+            <div style={{display:"flex",gap:14,alignItems:"center",flexShrink:0}}>
+              <div style={{fontFamily:T.mono,fontSize:10,letterSpacing:".18em",color:T.ink3,textTransform:"uppercase"}}>
+                {wardrobe.items.length} PIECES
+                {underloved.length > 0 && <> · <span style={{background:T.blush,color:T.hot,padding:"3px 6px"}}>{underloved.length} UNWORN</span></>}
+              </div>
+              <button onClick={()=>setShowSettings(true)} style={{fontFamily:T.mono,fontSize:10,letterSpacing:".18em",color:T.ink2,textTransform:"uppercase",cursor:"pointer",border:`1px solid ${T.rule}`,padding:"5px 10px",background:"transparent"}}>SETTINGS</button>
+            </div>
           </div>
         </div>
-        {/* Right: piece count + settings */}
-        <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-          <span style={{...ML,color:T.ink3,whiteSpace:"nowrap"}}>
-            {wardrobe.items.length} PIECES
-            {underloved.length > 0 && (
-              <> · <span style={{background:T.blush,color:T.hot,padding:"2px 6px"}}>{underloved.length} UNWORN</span></>
-            )}
-          </span>
-          <button
-            onClick={()=>setShowSettings(true)}
-            style={{...ML,background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,padding:"5px 10px",cursor:"pointer"}}
-          >SETTINGS</button>
-        </div>
-      </div>
+      )}
 
       {/* Views */}
       {view==="home" && (
@@ -652,7 +694,7 @@ export default function WardrobeApp() {
           onClick={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           style={{
             position:"fixed",bottom:28,right:28,
-            background:T.cobalt,color:T.bg,
+            background:T.cobalt,color:"#fff",
             border:"none",borderRadius:0,
             padding:"12px 20px",
             fontFamily:T.mono,fontSize:10,letterSpacing:".22em",textTransform:"uppercase",
@@ -674,6 +716,7 @@ export default function WardrobeApp() {
           sendItemChat={styling.sendItemChat}
         />
       )}
+    </div>
     </div>
   );
 }

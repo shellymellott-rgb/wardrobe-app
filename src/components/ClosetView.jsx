@@ -46,7 +46,7 @@ export default function ClosetView({
   const cats = ["All", ...allCategories, "To Go"];
 
   return (
-    <div style={{ fontFamily: T.sans, background: T.bg }}>
+    <div style={{ fontFamily: T.sans }}>
 
       {/* Search bar */}
       <div style={{ padding: "20px 28px", borderBottom: `1px solid ${T.rule}` }}>
@@ -149,14 +149,14 @@ export default function ClosetView({
               </div>
               {/* NEW badge */}
               {!item.status && !item.wornDates?.length && (
-                <div style={{ position: "absolute", top: 6, right: 6, background: T.hot, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>NEW</div>
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.hot, color: "#fff", fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>NEW</div>
               )}
               {/* DONATE / SELL badges */}
               {item.status === "donate" && (
-                <div style={{ position: "absolute", top: 6, right: 6, background: T.cobalt, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Donate</div>
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.cobalt, color: "#fff", fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Donate</div>
               )}
               {item.status === "sell" && (
-                <div style={{ position: "absolute", top: 6, right: 6, background: T.sage, color: T.bg, fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Sell</div>
+                <div style={{ position: "absolute", top: 6, right: 6, background: T.sage, color: "#fff", fontFamily: T.mono, fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 6px" }}>Sell</div>
               )}
               {/* Metadata */}
               <div style={{ padding: "10px 12px 12px" }}>
@@ -176,7 +176,7 @@ export default function ClosetView({
       {showFilters && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.4)" }} onClick={() => setShowFilters(false)}>
           <div
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: T.bg, borderTop: `1px solid ${T.rule}`, padding: "0 28px 40px", maxHeight: "78vh", overflowY: "auto" }}
+            style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: T.surface, borderTop: `1px solid ${T.rule}`, padding: "0 28px 40px", maxHeight: "78vh", overflowY: "auto" }}
             onClick={e => e.stopPropagation()}
           >
             {/* Handle */}
@@ -215,7 +215,7 @@ export default function ClosetView({
             {/* Apply */}
             <button
               onClick={() => setShowFilters(false)}
-              style={{ width: "100%", background: T.cobalt, color: T.bg, border: "none", borderRadius: 0, padding: "14px", fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase", cursor: "pointer", marginTop: 8 }}
+              style={{ width: "100%", background: T.cobalt, color: "#fff", border: "none", borderRadius: 0, padding: "14px", fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase", cursor: "pointer", marginTop: 8 }}
             >
               Show {displayItems.length} pieces
             </button>
