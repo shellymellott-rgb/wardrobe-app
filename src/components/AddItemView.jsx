@@ -21,6 +21,8 @@ export default function AddItemView({
   const [urlInput, setUrlInput] = useState("");
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [urlError, setUrlError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const [receiptData, setReceiptData] = useState(null);
   const [receiptDate, setReceiptDate] = useState("");
@@ -95,7 +97,7 @@ export default function AddItemView({
   function updateRI(tempId, field, value) { setReceiptData(prev=>prev.map(i=>i.tempId===tempId?{...i,[field]:value}:i)); }
   function toggleRITag(tempId, tag) { setReceiptData(prev=>prev.map(i=>i.tempId!==tempId?i:{...i,tags:i.tags.includes(tag)?i.tags.filter(t=>t!==tag):[...i.tags,tag]})); }
 
-  function addReceiptItems() {
+  async function addReceiptItems() {
     const newItems = receiptData.map(item => ({
       id: Date.now()+item.tempId+Math.random(),
       name: item.name, brand: item.brand||"", category: item.category,
@@ -106,15 +108,31 @@ export default function AddItemView({
       imageData: receiptImages[item.tempId]||null, wornDates:[], addedAt:new Date().toISOString(),
     }));
     receiptData.forEach(item => { if (item.brand) addBrand(item.brand); });
-    persist([...items, ...newItems]);
-    setReceiptData(null); setReceiptDate(""); setReceiptImages({}); setView("closet");
+    setUploading(true);
+    setUploadError("");
+    try {
+      await persist([...items, ...newItems]);
+      setReceiptData(null); setReceiptDate(""); setReceiptImages({}); setView("closet");
+    } catch (e) {
+      setUploadError(e.message || "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  function addItem() {
+  async function addItem() {
     if (!addForm.name) return;
     if (addForm.brand) addBrand(addForm.brand);
-    persist([...items, buildItem(addForm)]);
-    setAddForm(emptyForm()); setUrlInput(""); setView("closet");
+    setUploading(true);
+    setUploadError("");
+    try {
+      await persist([...items, buildItem(addForm)]);
+      setAddForm(emptyForm()); setUrlInput(""); setView("closet");
+    } catch (e) {
+      setUploadError(e.message || "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -128,7 +146,8 @@ export default function AddItemView({
       {addMode==="photo" && (<>
         {scanningImage && <div style={{textAlign:"center",padding:"16px 0",color:"#b8976a"}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading image...</div><div style={{fontSize:10,color:"#555",marginTop:4}}>Extracting brand, color, details</div></div>}
         <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors} customCategories={customCategories} onAddCustomCategory={addCustomCategory}/>
-        <button onClick={addItem} disabled={!addForm.name||scanningImage} style={{width:"100%",background:addForm.name&&!scanningImage?"#e8e2d8":"#1a1a1a",color:addForm.name&&!scanningImage?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name&&!scanningImage?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
+        {uploadError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{uploadError}</div>}
+        <button onClick={addItem} disabled={!addForm.name||scanningImage||uploading} style={{width:"100%",background:addForm.name&&!scanningImage&&!uploading?"#e8e2d8":"#1a1a1a",color:addForm.name&&!scanningImage&&!uploading?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name&&!scanningImage&&!uploading?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>{uploading?"Uploading image...":"Add to Closet"}</button>
       </>)}
 
       {addMode==="url" && (<>
@@ -140,7 +159,8 @@ export default function AddItemView({
         {fetchingUrl && <div style={{textAlign:"center",padding:"12px 0",color:"#b8976a",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>✦ Reading page...</div>}
         {urlError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{urlError}</div>}
         <FormFields form={addForm} setForm={setAddForm} onImageClick={()=>openFilePicker("add")} onImageDrop={onImageDrop} onRecrop={()=>{setCropTarget("add");setCropSrc(addForm.originalImageData);}} brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors} customCategories={customCategories} onAddCustomCategory={addCustomCategory}/>
-        <button onClick={addItem} disabled={!addForm.name} style={{width:"100%",background:addForm.name?"#e8e2d8":"#1a1a1a",color:addForm.name?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>Add to Closet</button>
+        {uploadError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{uploadError}</div>}
+        <button onClick={addItem} disabled={!addForm.name||uploading} style={{width:"100%",background:addForm.name&&!uploading?"#e8e2d8":"#1a1a1a",color:addForm.name&&!uploading?"#111":"#444",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:addForm.name&&!uploading?"pointer":"not-allowed",fontWeight:600,marginTop:8}}>{uploading?"Uploading image...":"Add to Closet"}</button>
       </>)}
 
       {addMode==="receipt" && !receiptData && !scanning && (
@@ -175,7 +195,8 @@ export default function AddItemView({
             <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{Object.values(PRESET_TAGS).flat().map(t=><button key={t} onClick={()=>toggleRITag(item.tempId,t)} style={{...chipStyle((item.tags||[]).includes(t)),padding:"3px 8px",fontSize:9}}>{t}</button>)}</div>
           </div>
         ))}
-        <button onClick={addReceiptItems} style={{width:"100%",background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Add {receiptData.length} Item{receiptData.length!==1?"s":""} to Closet</button>
+        {uploadError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{uploadError}</div>}
+        <button onClick={addReceiptItems} disabled={uploading} style={{width:"100%",background:uploading?"#1a1a1a":"#e8e2d8",color:uploading?"#444":"#111",border:"none",borderRadius:3,padding:"14px",fontSize:11,letterSpacing:3,textTransform:"uppercase",cursor:uploading?"not-allowed":"pointer",fontWeight:600}}>{uploading?"Uploading image...":`Add ${receiptData.length} Item${receiptData.length!==1?"s":""} to Closet`}</button>
         <button onClick={()=>{setReceiptData(null);setReceiptDate("");setReceiptImages({});}} style={{width:"100%",background:"transparent",border:"1px solid #222",color:"#555",borderRadius:3,padding:"11px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginTop:8}}>Scan Different Receipt</button>
       </>)}
 

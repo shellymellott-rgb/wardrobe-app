@@ -269,6 +269,8 @@ export default function WardrobeApp() {
   // ── Image / crop state (shared across add, edit, receipt) ──────────────────
   const [addForm, setAddForm] = useState(() => emptyForm());
   const [receiptImages, setReceiptImages] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
   const [cropTarget, setCropTarget] = useState(null);
   const [savedOriginalImageData, setSavedOriginalImageData] = useState(null);
@@ -395,17 +397,22 @@ export default function WardrobeApp() {
     window.history.pushState({ view }, "");
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     const { originalImageData, ...ef } = editForm;
-    const updated = wardrobe.items.map(i => i.id===ef.id
-      ? normalizeItem(ef)
-      : i
-    );
+    const updated = wardrobe.items.map(i => i.id===ef.id ? normalizeItem(ef) : i);
     if (ef.brand) wardrobe.addBrand(ef.brand);
-    wardrobe.persist(updated);
-    localStorage.setItem("lastPersistAt", Date.now().toString());
-    setSelectedItem(updated.find(i=>i.id===ef.id));
-    setEditing(false);
+    setSaving(true);
+    setSaveError("");
+    try {
+      const finalItems = await wardrobe.persist(updated);
+      localStorage.setItem("lastPersistAt", Date.now().toString());
+      setSelectedItem((finalItems ?? updated).find(i => i.id === ef.id));
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e.message || "Upload failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function setItemStatus(id, status) {
@@ -675,6 +682,7 @@ export default function WardrobeApp() {
           itemEval={styling.itemEval} loadingEval={styling.loadingEval}
           editing={editing} setEditing={setEditing}
           editForm={editForm} setEditForm={setEditForm} saveEdit={saveEdit}
+          saving={saving} saveError={saveError}
           markWorn={markWorn} removeWornDate={removeWornDate} removeItem={removeItem}
           wornDateInput={wornDateInput} setWornDateInput={setWornDateInput}
           setItemStatus={setItemStatus}

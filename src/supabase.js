@@ -60,6 +60,34 @@ export async function sbUploadImage(userId, itemId, dataUrl, isThumb = false) {
 }
 
 /**
+ * Upload a base64 data URL to Storage and return the path.
+ * Unlike sbUploadImage, this THROWS on failure instead of returning null.
+ * Use this when the upload must succeed before saving — callers catch and show the error.
+ */
+export async function sbUploadImageAndGetPath(userId, itemId, dataUrl, isThumb = false) {
+  const path = itemStoragePath(userId, itemId, isThumb);
+  console.log(`[sb] uploadImageAndGetPath: ${path} (${Math.round(dataUrl.length / 1024)}KB)`);
+  try {
+    const [header, base64] = dataUrl.split(",");
+    const mimeMatch = header.match(/data:([^;]+)/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    const { error } = await supabase.storage
+      .from("wardrobe-images")
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+    if (error) throw new Error(`Image upload failed: ${error.message}`);
+    console.log(`[sb] uploadImageAndGetPath OK: ${path}`);
+    return path;
+  } catch (e) {
+    console.error(`[sb] uploadImageAndGetPath FAILED for ${path}:`, e.message);
+    throw e;
+  }
+}
+
+/**
  * Batch-generate short-lived signed URLs for an array of Storage paths.
  * Returns { [path]: signedUrl } — paths that errored are omitted.
  * Default expiry: 1 hour (3600s).

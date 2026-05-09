@@ -10,7 +10,7 @@ export default function ItemDetailModal({
   selectedItem, setSelectedItem,
   items, persist,
   itemEval, loadingEval,
-  editing, setEditing, editForm, setEditForm, saveEdit,
+  editing, setEditing, editForm, setEditForm, saveEdit, saving = false, saveError = "",
   markWorn, removeWornDate, removeItem,
   wornDateInput, setWornDateInput,
   setItemStatus,
@@ -32,8 +32,9 @@ export default function ItemDetailModal({
         <div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
             <button onClick={()=>setEditing(false)} style={ghostBtn}>← Cancel</button>
-            <button onClick={saveEdit} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Save</button>
+            <button onClick={saveEdit} disabled={saving} style={{background:saving?"#333":"#e8e2d8",color:saving?"#888":"#111",border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:saving?"not-allowed":"pointer",fontWeight:600}}>{saving?"Uploading image...":"Save"}</button>
           </div>
+          {saveError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{saveError}</div>}
           <FormFields
             form={editForm} setForm={setEditForm}
             onImageClick={()=>openFilePicker("edit")}
