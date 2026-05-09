@@ -1,14 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { generateImageVersions } from "../utils/imageUtils.js";
 
-function blobToDataUrl(blob) {
-  return new Promise(resolve => {
-    const r = new FileReader();
-    r.onload = e => resolve(e.target.result);
-    r.readAsDataURL(blob);
-  });
-}
-
 // Composite a transparent PNG onto a white canvas and return a JPEG data URL.
 // Keeps the pipeline JPEG-compatible and avoids giant PNG base64 strings.
 function compositeOnWhite(dataUrl) {
@@ -53,25 +45,18 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
     setProcessing(true);
     setError(null);
     try {
-      // Dynamic import so the library doesn't bloat the initial bundle
-      const { removeBackground } = await import("@imgly/background-removal");
-      const resultBlob = await removeBackground(current, {
-        debug: false,
-        output: { format: "image/png", quality: 1 },
+      const res = await fetch("/api/removebg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageData: current }),
       });
-      const dataUrl = await blobToDataUrl(resultBlob);
-      setCurrent(dataUrl);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Background removal failed");
+      setCurrent(data.result);
       setIsTransparent(true);
     } catch (e) {
       console.error("[editor] background removal failed:", e);
-      const msg = e?.message || String(e);
-      if (msg.includes("SharedArrayBuffer") || msg.includes("crossOriginIsolated")) {
-        setError("Background removal requires cross-origin isolation. Try reloading the page.");
-      } else if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch")) {
-        setError("Could not download the AI model. Check your connection and try again.");
-      } else {
-        setError(`Could not remove background: ${msg}`);
-      }
+      setError(e.message || "Background removal failed");
     }
     setProcessing(false);
   }
@@ -192,8 +177,7 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
               Removing background…
             </div>
             <div style={{fontSize:10,color:"#555",lineHeight:1.6}}>
-              First run downloads the AI model (~30 MB).{"\n"}
-              This may take 15–45 seconds.
+              This may take 10–20 seconds.
             </div>
           </div>
         ) : eraseMode ? (
@@ -280,7 +264,7 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
         )}
 
         <div style={{fontSize:9,color:"#333",textAlign:"center",letterSpacing:1,lineHeight:1.6}}>
-          Processed entirely in your browser — no photos leave your device
+          Background removal runs on the server — image is not stored
         </div>
       </div>
     </div>
