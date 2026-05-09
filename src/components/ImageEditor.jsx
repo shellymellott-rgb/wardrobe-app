@@ -28,6 +28,15 @@ const CHECKERBOARD = [
   "linear-gradient(-45deg,transparent 75%,#2a2a2a 75%)",
 ].join(",");
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function ImageEditor({ imageData, onApply, onClose }) {
   const [current, setCurrent]         = useState(imageData);
   const [isTransparent, setIsTransparent] = useState(false);
@@ -45,18 +54,22 @@ export default function ImageEditor({ imageData, onApply, onClose }) {
     setProcessing(true);
     setError(null);
     try {
-      const res = await fetch("/api/removebg", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageData: current }),
+      const { removeBackground } = await import("@imgly/background-removal");
+      const resultBlob = await removeBackground(current, {
+        debug: false,
+        output: { format: "image/png", quality: 1 },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Background removal failed");
-      setCurrent(data.result);
+      const dataUrl = await blobToDataUrl(resultBlob);
+      setCurrent(dataUrl);
       setIsTransparent(true);
     } catch (e) {
       console.error("[editor] background removal failed:", e);
-      setError(e.message || "Background removal failed");
+      const msg = e?.message || String(e);
+      if (msg.includes("SharedArrayBuffer") || msg.includes("crossOriginIsolated")) {
+        setError("Background removal requires cross-origin isolation. Try reloading the page.");
+      } else {
+        setError(msg || "Background removal failed");
+      }
     }
     setProcessing(false);
   }
