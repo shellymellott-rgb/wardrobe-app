@@ -183,7 +183,16 @@ async function uploadItemImages(uid, items) {
         uploadedPaths.push(path);
         console.log(`[persist] ✓ full uploaded for "${item.name}": ${path}`);
       } else {
-        console.error(`[persist] ✗ Storage upload FAILED for "${item.name}" — keeping base64 in localStorage`);
+        console.error(`[persist] ✗ Storage upload FAILED for "${item.name}" — retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        const retryPath = await sbUploadImage(uid, String(item.id), item.imageData, false);
+        if (retryPath) {
+          updated.image_path = retryPath;
+          console.log(`[persist] ✓ retry succeeded for "${item.name}"`);
+        } else {
+          console.error(`[persist] ✗ retry FAILED for "${item.name}" — image will be retried on next save`);
+          updated._uploadFailed = true;
+        }
       }
     }
     if (needsThumb) {
@@ -193,7 +202,16 @@ async function uploadItemImages(uid, items) {
         uploadedPaths.push(path);
         console.log(`[persist] ✓ thumb uploaded for "${item.name}": ${path}`);
       } else {
-        console.error(`[persist] ✗ Storage thumb upload FAILED for "${item.name}"`);
+        console.error(`[persist] ✗ Storage thumb upload FAILED for "${item.name}" — retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        const retryThumb = await sbUploadImage(uid, String(item.id), item.imageThumb, true);
+        if (retryThumb) {
+          updated.image_thumb_path = retryThumb;
+          console.log(`[persist] ✓ thumb retry succeeded for "${item.name}"`);
+        } else {
+          console.error(`[persist] ✗ thumb retry FAILED for "${item.name}"`);
+          updated._uploadFailed = true;
+        }
       }
     }
 
@@ -263,7 +281,7 @@ export function saveToStorage(items) {
   // Signed URLs expire and must not be persisted; image_path is permanent and stays.
   // Items without image_path keep their imageData/imageThumb (base64 fallback).
   const toSave = items.map(i =>
-    i.image_path ? { ...i, imageData: null, imageThumb: null } : i
+    (i.image_path && !i._uploadFailed) ? { ...i, imageData: null, imageThumb: null } : i
   );
 
   const totalItems = toSave.length;
@@ -369,8 +387,11 @@ export function useWardrobeData(user) {
     });
     console.log(`[persist] Supabase diff: ${removed.length} removed, ${upserted.length} upserted`);
     removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
-    if (upserted.length)
-      sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
+    const toUpsert = upserted.filter(i => !i._uploadFailed || i.image_path);
+    const failedUpload = upserted.filter(i => i._uploadFailed && !i.image_path);
+    if (failedUpload.length) console.error(`[persist] WARNING: ${failedUpload.length} item(s) skipped Supabase upsert due to failed image upload — will retry on next save`);
+    if (toUpsert.length)
+      sbUpsert("wardrobe_items", toUpsert.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
 
     pruneImageCache(finalItems.map(i => i.id));
   }
