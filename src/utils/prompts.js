@@ -1,10 +1,14 @@
 import { fmtMaterials } from "./normalizeItem.js";
 
-export function OUTFIT_PROMPT(items, occasion) {
+export function OUTFIT_PROMPT(items, occasion, previousOutfits = []) {
+  const previousPieces = previousOutfits.flatMap(o => o.pieces || []);
+  const avoidClause = previousPieces.length > 0
+    ? `\nAvoid reusing these pieces from previous suggestions: ${[...new Set(previousPieces)].join(", ")}.`
+    : "";
   return `Shelly's wardrobe:
 ${items.map(i=>`- [${i.category}] ${i.name}${i.color?` / ${i.color}`:""}${fmtMaterials(i)?` / ${fmtMaterials(i)}`:""} (worn ${i.wornDates?.length||0}x)`).join("\n")}
-${occasion?`Occasion: ${occasion}`:"Everyday outfits."}
-Give 3 outfit combos using ONLY items listed above. For each outfit return JSON with this exact structure. Return ONLY a JSON array, nothing else:
+${occasion?`Occasion: ${occasion}`:"Everyday outfits."}${avoidClause}
+Give 3 DIFFERENT outfit combos using ONLY items listed above. Each outfit must use different anchor pieces. Vary the style — don't repeat the same combinations. For each outfit return JSON with this exact structure. Return ONLY a JSON array, nothing else:
 [{"name":"Outfit name","pieces":["exact item name 1","exact item name 2","exact item name 3"],"why":"one sentence why it works","tip":"one concrete styling tip"},...]`;
 }
 

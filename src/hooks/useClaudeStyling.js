@@ -21,7 +21,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     if (items.length < 2) return;
     setLoadingOutfit(true); setOutfits([]); setOutfitText("");
     try {
-      const text = await callClaude(buildStyleSystem(), OUTFIT_PROMPT(items.map(stripForClaude), occasion), 1000);
+      const text = await callClaude(buildStyleSystem(), OUTFIT_PROMPT(items.map(stripForClaude), occasion, outfits), 1000);
       console.log("[outfits] response preview:", text?.slice(0, 200));
       setOutfits(parseJsonArray(text));
     } catch (e) {
