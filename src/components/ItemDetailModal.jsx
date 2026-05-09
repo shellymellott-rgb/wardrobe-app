@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fmtMaterials } from "../utils/normalizeItem.js";
 import { COLORS } from "../constants.js";
 import { chipStyle, inputStyle, ghostBtn } from "../styles.js";
+import { T } from "../theme.js";
 import FormFields from "./FormFields.jsx";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -29,13 +30,13 @@ export default function ItemDetailModal({
 
   if (editing && editForm) {
     return (
-      <div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}>
+      <div style={{position:"fixed",inset:0,background:T.bg,zIndex:100,overflowY:"auto"}}>
         <div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
             <button onClick={()=>setEditing(false)} style={ghostBtn}>← Cancel</button>
-            <button onClick={saveEdit} disabled={saving} style={{background:saving?"#333":"#e8e2d8",color:saving?"#888":"#111",border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:saving?"not-allowed":"pointer",fontWeight:600}}>{saving?"Uploading image...":"Save"}</button>
+            <button onClick={saveEdit} disabled={saving} style={{background:saving?T.rule:T.ink,color:saving?"#888":T.surface,border:"none",borderRadius:3,padding:"7px 20px",fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:saving?"not-allowed":"pointer",fontWeight:600}}>{saving?"Uploading image...":"Save"}</button>
           </div>
-          {saveError && <div style={{background:"#2a1a1a",border:"1px solid #6a3a3a",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#e07070",lineHeight:1.5}}>{saveError}</div>}
+          {saveError && <div style={{background:"#fdf0f0",border:"1px solid #e8b0b0",borderRadius:3,padding:"10px 12px",marginBottom:12,fontSize:11,color:T.hot,lineHeight:1.5}}>{saveError}</div>}
           <FormFields
             form={editForm} setForm={setEditForm}
             onImageClick={()=>openFilePicker("edit")}
@@ -49,7 +50,7 @@ export default function ItemDetailModal({
   }
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#0d0d0d",zIndex:100,overflowY:"auto"}}>
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:100,overflowY:"auto"}}>
       <div style={{padding:24,maxWidth:680,margin:"0 auto",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:18}}>
           <button onClick={()=>{setSelectedItem(null);setWornDateInput(null);}} style={ghostBtn}>← Back</button>
@@ -58,7 +59,7 @@ export default function ItemDetailModal({
 
         {selectedItem.imageData
           ? <img src={selectedItem.imageData} style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:3,marginBottom:14}}/>
-          : <div style={{width:"100%",aspectRatio:"3/4",background:"#1a1a1a",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:"#333",fontSize:12}}>No Photo</div>
+          : <div style={{width:"100%",aspectRatio:"3/4",background:T.surface,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,color:T.rule,fontSize:12}}>No Photo</div>
         }
 
         {(selectedItem.outfitPhotos||[]).length>0 && (
@@ -74,7 +75,7 @@ export default function ItemDetailModal({
             </div>
           </div>
         )}
-        <button onClick={()=>outfitPhotoRef.current.click()} style={{width:"100%",background:"transparent",border:"1px dashed #2a2a2a",color:"#666",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:14}}>+ Add Outfit Photo</button>
+        <button onClick={()=>outfitPhotoRef.current.click()} style={{width:"100%",background:"transparent",border:`1px dashed ${T.rule}`,color:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:14}}>+ Add Outfit Photo</button>
 
         {itemNavList.length > 1 && (() => {
           const idx = itemNavList.findIndex(i => String(i.id) === String(selectedItem.id));
@@ -85,7 +86,7 @@ export default function ItemDetailModal({
               <button
                 onClick={() => prev && onNavigate(prev)}
                 disabled={!prev}
-                style={{background:"none",border:"none",color:prev?"#e8e2d8":"#333",fontSize:20,cursor:prev?"pointer":"default",padding:"4px 8px",lineHeight:1}}
+                style={{background:"none",border:"none",color:prev?T.ink:T.rule,fontSize:20,cursor:prev?"pointer":"default",padding:"4px 8px",lineHeight:1}}
               >←</button>
               <div style={{fontSize:9,color:"#555",letterSpacing:2,textTransform:"uppercase"}}>
                 {idx + 1} / {itemNavList.length}
@@ -93,7 +94,7 @@ export default function ItemDetailModal({
               <button
                 onClick={() => next && onNavigate(next)}
                 disabled={!next}
-                style={{background:"none",border:"none",color:next?"#e8e2d8":"#333",fontSize:20,cursor:next?"pointer":"default",padding:"4px 8px",lineHeight:1}}
+                style={{background:"none",border:"none",color:next?T.ink:T.rule,fontSize:20,cursor:next?"pointer":"default",padding:"4px 8px",lineHeight:1}}
               >→</button>
             </div>
           );
@@ -119,18 +120,18 @@ export default function ItemDetailModal({
         <div style={{marginBottom:8}}>
           {wornDateInput===null ? (
             <div style={{display:"flex",gap:8}}>
-              <button type="button" onClick={()=>setWornDateInput(new Date().toISOString().split("T")[0])} style={{flex:1,background:"transparent",border:"1px solid #333",color:"#e8e2d8",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Mark Worn</button>
+              <button type="button" onClick={()=>setWornDateInput(new Date().toISOString().split("T")[0])} style={{flex:1,background:"transparent",border:`1px solid ${T.rule}`,color:T.ink,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Mark Worn</button>
               {confirmRemove
                 ? <div style={{display:"flex",gap:8,flex:1}}>
                     <span style={{flex:1,display:"flex",alignItems:"center",fontSize:10,color:"#8a4a4a",letterSpacing:0.5}}>Remove this item?</span>
-                    <button type="button" onClick={()=>removeItem(selectedItem.id)} style={{background:"#3a2020",border:"1px solid #6a3030",color:"#e07070",borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Yes, remove</button>
-                    <button type="button" onClick={()=>setConfirmRemove(false)} style={{background:"transparent",border:"1px solid #333",color:"#666",borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Cancel</button>
+                    <button type="button" onClick={()=>removeItem(selectedItem.id)} style={{background:"#fdf0f0",border:"1px solid #e8b0b0",color:T.hot,borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",fontWeight:600}}>Yes, remove</button>
+                    <button type="button" onClick={()=>setConfirmRemove(false)} style={{background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,borderRadius:3,padding:"10px 14px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Cancel</button>
                   </div>
-                : <button type="button" onClick={()=>setConfirmRemove(true)} style={{background:"transparent",border:"1px solid #3a2020",color:"#8a4a4a",borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button>
+                : <button type="button" onClick={()=>setConfirmRemove(true)} style={{background:"transparent",border:`1px solid ${T.hot}`,color:T.hot,borderRadius:3,padding:"10px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}>Remove</button>
               }
             </div>
           ) : wornDateInput==="done" ? (
-            <div style={{padding:"10px 14px",background:"#1a1a2a",border:"1px solid #333",borderRadius:3,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a6a",textAlign:"center"}}>✓ Logged</div>
+            <div style={{padding:"10px 14px",background:"#f0f7f0",border:`1px solid ${T.sage}`,borderRadius:3,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:T.sage,textAlign:"center"}}>✓ Logged</div>
           ) : (
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <DatePicker
@@ -140,26 +141,26 @@ export default function ItemDetailModal({
                 placeholderText="mm/dd/yyyy"
                 className="wardrobe-datepicker"
               />
-              <button type="button" onClick={()=>{markWorn(selectedItem.id,wornDateInput);setWornDateInput("done");setTimeout(()=>setWornDateInput(null),1200);}} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"10px 14px",fontSize:11,letterSpacing:1,cursor:"pointer",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>Log Date</button>
+              <button type="button" onClick={()=>{markWorn(selectedItem.id,wornDateInput);setWornDateInput("done");setTimeout(()=>setWornDateInput(null),1200);}} style={{background:T.ink,color:T.surface,border:"none",borderRadius:3,padding:"10px 14px",fontSize:11,letterSpacing:1,cursor:"pointer",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>Log Date</button>
               <button type="button" onClick={()=>setWornDateInput(null)} style={{...ghostBtn,fontSize:18,padding:"0 4px",flexShrink:0}}>✕</button>
             </div>
           )}
         </div>
 
         <div style={{display:"flex",gap:8,marginBottom:10}}>
-          <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="donate"?null:"donate")} style={{flex:1,background:selectedItem.status==="donate"?"#c8601022":"transparent",border:`1px solid ${selectedItem.status==="donate"?"#c86010":"#333"}`,color:selectedItem.status==="donate"?"#d4752a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="donate"?"✓ To Donate":"Mark to Donate"}</button>
-          <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="sell"?null:"sell")} style={{flex:1,background:selectedItem.status==="sell"?"#3a8a4a22":"transparent",border:`1px solid ${selectedItem.status==="sell"?"#4a9a5a":"#333"}`,color:selectedItem.status==="sell"?"#4a9a5a":"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="sell"?"✓ To Sell":"Mark to Sell"}</button>
+          <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="donate"?null:"donate")} style={{flex:1,background:selectedItem.status==="donate"?"#c8601022":"transparent",border:`1px solid ${selectedItem.status==="donate"?T.hot:T.rule}`,color:selectedItem.status==="donate"?T.hot:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="donate"?"✓ To Donate":"Mark to Donate"}</button>
+          <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="sell"?null:"sell")} style={{flex:1,background:selectedItem.status==="sell"?"#3a8a4a22":"transparent",border:`1px solid ${selectedItem.status==="sell"?T.sage:T.rule}`,color:selectedItem.status==="sell"?T.sage:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="sell"?"✓ To Sell":"Mark to Sell"}</button>
         </div>
 
-        <button onClick={()=>openItemChat(selectedItem)} style={{width:"100%",background:"transparent",border:"1px solid #2a2a2a",color:"#888",borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>
+        <button onClick={()=>openItemChat(selectedItem)} style={{width:"100%",background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>
 
         {selectedItem.wornDates?.length>0 && (
           <div style={{marginBottom:18}}>
             <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8}}>Wear History</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
               {[...selectedItem.wornDates].map((d,origIdx)=>({d,origIdx})).reverse().slice(0,24).map(({d,origIdx})=>(
-                <span key={origIdx} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#666",background:"#1a1a1a",padding:"3px 4px 3px 8px",borderRadius:2}}>
-                  {d}<button onClick={()=>removeWornDate(selectedItem.id,origIdx)} style={{background:"none",border:"none",color:"#444",cursor:"pointer",fontSize:13,padding:"0 3px",lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
+                <span key={origIdx} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:T.ink3,background:T.surface,padding:"3px 4px 3px 8px",borderRadius:2}}>
+                  {d}<button onClick={()=>removeWornDate(selectedItem.id,origIdx)} style={{background:"none",border:"none",color:T.ink3,cursor:"pointer",fontSize:13,padding:"0 3px",lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
                 </span>
               ))}
             </div>
@@ -177,17 +178,17 @@ export default function ItemDetailModal({
             }
           }}
           placeholder="e.g. only wear tucked in, boat days only, needs a belt..."
-          style={{width:"100%",background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:12,color:"#e8e2d8",fontSize:12,resize:"vertical",minHeight:56,boxSizing:"border-box",marginBottom:18,fontFamily:"inherit",lineHeight:1.5}}
+          style={{width:"100%",background:T.surface,border:`1px solid ${T.rule}`,borderRadius:3,padding:12,color:T.ink,fontSize:12,resize:"vertical",minHeight:56,boxSizing:"border-box",marginBottom:18,fontFamily:"inherit",lineHeight:1.5}}
         />
 
         <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#555",marginBottom:10}}>Style Verdict</div>
         {loadingEval
           ? <div style={{color:"#444",fontSize:12,padding:"16px 0",fontStyle:"italic"}}>Evaluating...</div>
           : <div>
-              <div style={{background:"#1a1a1a",border:"1px solid #222",borderRadius:3,padding:16,fontSize:13,lineHeight:1.8,color:"#c8c0b0",whiteSpace:"pre-wrap",marginBottom:10}}>{itemEval}</div>
+              <div style={{background:T.surface,border:`1px solid ${T.rule}`,borderRadius:3,padding:16,fontSize:13,lineHeight:1.8,color:T.ink2,whiteSpace:"pre-wrap",marginBottom:10}}>{itemEval}</div>
               {selectedItem.keepNote
                 ? <div style={{fontSize:11,color:"#6a9a6a",paddingBottom:8}}>✓ Marked as keep</div>
-                : <button type="button" onClick={()=>{const upd=items.map(i=>i.id===selectedItem.id?{...i,keepNote:"Shelly wants to keep this"}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id));}} style={{background:"transparent",border:"1px solid #333",color:"#666",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",marginBottom:8}}>I disagree — keeping this</button>
+                : <button type="button" onClick={()=>{const upd=items.map(i=>i.id===selectedItem.id?{...i,keepNote:"Shelly wants to keep this"}:i);persist(upd);setSelectedItem(upd.find(i=>i.id===selectedItem.id));}} style={{background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",marginBottom:8}}>I disagree — keeping this</button>
               }
             </div>
         }
