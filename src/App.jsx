@@ -373,7 +373,7 @@ export default function WardrobeApp() {
   // ── Item actions ────────────────────────────────────────────────────────────
   async function evaluateItem(item, navList) {
     setSelectedItem(item); setEditing(false); setWornDateInput(null);
-    if (navList) setItemNavList(navList);
+    setItemNavList(navList?.length ? navList : wardrobe.items);
     window.history.pushState({ view, selectedItemId: item.id }, "");
     await styling.evaluateItem(item);
   }
