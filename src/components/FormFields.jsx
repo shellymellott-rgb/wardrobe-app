@@ -142,7 +142,7 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
           <button key={c} onClick={()=>{const colors=form.color?form.color.split("/").map(s=>s.trim()).filter(Boolean):[];const isSelected=colors.includes(c);const next=isSelected?colors.filter(x=>x!==c):[...colors,c];setForm(f=>({...f,color:next.join(" / ")}));}} style={chipStyle(form.color?form.color.split("/").map(s=>s.trim()).includes(c):false)}>{c}</button>
         ))}
         {/* Session-local custom colors (added in this form session, not yet on any item) */}
-        {(form.customColors||[]).filter(c=>!allCustomColors.includes(c)).map(c=>(
+        {(form.customColors||[]).filter(c=>!allCustomColors.includes(c)&&!c.includes("/")).map(c=>(
           <span key={c} style={{...chipStyle(form.color?form.color.split("/").map(s=>s.trim()).includes(c):false),display:"inline-flex",alignItems:"center",gap:4}}>
             <span onClick={()=>{const colors=form.color?form.color.split("/").map(s=>s.trim()).filter(Boolean):[];const isSelected=colors.includes(c);const next=isSelected?colors.filter(x=>x!==c):[...colors,c];setForm(f=>({...f,color:next.join(" / ")}));}} style={{cursor:"pointer"}}>{c}</span>
             <span onClick={()=>setForm(f=>({...f,customColors:(f.customColors||[]).filter(x=>x!==c),color:(f.color?f.color.split("/").map(s=>s.trim()).filter(x=>x!==c):[]).join(" / ")}))} style={{cursor:"pointer",opacity:0.7}}>×</span>
