@@ -137,7 +137,7 @@ export default function WishlistView({ wishlist, persistWishlist }) {
           {orderedItems.map((item, idx) => (
             <div key={item.id} style={{ borderRight: idx % 3 < 2 ? `1px solid ${T.rule}` : "none", borderBottom: `1px solid ${T.rule}` }}>
               {/* Photo block — 4:5 */}
-              <div style={{ position: "relative", aspectRatio: "4/5", background: T.paper, overflow: "hidden" }}>
+              <div style={{ position: "relative", aspectRatio: "4/5", maxHeight: 280, background: T.paper, overflow: "hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
                 {/* Index top-left */}
                 <div style={{ position: "absolute", top: 8, left: 8, ...ML, fontSize: 8, color: T.ink3 }}>
                   {String(idx + 1).padStart(2, "0")}/{String(orderedItems.length).padStart(2, "0")}
@@ -146,6 +146,12 @@ export default function WishlistView({ wishlist, persistWishlist }) {
                 <div style={{ position: "absolute", bottom: 8, right: 8, ...ML, fontSize: 8, color: T.ink3 }}>
                   {TAG_LABELS[item.tag || "Saved"]}
                 </div>
+                {/* No-image placeholder */}
+                {!item.imageUrl && (
+                  <div style={{ fontFamily: T.serif, fontSize: 13, color: T.ink3, padding: "0 14px", textAlign: "center", lineHeight: 1.4 }}>
+                    {item.name || item.note}
+                  </div>
+                )}
               </div>
               {/* Info */}
               <div style={{ padding: "12px 14px 14px" }}>

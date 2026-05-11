@@ -468,7 +468,7 @@ export default function WardrobeApp() {
   const underloved = wardrobe.items.filter(i => !i.wornDates?.length);
   const allTags = [...new Set(wardrobe.items.flatMap(i=>i.tags||[]))];
   const PRESET_COLOR_SET = new Set(COLORS.filter(c => c !== "Other"));
-  const allCustomColors = [...new Set(wardrobe.items.map(i=>i.color).filter(c=>c&&!PRESET_COLOR_SET.has(c)))].sort();
+  const allCustomColors = [...new Set(wardrobe.items.map(i=>i.color).filter(c=>c&&!PRESET_COLOR_SET.has(c)&&!c.includes("/")))].sort();
 
   // ── Early returns ───────────────────────────────────────────────────────────
   // Don't block on authLoading — localStorage items render immediately.
