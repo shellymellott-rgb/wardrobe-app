@@ -10,6 +10,11 @@ export function useSettings(user) {
     catch { return []; }
   });
 
+  const [customTags, setCustomTags] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem("wardrobe-custom-tags") || "[]"); return Array.isArray(p) ? p : []; }
+    catch { return []; }
+  });
+
   const [styleProfile, setStyleProfile] = useState(() => {
     try { return localStorage.getItem("wardrobe-style-profile") || DEFAULT_STYLE_SYSTEM; }
     catch { return DEFAULT_STYLE_SYSTEM; }
@@ -54,6 +59,7 @@ export function useSettings(user) {
     if (!id) return;
     sbSaveSettings({
       customCategories: Array.isArray(customCategories) ? customCategories : [],
+      customTags: Array.isArray(customTags) ? customTags : [],
       styleProfile,
       extraInstructions,
       chatHistory: chatHistory.slice(-30),
@@ -73,6 +79,11 @@ export function useSettings(user) {
       const v = Array.isArray(dbSettings.customCategories) ? dbSettings.customCategories : [];
       setCustomCategories(v);
       try { localStorage.setItem("wardrobe-custom-categories", JSON.stringify(v)); } catch {}
+    }
+    if ("customTags" in dbSettings) {
+      const v = Array.isArray(dbSettings.customTags) ? dbSettings.customTags : [];
+      setCustomTags(v);
+      try { localStorage.setItem("wardrobe-custom-tags", JSON.stringify(v)); } catch {}
     }
     if ("styleProfile" in dbSettings) {
       setStyleProfile(dbSettings.styleProfile || DEFAULT_STYLE_SYSTEM);
@@ -124,6 +135,23 @@ export function useSettings(user) {
     saveSettings({ customCategories: next });
   }
 
+  function addCustomTag(tag) {
+    const safe = Array.isArray(customTags) ? customTags : [];
+    if (safe.includes(tag)) return;
+    const next = [...safe, tag];
+    setCustomTags(next);
+    try { localStorage.setItem("wardrobe-custom-tags", JSON.stringify(next)); } catch {}
+    saveSettings({ customTags: next });
+  }
+
+  function removeCustomTag(tag) {
+    const safe = Array.isArray(customTags) ? customTags : [];
+    const next = safe.filter(t => t !== tag);
+    setCustomTags(next);
+    try { localStorage.setItem("wardrobe-custom-tags", JSON.stringify(next)); } catch {}
+    saveSettings({ customTags: next });
+  }
+
   // ── Style notes (centralized) ──────────────────────────────────────────────
   // All three mutations (add / remove / clear) write React state + localStorage + Supabase.
   function addStyleNote(note) {
@@ -160,6 +188,7 @@ export function useSettings(user) {
   return {
     customCategories, setCustomCategories,
     addCustomCategory, removeCustomCategory,
+    customTags, setCustomTags, addCustomTag, removeCustomTag,
     styleProfile, setStyleProfile,
     extraInstructions, setExtraInstructions,
     chatHistory, setChatHistory,
