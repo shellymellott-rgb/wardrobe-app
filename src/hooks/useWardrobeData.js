@@ -161,6 +161,7 @@ export function useWardrobeData(user) {
     if (!uid) {
       setItems(newItems);
       saveToStorage(newItems);
+      localStorage.setItem("lastPersistAt", String(Date.now()));
       return newItems;
     }
 
@@ -222,6 +223,7 @@ export function useWardrobeData(user) {
     if (upserted.length)
       sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
 
+    localStorage.setItem("lastPersistAt", String(Date.now()));
     return finalItems;
   }
 
