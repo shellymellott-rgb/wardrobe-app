@@ -5,7 +5,7 @@ import ImageEditor from "./ImageEditor.jsx";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [], customCategories = [], onAddCustomCategory }) {
+export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [], customCategories = [], onAddCustomCategory, customTags = [], onAddCustomTag }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
   const showLength = ["Bottoms","Dresses"].includes(form.category);
   const [dragOver, setDragOver] = useState(false);
@@ -51,6 +51,7 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
     const tag = form.customTag.trim();
     if (!form.tags.includes(tag)) setForm(f => ({ ...f, tags: [...f.tags, tag], customTag: "" }));
     else setForm(f => ({ ...f, customTag: "" }));
+    if (onAddCustomTag) onAddCustomTag(tag);
   }
 
   const mats = Array.isArray(form.materials) ? form.materials : (form.material ? [form.material] : []);
@@ -184,6 +185,12 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{tags.map(t=><button key={t} onClick={()=>toggleTag(t)} style={chipStyle(form.tags.includes(t))}>{t}</button>)}</div>
         </div>
       ))}
+      {customTags.length > 0 && (
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:9,color:"#444",letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>My Tags</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{customTags.map(t=><button key={t} onClick={()=>toggleTag(t)} style={chipStyle(form.tags.includes(t))}>{t}</button>)}</div>
+        </div>
+      )}
       <div style={{display:"flex",gap:8,marginTop:4}}>
         <input value={form.customTag||""} onChange={e=>setForm(f=>({...f,customTag:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addCustomTag()} placeholder="Custom tag..." style={{...inputStyle,marginBottom:0,flex:1}}/>
         <button onClick={addCustomTag} style={{...chipStyle(false),padding:"4px 14px"}}>+</button>

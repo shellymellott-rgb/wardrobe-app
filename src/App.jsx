@@ -645,6 +645,7 @@ export default function WardrobeApp() {
           items={wardrobe.items} persist={wardrobe.persist}
           addBrand={wardrobe.addBrand} brands={wardrobe.brands}
           customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
+          customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
           allCategories={allCategories} allCustomColors={allCustomColors}
           addForm={addForm} setAddForm={setAddForm}
           scanningImage={scanningImage}
@@ -696,6 +697,7 @@ export default function WardrobeApp() {
           outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
           brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories} allCustomColors={allCustomColors}
           customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
+          customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
           stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
         />
       )}
