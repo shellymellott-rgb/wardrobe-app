@@ -1,11 +1,12 @@
-export const CATEGORIES = ["Tops","Bottoms","Dresses","Outerwear","Shoes","Accessories"];
+export const CATEGORIES = ["Tops","Bottoms","Dresses","Outerwear","Shoes","Accessories","Swimwear"];
 export const ITEM_TYPES = {
-  Tops: ["Tank", "Tee", "Button-Down", "Blouse", "Sweater", "Cardigan", "Hoodie", "Crop Top"],
+  Tops: ["Tank", "Tee", "Button-Down", "Blouse", "Sweater", "Cardigan", "Hoodie", "Crop Top", "Blazer", "Pop Over"],
   Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings"],
   Dresses: ["Midi", "Maxi", "Mini", "Wrap", "Shirt Dress"],
   Outerwear: ["Jacket", "Blazer", "Coat", "Vest", "Cardigan"],
   Shoes: ["Boots", "Sandals", "Sneakers", "Flats", "Heels", "Loafers", "Flip Flops", "Clogs", "Mules"],
   Accessories: ["Bag", "Belt", "Jewelry", "Hat", "Scarf", "Sunglasses"],
+  Swimwear: ["One Piece", "Bikini Top", "Bikini Bottom", "Cover Up", "Rash Guard"],
 };
 export const COLORS = ["Black","White","Cream","Tan","Camel","Navy","Grey","Brown","Olive","Blush","Red","Blue","Green","Other"];
 export const SEASONS = ["All Year","Spring/Summer","Fall/Winter"];
