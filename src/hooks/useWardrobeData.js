@@ -166,9 +166,9 @@ export function useWardrobeData(user) {
     }
 
     // Upload images FIRST — blocking — before any state or DB changes.
-    // Only items with base64 imageData and no image_path need uploading.
-    // Items with no imageData and no image_path (no image at all) pass through.
-    const needsUpload = newItems.some(i => isBase64(i.imageData) && !i.image_path);
+    // Any base64 image means the user selected/edited a new photo. Upload it even
+    // when image_path already exists; deterministic Storage paths use upsert.
+    const needsUpload = newItems.some(i => isBase64(i.imageData) || isBase64(i.imageThumb));
 
     let finalItems = newItems;
     if (needsUpload) {
@@ -176,8 +176,8 @@ export function useWardrobeData(user) {
 
       const uploaded = await Promise.all(
         newItems.map(async item => {
-          const needsFull  = isBase64(item.imageData)  && !item.image_path;
-          const needsThumb = isBase64(item.imageThumb) && !item.image_thumb_path;
+          const needsFull  = isBase64(item.imageData);
+          const needsThumb = isBase64(item.imageThumb);
           if (!needsFull && !needsThumb) return item;
 
           console.log(`[persist] uploading images for "${item.name}" (id=${item.id})`);

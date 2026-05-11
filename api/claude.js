@@ -58,10 +58,10 @@ function isPrivateIp(host) {
   return false;
 }
 
-async function validateFetchUrl(fetchUrl) {
+async function validateFetchUrl(fetchUrl, baseUrl = undefined) {
   let parsedUrl;
   try {
-    parsedUrl = new URL(fetchUrl);
+    parsedUrl = new URL(fetchUrl, baseUrl);
   } catch {
     return { error: "invalid fetchUrl" };
   }
@@ -87,6 +87,22 @@ async function validateFetchUrl(fetchUrl) {
   return { url: parsedUrl.toString() };
 }
 
+async function safeFetch(url, options = {}, maxRedirects = 3) {
+  let currentUrl = url;
+  for (let i = 0; i <= maxRedirects; i++) {
+    const r = await fetch(currentUrl, { ...options, redirect: "manual" });
+    if (![301, 302, 303, 307, 308].includes(r.status)) return r;
+
+    const location = r.headers.get("location");
+    if (!location) return r;
+
+    const nextUrl = await validateFetchUrl(location, currentUrl);
+    if (nextUrl.error) throw new Error(nextUrl.error);
+    currentUrl = nextUrl.url;
+  }
+  throw new Error("too many redirects");
+}
+
 async function fetchPageHtml(url) {
   // 0. ScrapingBee — handles JS-rendered pages
   if (process.env.SCRAPINGBEE_API_KEY) {
@@ -97,14 +113,14 @@ async function fetchPageHtml(url) {
         render_js: 'true',
         premium_proxy: 'false',
       });
-      const r = await fetch(sbUrl, { signal: AbortSignal.timeout(10000) });
+      const r = await safeFetch(sbUrl, { signal: AbortSignal.timeout(10000) });
       if (r.ok) return await r.text();
     } catch {}
   }
 
   // 1. Direct fetch with mobile UA
   try {
-    const r = await fetch(url, {
+    const r = await safeFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -116,7 +132,7 @@ async function fetchPageHtml(url) {
 
   // 2. corsproxy.io
   try {
-    const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), {
+    const r = await safeFetch('https://corsproxy.io/?' + encodeURIComponent(url), {
       signal: AbortSignal.timeout(2500),
     });
     if (r.ok) return await r.text();
@@ -124,7 +140,7 @@ async function fetchPageHtml(url) {
 
   // 3. allorigins.win
   try {
-    const r = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), {
+    const r = await safeFetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), {
       signal: AbortSignal.timeout(2500),
     });
     if (r.ok) {

@@ -19,7 +19,7 @@ export default function ItemDetailModal({
   openItemChat,
   openFilePicker, onImageDrop, setCropSrc, setCropTarget,
   outfitPhotoRef, addOutfitPhoto,
-  brands, addBrand, allCategories, allCustomColors = [], customCategories = [], addCustomCategory,
+  brands, addBrand, allCategories, allCustomColors = [], customCategories = [], addCustomCategory, customTags = [], onAddCustomTag,
   stylingNotesInput, setStylingNotesInput,
 }) {
   useEffect(() => { if (selectedItem) setStylingNotesInput(selectedItem.stylingNotes || ""); }, [selectedItem?.id]);
@@ -42,7 +42,7 @@ export default function ItemDetailModal({
             onImageClick={()=>openFilePicker("edit")}
             onImageDrop={onImageDrop}
             onRecrop={()=>{setCropTarget("edit");setCropSrc(editForm?.originalImageData);}}
-            brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors} customCategories={customCategories} onAddCustomCategory={addCustomCategory}
+            brands={brands} onAddBrand={addBrand} categories={allCategories} allCustomColors={allCustomColors} customCategories={customCategories} onAddCustomCategory={addCustomCategory} customTags={customTags} onAddCustomTag={onAddCustomTag}
           />
         </div>
       </div>
