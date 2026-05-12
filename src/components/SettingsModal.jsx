@@ -3,6 +3,7 @@ import { CATEGORIES, DEFAULT_STYLE_SYSTEM } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import { compressImage } from "../utils/imageUtils.js";
 import { parseJsonObject } from "../utils/parseJson.js";
+import { getCurrentSeason } from "../utils/wardrobeContext.js";
 
 export default function SettingsModal({
   onClose,
@@ -14,6 +15,7 @@ export default function SettingsModal({
   exportWardrobe, onImport,
   user, signOut,
   wardrobeProfile, upsertProfile, onProfileUpdated,
+  seasonOverride, setSeasonOverride,
 }) {
   const [newCatInput, setNewCatInput] = useState("");
   const [colorLoading, setColorLoading] = useState(false);
@@ -259,7 +261,29 @@ export default function SettingsModal({
             </div>
             {weatherEnabled && (
               <>
-                <div style={{fontSize:10,color:"#666",marginBottom:6}}>Home city — leave blank to use device location</div>
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:11,color:"#aaa",letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Current Season</div>
+                  <div style={{fontSize:10,color:"#555",marginBottom:8}}>Auto-detected: {getCurrentSeason("auto")}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {["auto","Spring","Summer","Fall","Winter"].map(s => {
+                      const active = (seasonOverride || "auto") === s;
+                      return (
+                        <button key={s} onClick={()=>{
+                          setSeasonOverride(s);
+                          try{localStorage.setItem("wardrobe-season-override",s);}catch{}
+                          saveSettings({seasonOverride:s});
+                        }} style={{
+                          background:active?"#e8e2d8":"transparent",
+                          color:active?"#111":"#666",
+                          border:`1px solid ${active?"#e8e2d8":"#333"}`,
+                          borderRadius:20,padding:"5px 14px",fontSize:11,
+                          cursor:"pointer",
+                        }}>{s === "auto" ? "Auto" : s}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#666",marginBottom:6}}>Your location — leave blank to use device location</div>
                 <input
                   value={homeCity}
                   onChange={e=>{setHomeCity(e.target.value);try{localStorage.setItem("wardrobe-home-city",e.target.value);}catch{}}}

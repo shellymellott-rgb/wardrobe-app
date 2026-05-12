@@ -1,5 +1,14 @@
 import { fmtMaterials } from "./normalizeItem.js";
 
+export function getCurrentSeason(override) {
+  if (override && override !== "auto") return override;
+  const m = new Date().getMonth();
+  if (m <= 1 || m === 11) return "Winter";
+  if (m <= 4) return "Spring";
+  if (m <= 7) return "Summer";
+  return "Fall";
+}
+
 export function stripForClaude({ imageData, originalImageData, outfitPhotos, ...rest }) {
   return rest;
 }
@@ -66,7 +75,7 @@ export function fmtItem(i) {
   );
 }
 
-export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null) {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto") {
   const stripped = items.map(stripForClaude);
   let ctx;
   if (stripped.length <= 50 || !question) {
@@ -84,7 +93,19 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const weatherLine = weather
     ? `Current weather: ${weather.condition}, high ${weather.tempHigh}°F / low ${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`
     : "";
-  const base = `${buildStyleSystem()}\n\n${weatherLine}${ctx}${recentNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct.`;
+  const currentSeason = getCurrentSeason(season);
+  const inSeason = stripped.filter(i => {
+    const s = i.season;
+    if (!s || s === "All Year") return true;
+    if (s === currentSeason) return true;
+    if ((currentSeason === "Spring" || currentSeason === "Summer") && s === "Spring/Summer") return true;
+    if ((currentSeason === "Fall" || currentSeason === "Winter") && s === "Fall/Winter") return true;
+    return false;
+  });
+  const offSeason = stripped.filter(i => !inSeason.includes(i));
+  const seasonLine = `Current season: ${currentSeason}. Off-season items (${offSeason.length} pieces) are deprioritized — focus recommendations on in-season pieces unless the user specifically asks.\n\n`;
+  const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season (stored): ${offSeason.slice(0, 20).map(i => i.name).join(", ")}` : "";
+  const base = `${buildStyleSystem()}\n\n${weatherLine}${seasonLine}${ctx}${recentNote}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at"]);
   const profileLines = Object.entries(profile)

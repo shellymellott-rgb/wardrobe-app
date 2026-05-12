@@ -62,6 +62,7 @@ export default function WardrobeApp() {
     addStyleNote: settings.addStyleNote,
     user,
     weather: currentWeather,
+    season: settings.seasonOverride,
   });
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
@@ -692,6 +693,8 @@ export default function WardrobeApp() {
           wardrobeProfile={styling.wardrobeProfile}
           upsertProfile={styling.upsertProfile}
           onProfileUpdated={() => styling.reloadProfile()}
+          seasonOverride={settings.seasonOverride}
+          setSeasonOverride={settings.setSeasonOverride}
         />
       )}
 

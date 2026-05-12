@@ -50,6 +50,11 @@ export function useSettings(user) {
     catch { return ""; }
   });
 
+  const [seasonOverride, setSeasonOverride] = useState(() => {
+    try { return localStorage.getItem("wardrobe-season-override") || "auto"; }
+    catch { return "auto"; }
+  });
+
   // ── Core save helper ───────────────────────────────────────────────────────
   // Accepts an optional patch to override any individual field before saving.
   // Uses the current state values for everything else, so callers must pass
@@ -66,6 +71,7 @@ export function useSettings(user) {
       styleNotes,
       weatherEnabled,
       homeCity,
+      seasonOverride,
       ...patch,
     }, id);
   }
@@ -110,6 +116,10 @@ export function useSettings(user) {
     if ("homeCity" in dbSettings) {
       setHomeCity(dbSettings.homeCity || "");
       try { localStorage.setItem("wardrobe-home-city", dbSettings.homeCity || ""); } catch {}
+    }
+    if ("seasonOverride" in dbSettings) {
+      setSeasonOverride(dbSettings.seasonOverride || "auto");
+      try { localStorage.setItem("wardrobe-season-override", dbSettings.seasonOverride || "auto"); } catch {}
     }
   }
 
@@ -195,6 +205,7 @@ export function useSettings(user) {
     styleNotes, addStyleNote, removeStyleNote, clearStyleNotes,
     weatherEnabled, setWeatherEnabled,
     homeCity, setHomeCity,
+    seasonOverride, setSeasonOverride,
     saveSettings, syncSettingsFrom, buildStyleSystem,
   };
 }
