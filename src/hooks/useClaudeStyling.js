@@ -16,6 +16,11 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     loadProfile(user.id).then(p => { if (p) setWardrobeProfile(p); });
   }, [user?.id]);
 
+  function reloadProfile() {
+    if (!user?.id) return;
+    loadProfile(user.id).then(p => { if (p) setWardrobeProfile(p); });
+  }
+
   // ── Outfit generation ──────────────────────────────────────────────────────
   const [occasion, setOccasion] = useState("");
   const [outfits, setOutfits] = useState([]);
@@ -310,7 +315,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
 
   return {
     // profile
-    wardrobeProfile, upsertProfile,
+    wardrobeProfile, upsertProfile, reloadProfile,
     // outfits
     occasion, setOccasion, outfits, outfitText, loadingOutfit, generateOutfits, addOutfit,
     // inspo

@@ -13,7 +13,7 @@ export default function SettingsModal({
   weatherEnabled, setWeatherEnabled, homeCity, setHomeCity,
   exportWardrobe, onImport,
   user, signOut,
-  wardrobeProfile, upsertProfile,
+  wardrobeProfile, upsertProfile, onProfileUpdated,
 }) {
   const [newCatInput, setNewCatInput] = useState("");
   const [colorLoading, setColorLoading] = useState(false);
@@ -46,7 +46,7 @@ export default function SettingsModal({
       });
       const data = await resp.json();
       const parsed = parseJsonObject(data.content?.[0]?.text || "");
-      if (parsed?.color_season) await upsertProfile(user.id, parsed);
+      if (parsed?.color_season) { await upsertProfile(user.id, parsed); onProfileUpdated?.(); }
     } catch (err) { console.error("[analyzeColor]", err.message); }
     setColorLoading(false);
   }
@@ -72,7 +72,7 @@ export default function SettingsModal({
       });
       const data = await resp.json();
       const parsed = parseJsonObject(data.content?.[0]?.text || "");
-      if (parsed?.body_type) await upsertProfile(user.id, parsed);
+      if (parsed?.body_type) { await upsertProfile(user.id, parsed); onProfileUpdated?.(); }
     } catch (err) { console.error("[analyzeBody]", err.message); }
     setBodyLoading(false);
   }
@@ -155,78 +155,78 @@ export default function SettingsModal({
 
         {/* D2. Color & Body Analysis */}
         <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
-          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:4}}>Color & Body Analysis</div>
-          <div style={{fontSize:10,color:"#555",marginBottom:16,lineHeight:1.5}}>Photo analyzed and immediately discarded — never stored.</div>
+          <div style={{fontSize:13,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:4}}>Color & Body Analysis</div>
+          <div style={{fontSize:11,color:"#555",marginBottom:16,lineHeight:1.5}}>Photo analyzed and immediately discarded — never stored.</div>
 
           {/* Color subsection */}
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Color Season</div>
+            <div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Color Season</div>
             {wardrobeProfile?.color_season && (
               <div style={{marginBottom:10}}>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
-                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.color_season}</span>
-                  {wardrobeProfile.color_undertone && <span style={{background:"#2a2a2a",color:"#888",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.color_undertone} undertone</span>}
+                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:12}}>{wardrobeProfile.color_season}</span>
+                  {wardrobeProfile.color_undertone && <span style={{background:"#2a2a2a",color:"#888",borderRadius:20,padding:"4px 12px",fontSize:12}}>{wardrobeProfile.color_undertone} undertone</span>}
                 </div>
                 {wardrobeProfile.best_colors?.length > 0 && (
                   <div style={{marginBottom:6}}>
-                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering colors</div>
+                    <div style={{fontSize:11,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering colors</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {wardrobeProfile.best_colors.map(c => <span key={c} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{c}</span>)}
+                      {wardrobeProfile.best_colors.map(c => <span key={c} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:12}}>{c}</span>)}
                     </div>
                   </div>
                 )}
                 {wardrobeProfile.avoid_colors?.length > 0 && (
                   <div>
-                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
+                    <div style={{fontSize:11,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {wardrobeProfile.avoid_colors.map(c => <span key={c} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:10}}>{c}</span>)}
+                      {wardrobeProfile.avoid_colors.map(c => <span key={c} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:12}}>{c}</span>)}
                     </div>
                   </div>
                 )}
               </div>
             )}
             <input ref={colorPhotoRef} type="file" accept="image/*" onChange={analyzeColor} style={{display:"none"}} />
-            <button onClick={()=>colorPhotoRef.current.click()} disabled={colorLoading} style={{background:"transparent",border:"1px solid #333",color:colorLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:colorLoading?"not-allowed":"pointer"}}>
+            <button onClick={()=>colorPhotoRef.current.click()} disabled={colorLoading} style={{background:"transparent",border:"1px solid #333",color:colorLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:colorLoading?"not-allowed":"pointer"}}>
               {colorLoading ? "Analyzing…" : wardrobeProfile?.color_season ? "Re-analyze face photo" : "Upload face photo"}
             </button>
           </div>
 
           {/* Body subsection */}
           <div>
-            <div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Body Type</div>
+            <div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Body Type</div>
             {wardrobeProfile?.body_type && (
               <div style={{marginBottom:10}}>
                 <div style={{marginBottom:6}}>
-                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.body_type}</span>
+                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:12}}>{wardrobeProfile.body_type}</span>
                 </div>
                 {wardrobeProfile.flattering_silhouettes?.length > 0 && (
                   <div style={{marginBottom:6}}>
-                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering silhouettes</div>
+                    <div style={{fontSize:11,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering silhouettes</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {wardrobeProfile.flattering_silhouettes.map(s => <span key={s} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{s}</span>)}
+                      {wardrobeProfile.flattering_silhouettes.map(s => <span key={s} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:12}}>{s}</span>)}
                     </div>
                   </div>
                 )}
                 {wardrobeProfile.flattering_necklines?.length > 0 && (
                   <div style={{marginBottom:6}}>
-                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Necklines</div>
+                    <div style={{fontSize:11,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Necklines</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {wardrobeProfile.flattering_necklines.map(n => <span key={n} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{n}</span>)}
+                      {wardrobeProfile.flattering_necklines.map(n => <span key={n} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:12}}>{n}</span>)}
                     </div>
                   </div>
                 )}
                 {wardrobeProfile.avoid_silhouettes?.length > 0 && (
                   <div style={{marginBottom:6}}>
-                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
+                    <div style={{fontSize:11,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {wardrobeProfile.avoid_silhouettes.map(s => <span key={s} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:10}}>{s}</span>)}
+                      {wardrobeProfile.avoid_silhouettes.map(s => <span key={s} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:12}}>{s}</span>)}
                     </div>
                   </div>
                 )}
               </div>
             )}
             <input ref={bodyPhotoRef} type="file" accept="image/*" onChange={analyzeBody} style={{display:"none"}} />
-            <button onClick={()=>bodyPhotoRef.current.click()} disabled={bodyLoading} style={{background:"transparent",border:"1px solid #333",color:bodyLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:bodyLoading?"not-allowed":"pointer"}}>
+            <button onClick={()=>bodyPhotoRef.current.click()} disabled={bodyLoading} style={{background:"transparent",border:"1px solid #333",color:bodyLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:bodyLoading?"not-allowed":"pointer"}}>
               {bodyLoading ? "Analyzing…" : wardrobeProfile?.body_type ? "Re-analyze body photo" : "Upload body photo"}
             </button>
           </div>

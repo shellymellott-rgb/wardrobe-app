@@ -691,6 +691,7 @@ export default function WardrobeApp() {
           user={user} signOut={signOut}
           wardrobeProfile={styling.wardrobeProfile}
           upsertProfile={styling.upsertProfile}
+          onProfileUpdated={() => styling.reloadProfile()}
         />
       )}
 
