@@ -132,6 +132,31 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     !entryItemIds.includes(String(i.id))
   );
 
+  // Unified items for the detail strip — merges selectedEntry and wornMap
+  const displayItems = selectedEntry
+    ? selectedEntry.item_ids
+        .map(id => { const item = items.find(i => String(i.id) === String(id)); return item ? { key: String(id), item, source: "entry", rawId: id } : null; })
+        .filter(Boolean)
+    : (wornMap[selectedDate] || []).map(item => ({ key: String(item.id), item, source: "worn", rawId: item.id }));
+
+  const chatLabel = `Let's talk about my outfit on ${formatDate(selectedDate)}${displayItems.length > 0 ? `: ${displayItems.map(d => d.item.name).join(", ")}` : ""}`;
+
+  // 2×2 collage helper for calendar cells
+  function renderCollage(thumbItems) {
+    const slots = [0, 1, 2, 3].map(i => thumbItems[i] || null);
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", position: "absolute", inset: 0, gap: 1 }}>
+        {slots.map((item, idx) => (
+          <div key={idx} style={{ background: T.paper, overflow: "hidden" }}>
+            {item && (item.imageThumb || item.imageData) && (
+              <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   // Month calendar
   function renderMonthCal() {
     const daysInMonth = getDaysInMonth(calYear, calMonth);
@@ -166,33 +191,36 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
             const entry = entryMap[dateStr];
             const wornItems = !entry ? (wornMap[dateStr] || []) : [];
-            const thumbItem = entry?.item_ids?.length > 0
-              ? items.find(i => String(i.id) === String(entry.item_ids[0]))
-              : wornItems[0] || null;
-            const photo = entry?.photo || thumbItem?.imageThumb || thumbItem?.imageData || null;
+            const thumbItems = entry?.item_ids?.length > 0
+              ? entry.item_ids.slice(0, 4).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)
+              : wornItems.slice(0, 4);
+            const hasContent = !!(entry || wornItems.length > 0);
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             const col = i % 7;
+            const dateColor = isToday ? T.citron : isSelected ? T.ink : thumbItems.length > 0 ? T.surface : T.ink3;
             return (
               <div key={i} onClick={() => setSelectedDate(dateStr)} style={{
                 position: "relative", cursor: "pointer", overflow: "hidden",
                 aspectRatio: "1/1",
                 borderRight: col < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.surface,
+                background: isSelected ? T.paper : T.surface,
+                boxShadow: isSelected ? `inset 0 0 0 2px ${T.ink}` : "none",
+                zIndex: isSelected ? 1 : 0,
               }}>
-                {photo && !isSelected && (
-                  <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                )}
+                {thumbItems.length > 0 && renderCollage(thumbItems)}
                 <div style={{
-                  position: "absolute", top: 4, left: 5,
-                  fontFamily: T.mono, fontSize: 10, fontWeight: 400,
-                  color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3,
+                  position: "absolute", top: 3, left: 4,
+                  fontFamily: T.mono, fontSize: 9, fontWeight: 400,
+                  color: dateColor,
+                  textShadow: thumbItems.length > 0 && !isSelected ? "0 1px 2px rgba(0,0,0,0.5)" : "none",
+                  zIndex: 2,
                 }}>
                   {String(day).padStart(2, "0")}
                 </div>
-                {(entry || wornItems.length > 0) && !isSelected && (
-                  <div style={{ position: "absolute", bottom: 4, right: 5, width: 4, height: 4, borderRadius: "50%", background: T.sage }} />
+                {hasContent && (
+                  <div style={{ position: "absolute", bottom: 3, right: 4, width: 4, height: 4, borderRadius: "50%", background: T.sage, zIndex: 2 }} />
                 )}
               </div>
             );
@@ -230,22 +258,32 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {days.map((dateStr, i) => {
             const entry = entryMap[dateStr];
+            const wornItems = !entry ? (wornMap[dateStr] || []) : [];
+            const thumbItems = entry?.item_ids?.length > 0
+              ? entry.item_ids.slice(0, 4).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)
+              : wornItems.slice(0, 4);
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             const dObj = toLocalDate(dateStr);
-            const photo = entry?.photo || (entry?.item_ids?.length > 0 ? items.find(it => String(it.id) === String(entry.item_ids[0]))?.imageThumb : null);
+            const dateColor = isToday ? T.citron : isSelected ? T.ink : thumbItems.length > 0 ? T.surface : T.ink3;
             return (
               <div key={dateStr} onClick={() => setSelectedDate(dateStr)} style={{
                 position: "relative", cursor: "pointer", overflow: "hidden",
                 aspectRatio: "1/1",
                 borderRight: i < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.surface,
+                background: isSelected ? T.paper : T.surface,
+                boxShadow: isSelected ? `inset 0 0 0 2px ${T.ink}` : "none",
+                zIndex: isSelected ? 1 : 0,
               }}>
-                {photo && !isSelected && (
-                  <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                )}
-                <div style={{ position: "absolute", top: 4, left: 5, fontFamily: T.mono, fontSize: 10, color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3 }}>
+                {thumbItems.length > 0 && renderCollage(thumbItems)}
+                <div style={{
+                  position: "absolute", top: 3, left: 4,
+                  fontFamily: T.mono, fontSize: 9,
+                  color: dateColor,
+                  textShadow: thumbItems.length > 0 && !isSelected ? "0 1px 2px rgba(0,0,0,0.5)" : "none",
+                  zIndex: 2,
+                }}>
                   {String(dObj.getDate()).padStart(2, "0")}
                 </div>
               </div>
@@ -278,93 +316,93 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
       {/* ── Calendar ─────────────────────────────────────── */}
       {calView === "month" ? renderMonthCal() : renderWeekCal()}
 
-      {/* ── Selected day panel ───────────────────────────── */}
-      <div style={{ borderTop: `1px solid ${T.rule}`, margin: "0 28px 28px" }}>
-        <div style={{ padding: "16px 0", borderBottom: `1px solid ${T.rule}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.ink }}>
-            {formatDate(selectedDate)}{selectedDate === today ? " · Today" : isFuture ? " · Planned" : ""}
+      {/* ── Detail strip ─────────────────────────────────── */}
+      <div style={{ borderTop: `1px solid ${T.rule}` }}>
+
+        {/* Date header row */}
+        <div style={{ padding: "14px 28px", borderBottom: `1px solid ${T.rule}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: T.mono, fontSize: 11, letterSpacing: ".08em", color: T.ink }}>
+            {formatDate(selectedDate)}
+            {selectedDate === today && <span style={{ color: T.ink3, marginLeft: 8, fontSize: 10 }}>· Today</span>}
+            {isFuture && selectedDate !== today && <span style={{ color: T.ink3, marginLeft: 8, fontSize: 10 }}>· Planned</span>}
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {selectedEntry && (
-              <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
-            )}
-            {!selectedEntry && (
-              <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
-                {isFuture ? "+ Plan" : "+ Log"}
-              </button>
-            )}
-          </div>
+          {selectedEntry && (
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <button onClick={openEntryForm} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Edit</button>
+              <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
+            </div>
+          )}
         </div>
 
-        {selectedEntry ? (
-          <div style={{ paddingTop: 16 }}>
-            {selectedEntry.photo && (
-              <img src={selectedEntry.photo} style={{ width: "100%", maxHeight: 300, objectFit: "cover", display: "block", marginBottom: 16 }} />
+        {displayItems.length > 0 ? (
+          <div>
+            {/* Entry photo (if present) */}
+            {selectedEntry?.photo && (
+              <img src={selectedEntry.photo} style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
             )}
-            {selectedEntry.item_ids?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ ...ML, color: T.ink3 }}>Items worn</div>
-                  <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "4px 12px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Edit</button>
-                </div>
-                <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
-                  {selectedEntry.item_ids.map(id => {
-                    const item = items.find(i => String(i.id) === String(id));
-                    if (!item) return null;
-                    return (
-                      <div key={id} style={{ flexShrink: 0, width: 72, position: "relative" }}>
-                        <button
-                          onClick={openEntryForm}
-                          style={{ display: "block", width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer" }}>
-                          {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
-                        </button>
-                        <button
-                          onClick={async e => {
-                            e.stopPropagation();
-                            const newIds = selectedEntry.item_ids.filter(i => String(i) !== String(id));
-                            const ok = await sbSaveJournalEntry({ ...selectedEntry, item_ids: newIds });
-                            if (ok) await onEntrySaved();
-                          }}
-                          style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 11, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
-                        <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {selectedEntry.notes && (
-              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.ink2, lineHeight: 1.6, margin: "0 0 16px" }}>{selectedEntry.notes}</p>
-            )}
-            <button onClick={() => { setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${selectedEntry.item_ids.map(id => items.find(i => String(i.id) === String(id))?.name).filter(Boolean).join(", ")}`); setView?.("chat"); }}
-              style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
-              Chat about this →
-            </button>
-          </div>
-        ) : wornMap[selectedDate]?.length > 0 ? (
-          <div style={{ paddingTop: 16 }}>
-            <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>Items worn</div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
-              {(wornMap[selectedDate] || []).map(item => (
-                <div key={item.id} style={{ flexShrink: 0, width: 72, position: "relative" }}>
-                  <button onClick={openEntryForm} style={{ display: "block", width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer" }}>
-                    {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
-                  </button>
+
+            {/* Item cards row */}
+            <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
+              {displayItems.map(({ key, item, source, rawId }, idx) => (
+                <div key={key} style={{ flexShrink: 0, width: 100, position: "relative" }}>
                   <button
-                    onClick={async e => { e.stopPropagation(); removeWornDate(item.id, item.wornDates.indexOf(selectedDate)); await onEntrySaved(); }}
-                    style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 11, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
-                  <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                    onClick={openEntryForm}
+                    style={{ display: "block", width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer", position: "relative" }}>
+                    {(item.imageThumb || item.imageData) && (
+                      <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    )}
+                    {/* Citron numbered badge */}
+                    <div style={{ position: "absolute", top: 6, left: 6, background: T.citron, color: T.ink, fontFamily: T.mono, fontSize: 8, letterSpacing: ".08em", padding: "2px 5px", lineHeight: 1.4 }}>
+                      {String(idx + 1).padStart(2, "0")}
+                    </div>
+                  </button>
+                  {/* × remove button */}
+                  <button
+                    onClick={async e => {
+                      e.stopPropagation();
+                      if (source === "entry") {
+                        const newIds = selectedEntry.item_ids.filter(i => String(i) !== String(rawId));
+                        const ok = await sbSaveJournalEntry({ ...selectedEntry, item_ids: newIds });
+                        if (ok) await onEntrySaved();
+                      } else {
+                        removeWornDate(item.id, item.wornDates.indexOf(selectedDate));
+                        await onEntrySaved();
+                      }
+                    }}
+                    style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", border: "none", color: T.surface, borderRadius: "50%", width: 18, height: 18, fontSize: 12, lineHeight: "18px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink, marginTop: 7, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                  {item.brand && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.brand}</div>}
                 </div>
               ))}
             </div>
-            <button onClick={() => { setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${(wornMap[selectedDate] || []).map(i => i.name).join(", ")}`); setView?.("chat"); }}
-              style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
-              Chat about this →
-            </button>
+
+            {/* Notes */}
+            {selectedEntry?.notes && (
+              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.ink2, lineHeight: 1.6, margin: "4px 28px 12px", padding: 0 }}>{selectedEntry.notes}</p>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, padding: "8px 28px 24px", alignItems: "center", flexWrap: "wrap" }}>
+              {!selectedEntry && (
+                <button onClick={openEntryForm} style={{ background: T.citron, color: T.ink, border: "none", padding: "8px 16px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+                  + {isFuture ? "Plan outfit" : "Log outfit"}
+                </button>
+              )}
+              <button onClick={() => { setChatInput?.(chatLabel); setView?.("chat"); }}
+                style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
+                Chat about this →
+              </button>
+            </div>
           </div>
         ) : (
-          <div style={{ padding: "24px 0", fontFamily: T.sans, fontSize: 12, color: T.ink3 }}>
-            {isFuture ? "No outfit planned yet" : "Nothing logged for this day"}
+          /* Empty state */
+          <div style={{ padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.ink3 }}>
+              {isFuture ? "No outfit planned yet" : "Nothing logged for this day"}
+            </div>
+            <button onClick={openEntryForm} style={{ background: T.citron, color: T.ink, border: "none", padding: "10px 20px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+              + {isFuture ? "Plan outfit" : "Log outfit"}
+            </button>
           </div>
         )}
       </div>
