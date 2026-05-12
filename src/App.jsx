@@ -635,6 +635,7 @@ export default function WardrobeApp() {
           sbDeleteJournalEntry={sbDeleteJournalEntry}
           journalPrefill={journalPrefill}
           onPrefillConsumed={() => setJournalPrefill(null)}
+          removeWornDate={removeWornDate}
         />
       )}
 

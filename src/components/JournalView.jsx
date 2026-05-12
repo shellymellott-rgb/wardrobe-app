@@ -20,7 +20,7 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry, journalPrefill, onPrefillConsumed }, ref) {
+const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, removeWornDate, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry, journalPrefill, onPrefillConsumed }, ref) {
   const [calView, setCalView] = useState("month");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -349,10 +349,13 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>Items worn</div>
             <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
               {(wornMap[selectedDate] || []).map(item => (
-                <div key={item.id} style={{ flexShrink: 0, width: 72 }}>
+                <div key={item.id} style={{ flexShrink: 0, width: 72, position: "relative" }}>
                   <button onClick={openEntryForm} style={{ display: "block", width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer" }}>
                     {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
                   </button>
+                  <button
+                    onClick={async () => { removeWornDate(item.id, item.wornDates.indexOf(selectedDate)); await onEntrySaved(); }}
+                    style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 11, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
                   <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                 </div>
               ))}
