@@ -192,10 +192,13 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       const cards = parsed.map(entry => {
         const itemIds = (entry.itemNames || []).map(name => {
           const lc = name.toLowerCase();
+          const parts = name.split(" - ");
+          const descPart = parts[0].toLowerCase();
           const exact = itemList.find(i => i.name.toLowerCase() === lc);
           const contains = itemList.find(i => i.name.toLowerCase().includes(lc));
-          const reverse = itemList.find(i => i.name.toLowerCase().length >= 10 && lc.includes(i.name.toLowerCase()));
-          const match = exact || contains || reverse;
+          const descContains = descPart.length >= 15 ? itemList.find(i => i.name.toLowerCase().includes(descPart)) : null;
+          const reverseDesc = itemList.find(i => i.name.toLowerCase().length >= 20 && descPart.includes(i.name.toLowerCase()));
+          const match = exact || contains || descContains || reverseDesc;
           return match ? String(match.id) : null;
         }).filter(Boolean);
         return { date: entry.date, label: entry.label || "", itemIds, itemNames: entry.itemNames || [] };
