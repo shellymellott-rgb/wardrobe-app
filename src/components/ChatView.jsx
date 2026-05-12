@@ -95,14 +95,14 @@ export default function ChatView({
                 <button onClick={()=>setPlanCards([])} style={{background:"none",border:"none",color:"#555",fontSize:16,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
               </div>
               {planCards.map((card,ci)=>(
-                <div key={ci} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px",borderTop:"1px solid #1a1a1a"}}>
+                <div key={ci} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderTop:"1px solid #1a1a1a"}}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:10,color:"#e8e2d8",marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{card.date}{card.label?` · ${card.label}`:""}</div>
+                    <div style={{fontSize:10,color:"#e8e2d8",marginBottom:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{card.date}{card.label?` · ${card.label}`:""}</div>
                     <div style={{display:"flex",gap:4}}>
                       {card.itemIds.slice(0,5).map(id=>{
                         const item=items?.find(i=>String(i.id)===id);
                         return item?(
-                          <div key={id} style={{width:27,height:36,background:"#1a1a1a",borderRadius:2,overflow:"hidden",flexShrink:0}}>
+                          <div key={id} style={{width:56,height:75,background:"#1a1a1a",borderRadius:2,overflow:"hidden",flexShrink:0}}>
                             {(item.imageThumb||item.imageData)&&<img src={item.imageThumb??item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
                           </div>
                         ):null;
