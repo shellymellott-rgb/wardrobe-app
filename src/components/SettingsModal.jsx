@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { CATEGORIES, DEFAULT_STYLE_SYSTEM } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
+import { compressImage } from "../utils/imageUtils.js";
+import { parseJsonObject } from "../utils/parseJson.js";
 
 export default function SettingsModal({
   onClose,
@@ -11,11 +13,68 @@ export default function SettingsModal({
   weatherEnabled, setWeatherEnabled, homeCity, setHomeCity,
   exportWardrobe, onImport,
   user, signOut,
+  wardrobeProfile, upsertProfile,
 }) {
   const [newCatInput, setNewCatInput] = useState("");
+  const [colorLoading, setColorLoading] = useState(false);
+  const [bodyLoading, setBodyLoading] = useState(false);
+  const colorPhotoRef = useRef();
+  const bodyPhotoRef = useRef();
 
   function handleAddCat() {
     if (addCustomCategory(newCatInput)) setNewCatInput("");
+  }
+
+  async function analyzeColor(e) {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file || !user?.id) return;
+    setColorLoading(true);
+    try {
+      const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
+      const compressed = await compressImage(dataUrl, 400, 0.5);
+      const base64 = compressed.split(",")[1];
+      const resp = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-latest", max_tokens: 400,
+          system: "You are a color analysis expert. Analyze the face photo and return ONLY a JSON object with these exact fields: color_season (one of: Spring, Summer, Autumn, Winter), color_undertone (warm/cool/neutral), best_colors (array of 6-8 color names that flatter this person), avoid_colors (array of 3-4 colors to avoid). No markdown, no explanation.",
+          messages: [{ role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: "Analyze this person's coloring." },
+          ]}],
+        }),
+      });
+      const data = await resp.json();
+      const parsed = parseJsonObject(data.content?.[0]?.text || "");
+      if (parsed?.color_season) await upsertProfile(user.id, parsed);
+    } catch (err) { console.error("[analyzeColor]", err.message); }
+    setColorLoading(false);
+  }
+
+  async function analyzeBody(e) {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file || !user?.id) return;
+    setBodyLoading(true);
+    try {
+      const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
+      const compressed = await compressImage(dataUrl, 400, 0.5);
+      const base64 = compressed.split(",")[1];
+      const resp = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-latest", max_tokens: 500,
+          system: "You are a fashion and body type expert. Analyze the body photo and return ONLY a JSON object: body_type (one of: hourglass, pear, apple, rectangle, inverted triangle), flattering_silhouettes (array of 4-6 silhouette descriptions), flattering_necklines (array of 3-4 neckline types), flattering_lengths (array of 3-4 hem/length descriptions), avoid_silhouettes (array of 2-3 things to avoid). No markdown, no explanation.",
+          messages: [{ role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: "Analyze this person's body type." },
+          ]}],
+        }),
+      });
+      const data = await resp.json();
+      const parsed = parseJsonObject(data.content?.[0]?.text || "");
+      if (parsed?.body_type) await upsertProfile(user.id, parsed);
+    } catch (err) { console.error("[analyzeBody]", err.message); }
+    setBodyLoading(false);
   }
 
   return (
@@ -94,6 +153,85 @@ export default function SettingsModal({
           }
         </div>
 
+        {/* D2. Color & Body Analysis */}
+        <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:4}}>Color & Body Analysis</div>
+          <div style={{fontSize:10,color:"#555",marginBottom:16,lineHeight:1.5}}>Photo analyzed and immediately discarded — never stored.</div>
+
+          {/* Color subsection */}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Color Season</div>
+            {wardrobeProfile?.color_season && (
+              <div style={{marginBottom:10}}>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
+                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.color_season}</span>
+                  {wardrobeProfile.color_undertone && <span style={{background:"#2a2a2a",color:"#888",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.color_undertone} undertone</span>}
+                </div>
+                {wardrobeProfile.best_colors?.length > 0 && (
+                  <div style={{marginBottom:6}}>
+                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering colors</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {wardrobeProfile.best_colors.map(c => <span key={c} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{c}</span>)}
+                    </div>
+                  </div>
+                )}
+                {wardrobeProfile.avoid_colors?.length > 0 && (
+                  <div>
+                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {wardrobeProfile.avoid_colors.map(c => <span key={c} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:10}}>{c}</span>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <input ref={colorPhotoRef} type="file" accept="image/*" onChange={analyzeColor} style={{display:"none"}} />
+            <button onClick={()=>colorPhotoRef.current.click()} disabled={colorLoading} style={{background:"transparent",border:"1px solid #333",color:colorLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:colorLoading?"not-allowed":"pointer"}}>
+              {colorLoading ? "Analyzing…" : wardrobeProfile?.color_season ? "Re-analyze face photo" : "Upload face photo"}
+            </button>
+          </div>
+
+          {/* Body subsection */}
+          <div>
+            <div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Body Type</div>
+            {wardrobeProfile?.body_type && (
+              <div style={{marginBottom:10}}>
+                <div style={{marginBottom:6}}>
+                  <span style={{background:"#2a2a2a",color:"#e8e2d8",borderRadius:20,padding:"4px 12px",fontSize:11}}>{wardrobeProfile.body_type}</span>
+                </div>
+                {wardrobeProfile.flattering_silhouettes?.length > 0 && (
+                  <div style={{marginBottom:6}}>
+                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Flattering silhouettes</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {wardrobeProfile.flattering_silhouettes.map(s => <span key={s} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{s}</span>)}
+                    </div>
+                  </div>
+                )}
+                {wardrobeProfile.flattering_necklines?.length > 0 && (
+                  <div style={{marginBottom:6}}>
+                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Necklines</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {wardrobeProfile.flattering_necklines.map(n => <span key={n} style={{background:"#1a1a12",border:"1px solid #3a3a2a",color:"#c8c0a0",borderRadius:20,padding:"3px 10px",fontSize:10}}>{n}</span>)}
+                    </div>
+                  </div>
+                )}
+                {wardrobeProfile.avoid_silhouettes?.length > 0 && (
+                  <div style={{marginBottom:6}}>
+                    <div style={{fontSize:9,color:"#555",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>Avoid</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {wardrobeProfile.avoid_silhouettes.map(s => <span key={s} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#666",borderRadius:20,padding:"3px 10px",fontSize:10}}>{s}</span>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <input ref={bodyPhotoRef} type="file" accept="image/*" onChange={analyzeBody} style={{display:"none"}} />
+            <button onClick={()=>bodyPhotoRef.current.click()} disabled={bodyLoading} style={{background:"transparent",border:"1px solid #333",color:bodyLoading?"#555":"#aaa",borderRadius:3,padding:"8px 16px",fontSize:10,letterSpacing:1,textTransform:"uppercase",cursor:bodyLoading?"not-allowed":"pointer"}}>
+              {bodyLoading ? "Analyzing…" : wardrobeProfile?.body_type ? "Re-analyze body photo" : "Upload body photo"}
+            </button>
+          </div>
+        </div>
+
         {/* E. Weather */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:10}}>Weather-Based Outfits</div>
@@ -144,7 +282,7 @@ export default function SettingsModal({
           </div>
         </div>
 
-        {/* F. Data */}
+        {/* G. Data */}
         <div>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:12}}>Data</div>
           <div style={{display:"flex",gap:10}}>

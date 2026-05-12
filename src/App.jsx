@@ -60,6 +60,7 @@ export default function WardrobeApp() {
     saveSettings: settings.saveSettings,
     addStyleNote: settings.addStyleNote,
     user,
+    weather: currentWeather,
   });
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
@@ -119,6 +120,7 @@ export default function WardrobeApp() {
   const [weatherError, setWeatherError] = useState(null);
   const [weatherOccasion, setWeatherOccasion] = useState("");
   const [weatherSaved, setWeatherSaved] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState(null);
 
   function weatherFilter(items, { tempHigh, tempLow, isRainy }) {
     const avg    = (tempHigh + tempLow) / 2;
@@ -172,6 +174,7 @@ export default function WardrobeApp() {
         WEATHER_OUTFIT_PROMPT(candidates.map(stripForClaude), w, weatherOccasion),
         700
       );
+      setCurrentWeather(w);
       setWeatherOutfit({ ...parseJsonObject(text), weather: w });
     } catch (e) {
       setWeatherError(e.message || "Could not get weather");
@@ -686,6 +689,8 @@ export default function WardrobeApp() {
           exportWardrobe={exportWardrobe}
           onImport={()=>importRef.current.click()}
           user={user} signOut={signOut}
+          wardrobeProfile={styling.wardrobeProfile}
+          upsertProfile={styling.upsertProfile}
         />
       )}
 

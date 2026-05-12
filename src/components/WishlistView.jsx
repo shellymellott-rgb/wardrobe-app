@@ -8,6 +8,7 @@ import { URL_PROMPT } from "../constants.js";
 const WISH_TAGS = ["Need", "Maybe", "Saved"];
 // Map display tag → label shown on tile
 const TAG_LABELS = { Need: "PRIORITY", Maybe: "CASUAL", Saved: "STAPLE" };
+const TILE_TONES = ["#1e1c1a", "#c4b899", "#9e8c76", "#ebe6d8", "#7a6855", "#44454e"];
 
 export default function WishlistView({ wishlist, persistWishlist }) {
   const [wishForm, setWishForm] = useState({ type: "general", tag: "Saved", note: "", url: "", targetPrice: "", name: "", brand: "" });
@@ -133,23 +134,31 @@ export default function WishlistView({ wishlist, persistWishlist }) {
 
       {/* ── 3-col grid ───────────────────────────────────── */}
       {orderedItems.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderLeft: `1px solid ${T.rule}`, borderTop: `1px solid ${T.rule}` }}>
           {orderedItems.map((item, idx) => (
-            <div key={item.id} style={{ borderRight: idx % 3 < 2 ? `1px solid ${T.rule}` : "none", borderBottom: `1px solid ${T.rule}` }}>
+            <div key={item.id} style={{ borderRight: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }}>
               {/* Photo block — 4:5 */}
-              <div style={{ position: "relative", aspectRatio: "4/5", maxHeight: 280, background: T.paper, overflow: "hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <div style={{ position: "relative", aspectRatio: "4/5", maxHeight: 280, background: TILE_TONES[idx % TILE_TONES.length], overflow: "hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {/* Diagonal stripe overlay */}
+                <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(135deg, transparent 0 14px, rgba(255,255,255,.07) 14px 15px)", pointerEvents: "none" }} />
+                {/* Image if available */}
+                {item.imageUrl && (
+                  <img src={item.imageUrl} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                )}
                 {/* Index top-left */}
-                <div style={{ position: "absolute", top: 8, left: 8, ...ML, fontSize: 8, color: T.ink3 }}>
+                <div style={{ position: "absolute", top: 8, left: 8, ...ML, fontSize: 8, color: "rgba(255,255,255,.85)" }}>
                   {String(idx + 1).padStart(2, "0")}/{String(orderedItems.length).padStart(2, "0")}
                 </div>
                 {/* Tag bottom-right */}
-                <div style={{ position: "absolute", bottom: 8, right: 8, ...ML, fontSize: 8, color: T.ink3 }}>
+                <div style={{ position: "absolute", bottom: 8, right: 8, ...ML, fontSize: 8, color: "rgba(255,255,255,.85)" }}>
                   {TAG_LABELS[item.tag || "Saved"]}
                 </div>
                 {/* No-image placeholder */}
                 {!item.imageUrl && (
-                  <div style={{ fontFamily: T.serif, fontSize: 13, color: T.ink3, padding: "0 14px", textAlign: "center", lineHeight: 1.4 }}>
-                    {item.name || item.note}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 14px" }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 13, color: "rgba(255,255,255,.7)", textAlign: "center", lineHeight: 1.4 }}>
+                      {item.name || item.note}
+                    </div>
                   </div>
                 )}
               </div>
