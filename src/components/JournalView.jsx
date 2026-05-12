@@ -38,11 +38,14 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   }));
 
   useEffect(() => {
+    console.log("[journal prefill] fired, journalPrefill:", journalPrefill);
     if (!journalPrefill) return;
     setSelectedDate(journalPrefill.date);
     setEntryItemIds(journalPrefill.itemIds);
+    console.log("[journal prefill] itemIds set:", journalPrefill.itemIds);
     setEntryNotes(journalPrefill.notes || "");
     setShowEntryForm(true);
+    console.log("[journal prefill] form should be open now");
     onPrefillConsumed?.();
   }, [journalPrefill]);
 
