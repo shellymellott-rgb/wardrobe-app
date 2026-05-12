@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { inputStyle, ghostBtn } from "../styles.js";
 
 export default function ChatView({
+  weather,
   chatHistory, setChatHistory,
   chatInput, setChatInput, chatLoading,
   styleNotes, removeStyleNote, clearStyleNotes,
@@ -40,6 +41,9 @@ export default function ChatView({
           <div style={{fontSize:22,fontStyle:"italic",letterSpacing:-0.5,color:"#e8e2d8",marginBottom:6}}>Ask anything</div>
           <div style={{fontSize:12,color:"#444",lineHeight:2,textAlign:"center",marginBottom:32}}>What am I missing? · What shoes go with my cream jeans?<br/>Build a capsule for a weekend trip</div>
           <div style={{width:"100%",maxWidth:480}}>
+            {weather && (
+              <div style={{fontSize:11,color:"#555",marginBottom:8,textAlign:"center"}}>🌤 {weather.tempHigh}°F · {weather.condition}</div>
+            )}
             {attachedImage && (
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                 <img src={attachedImage} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>

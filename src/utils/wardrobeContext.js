@@ -93,7 +93,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
     : "";
   const weatherLine = weather
     ? `Current weather: ${weather.condition}, high ${weather.tempHigh}°F / low ${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`
-    : "";
+    : "Weather data not yet loaded — if the user asks about what to wear, ask them about current weather conditions or temperature before suggesting an outfit.\n\n";
   const currentSeason = getCurrentSeason(season);
   const inSeason = stripped.filter(i => {
     const s = i.season;

@@ -657,6 +657,7 @@ export default function WardrobeApp() {
           setPlanCards={styling.setPlanCards}
           items={wardrobe.items}
           onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); navigateTo("journal"); }}
+          weather={currentWeather}
           journalRef={journalRef}
         />
       )}
