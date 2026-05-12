@@ -315,11 +315,12 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                     const item = items.find(i => String(i.id) === String(id));
                     if (!item) return null;
                     return (
-                      <div key={id} style={{ flexShrink: 0, width: 72, position: "relative", cursor: "pointer" }}
-                           onClick={openEntryForm}>
-                        <div style={{ width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                          {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-                        </div>
+                      <div key={id} style={{ flexShrink: 0, width: 72, position: "relative" }}>
+                        <button
+                          onClick={openEntryForm}
+                          style={{ display: "block", width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer" }}>
+                          {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                        </button>
                         <button
                           onClick={async e => {
                             e.stopPropagation();
@@ -349,9 +350,9 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
               {(wornMap[selectedDate] || []).map(item => (
                 <div key={item.id} style={{ flexShrink: 0, width: 72 }}>
-                  <div style={{ width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                    {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-                  </div>
+                  <button onClick={openEntryForm} style={{ display: "block", width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer" }}>
+                    {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                  </button>
                   <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                 </div>
               ))}
