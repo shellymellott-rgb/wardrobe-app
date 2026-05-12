@@ -54,6 +54,7 @@ export default function WardrobeApp() {
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const settings = useSettings(user);
   const wardrobe = useWardrobeData(user);
+  const [currentWeather, setCurrentWeather] = useState(null);
   const styling = useClaudeStyling({
     items: wardrobe.items,
     buildStyleSystem: settings.buildStyleSystem,
@@ -120,7 +121,6 @@ export default function WardrobeApp() {
   const [weatherError, setWeatherError] = useState(null);
   const [weatherOccasion, setWeatherOccasion] = useState("");
   const [weatherSaved, setWeatherSaved] = useState(false);
-  const [currentWeather, setCurrentWeather] = useState(null);
 
   function weatherFilter(items, { tempHigh, tempLow, isRainy }) {
     const avg    = (tempHigh + tempLow) / 2;
