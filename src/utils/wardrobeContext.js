@@ -66,7 +66,7 @@ export function fmtItem(i) {
   );
 }
 
-export function buildChatSystem(items, question, buildStyleSystem) {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null) {
   const stripped = items.map(stripForClaude);
   let ctx;
   if (stripped.length <= 50 || !question) {
@@ -75,7 +75,14 @@ export function buildChatSystem(items, question, buildStyleSystem) {
     const rel = filterRelevantItems(stripped, question);
     ctx = `${buildWardrobeSummary(stripped)}\n\nMost relevant items (${rel.length} of ${stripped.length} shown):\n${rel.map(fmtItem).join("\n")}`;
   }
-  return `${buildStyleSystem()}\n\n${ctx}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Be concise and direct.`;
+  const base = `${buildStyleSystem()}\n\n${ctx}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Be concise and direct.`;
+  if (!profile) return base;
+  const SKIP = new Set(["id", "user_id", "created_at", "updated_at"]);
+  const profileLines = Object.entries(profile)
+    .filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => `${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(", ") : v}`);
+  if (!profileLines.length) return base;
+  return `What I know about you:\n${profileLines.join("\n")}\n\n${base}`;
 }
 
 export function itemFocusCtx(item) {

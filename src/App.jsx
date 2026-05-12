@@ -59,6 +59,7 @@ export default function WardrobeApp() {
     buildStyleSystem: settings.buildStyleSystem,
     saveSettings: settings.saveSettings,
     addStyleNote: settings.addStyleNote,
+    user,
   });
 
   // ── Auth: wait for session before syncing ───────────────────────────────────

@@ -1,11 +1,20 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { callClaude } from "../utils/callClaude.js";
 import { parseJsonObject, parseJsonArray } from "../utils/parseJson.js";
 import { OUTFIT_PROMPT, EVALUATE_PROMPT, INSPO_PROMPT } from "../utils/prompts.js";
 import { buildChatSystem, itemFocusCtx, buildContextHistory, stripForClaude } from "../utils/wardrobeContext.js";
 import { readFile, compressImage } from "../utils/imageUtils.js";
+import { useChatSessions } from "./useChatSessions.js";
 
-export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote }) {
+export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote, user }) {
+  const { loadProfile, createSession, saveMessage } = useChatSessions();
+  const [wardrobeProfile, setWardrobeProfile] = useState(null);
+  const activeSessionId = useRef(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadProfile(user.id).then(p => { if (p) setWardrobeProfile(p); });
+  }, [user?.id]);
 
   // ── Outfit generation ──────────────────────────────────────────────────────
   const [occasion, setOccasion] = useState("");
@@ -146,10 +155,13 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     setChatHistory(newHistory);
     try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(newHistory)); } catch {}
     setChatInput(""); setChatLoading(true);
+    if (!activeSessionId.current && user?.id) {
+      activeSessionId.current = await createSession(user.id);
+    }
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile), messages:buildContextHistory(newHistory) }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
@@ -157,6 +169,10 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       setChatHistory(updated);
       try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
       saveSettings({ chatHistory: updated.slice(-30) });
+      if (activeSessionId.current) {
+        saveMessage(activeSessionId.current, "user", msg);
+        saveMessage(activeSessionId.current, "assistant", reply);
+      }
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
     } catch {
       setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
