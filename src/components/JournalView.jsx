@@ -1,6 +1,7 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { T, ML, tabStyle } from "../theme.js";
 import { inputStyle } from "../styles.js";
+import { sbCreateOutfit } from "../supabase.js";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
@@ -18,6 +19,20 @@ function formatDate(dateStr) {
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function SectionRule({ n, label, color }) {
+  return (
+    <div style={{ display:"flex", alignItems:"stretch", borderTop:`1px solid ${T.ruleStrong}`, borderBottom:`1px solid ${T.ruleStrong}`, background:T.surface }}>
+      <div style={{ width:48, background:color, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.mono, fontSize:11, color:"#fff", letterSpacing:".1em", flexShrink:0 }}>
+        {String(n).padStart(2,"0")}
+      </div>
+      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px" }}>
+        <div style={{ fontFamily:T.mono, fontSize:11, letterSpacing:".24em", color:color, textTransform:"uppercase", padding:"12px 0" }}>{label}</div>
+        <div style={{ fontFamily:T.mono, fontSize:9.5, letterSpacing:".22em", color:T.ink3, textTransform:"uppercase" }}>SS '26</div>
+      </div>
+    </div>
+  );
 }
 
 const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry }, ref) {
@@ -59,6 +74,23 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   });
 
   const selectedEntry = entryMap[selectedDate];
+
+  // Derived: pieces to show in the detail strip for the selected date
+  const detailEntryItems = selectedEntry?.item_ids?.length > 0
+    ? selectedEntry.item_ids.map(id => items.find(i => String(i.id) === String(id))).filter(Boolean)
+    : [];
+  const detailPieces = detailEntryItems.length > 0 ? detailEntryItems : (wornMap[selectedDate] || []);
+  const detailNotes = selectedEntry?.notes || "";
+
+  async function saveAsOutfit() {
+    if (!user?.id || detailPieces.length === 0) return;
+    const id = crypto.randomUUID();
+    const d = toLocalDate(selectedDate);
+    const name = `${MONTHS[d.getMonth()].slice(0,3)} ${d.getDate()} Look`;
+    const itemIds = detailPieces.map(p => String(p.id));
+    try { await sbCreateOutfit({ id, user_id: user.id, name }, itemIds); }
+    catch (e) { console.error("[saveAsOutfit]", e.message); }
+  }
 
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -156,33 +188,62 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
             const entry = entryMap[dateStr];
             const wornItems = !entry ? (wornMap[dateStr] || []) : [];
-            const thumbItem = entry?.item_ids?.length > 0
-              ? items.find(i => String(i.id) === String(entry.item_ids[0]))
-              : wornItems[0] || null;
-            const photo = entry?.photo || thumbItem?.imageThumb || thumbItem?.imageData || null;
+            const entryItems = entry?.item_ids?.length > 0
+              ? entry.item_ids.map(id => items.find(i => String(i.id) === String(id))).filter(Boolean)
+              : [];
+            const allPieces = entryItems.length > 0 ? entryItems : wornItems;
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             const col = i % 7;
+            const hasPieces = allPieces.length > 0;
             return (
               <div key={i} onClick={() => setSelectedDate(dateStr)} style={{
                 position: "relative", cursor: "pointer", overflow: "hidden",
                 aspectRatio: "1/1",
                 borderRight: col < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.surface,
+                background: isSelected ? T.paper : T.surface,
+                outline: isSelected ? `2px solid ${T.ink}` : "none",
+                outlineOffset: -2,
+                zIndex: isSelected ? 2 : 1,
               }}>
-                {photo && !isSelected && (
-                  <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                {/* Single entry photo when no item pieces */}
+                {entry?.photo && !hasPieces && (
+                  <img src={entry.photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 )}
+                {/* 2×2 piece thumbnail collage */}
+                {hasPieces && (
+                  <div style={{
+                    position: "absolute", inset: 0, display: "grid",
+                    gridTemplateColumns: allPieces.length === 1 ? "1fr" : "1fr 1fr",
+                    gridTemplateRows: allPieces.length <= 2 ? "1fr" : "1fr 1fr",
+                    gap: 1, background: T.rule,
+                  }}>
+                    {allPieces.slice(0, 4).map((p, pi) => (
+                      <div key={pi} style={{ background: T.surface, overflow: "hidden" }}>
+                        {(p.imageThumb || p.imageData)
+                          ? <img src={p.imageThumb ?? p.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          : <div style={{ width: "100%", height: "100%", background: T.paper }} />
+                        }
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Date number — white pill when pieces present */}
                 <div style={{
-                  position: "absolute", top: 4, left: 5,
-                  fontFamily: T.mono, fontSize: 10, fontWeight: 400,
-                  color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3,
+                  position: "absolute", top: 6, left: 8, zIndex: 3,
+                  fontFamily: T.mono, fontSize: 10, letterSpacing: ".08em",
+                  color: hasPieces ? T.ink : isToday ? T.hot : T.ink3,
+                  background: hasPieces ? "rgba(255,255,255,.85)" : "transparent",
+                  padding: hasPieces ? "1px 5px" : 0,
                 }}>
                   {String(day).padStart(2, "0")}
                 </div>
-                {(entry || wornItems.length > 0) && !isSelected && (
-                  <div style={{ position: "absolute", bottom: 4, right: 5, width: 4, height: 4, borderRadius: "50%", background: T.sage }} />
+                {/* +N overflow chip */}
+                {allPieces.length > 4 && (
+                  <div style={{ position: "absolute", bottom: 6, right: 8, fontFamily: T.mono, fontSize: 9, letterSpacing: ".1em", color: T.ink, background: "rgba(255,255,255,.85)", padding: "1px 5px", zIndex: 3 }}>
+                    +{allPieces.length - 4}
+                  </div>
                 )}
               </div>
             );
@@ -220,22 +281,53 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {days.map((dateStr, i) => {
             const entry = entryMap[dateStr];
+            const wornItems = !entry ? (wornMap[dateStr] || []) : [];
+            const entryItems = entry?.item_ids?.length > 0
+              ? entry.item_ids.map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)
+              : [];
+            const allPieces = entryItems.length > 0 ? entryItems : wornItems;
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             const dObj = toLocalDate(dateStr);
-            const photo = entry?.photo || (entry?.item_ids?.length > 0 ? items.find(it => String(it.id) === String(entry.item_ids[0]))?.imageThumb : null);
+            const hasPieces = allPieces.length > 0;
             return (
               <div key={dateStr} onClick={() => setSelectedDate(dateStr)} style={{
                 position: "relative", cursor: "pointer", overflow: "hidden",
                 aspectRatio: "1/1",
                 borderRight: i < 6 ? `1px solid ${T.rule}` : "none",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isSelected ? T.ink : T.surface,
+                background: isSelected ? T.paper : T.surface,
+                outline: isSelected ? `2px solid ${T.ink}` : "none",
+                outlineOffset: -2,
+                zIndex: isSelected ? 2 : 1,
               }}>
-                {photo && !isSelected && (
-                  <img src={photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                {entry?.photo && !hasPieces && (
+                  <img src={entry.photo} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 )}
-                <div style={{ position: "absolute", top: 4, left: 5, fontFamily: T.mono, fontSize: 10, color: isSelected ? "#fff" : photo ? "#fff" : isToday ? T.hot : T.ink3 }}>
+                {hasPieces && (
+                  <div style={{
+                    position: "absolute", inset: 0, display: "grid",
+                    gridTemplateColumns: allPieces.length === 1 ? "1fr" : "1fr 1fr",
+                    gridTemplateRows: allPieces.length <= 2 ? "1fr" : "1fr 1fr",
+                    gap: 1, background: T.rule,
+                  }}>
+                    {allPieces.slice(0, 4).map((p, pi) => (
+                      <div key={pi} style={{ background: T.surface, overflow: "hidden" }}>
+                        {(p.imageThumb || p.imageData)
+                          ? <img src={p.imageThumb ?? p.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          : <div style={{ width: "100%", height: "100%", background: T.paper }} />
+                        }
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{
+                  position: "absolute", top: 6, left: 8, zIndex: 3,
+                  fontFamily: T.mono, fontSize: 10, letterSpacing: ".08em",
+                  color: hasPieces ? T.ink : isToday ? T.hot : T.ink3,
+                  background: hasPieces ? "rgba(255,255,255,.85)" : "transparent",
+                  padding: hasPieces ? "1px 5px" : 0,
+                }}>
                   {String(dObj.getDate()).padStart(2, "0")}
                 </div>
               </div>
@@ -268,78 +360,66 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
       {/* ── Calendar ─────────────────────────────────────── */}
       {calView === "month" ? renderMonthCal() : renderWeekCal()}
 
-      {/* ── Selected day panel ───────────────────────────── */}
-      <div style={{ borderTop: `1px solid ${T.rule}`, margin: "0 28px 28px" }}>
-        <div style={{ padding: "16px 0", borderBottom: `1px solid ${T.rule}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 500, color: T.ink }}>
-            {formatDate(selectedDate)}{selectedDate === today ? " · Today" : isFuture ? " · Planned" : ""}
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {selectedEntry && (
-              <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
-            )}
-            <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
-              {selectedEntry ? "Edit" : isFuture ? "+ Plan" : "+ Log"}
-            </button>
-          </div>
-        </div>
-
-        {selectedEntry ? (
-          <div style={{ paddingTop: 16 }}>
-            {selectedEntry.photo && (
-              <img src={selectedEntry.photo} style={{ width: "100%", maxHeight: 300, objectFit: "cover", display: "block", marginBottom: 16 }} />
-            )}
-            {selectedEntry.item_ids?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>Items worn</div>
-                <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
-                  {selectedEntry.item_ids.map(id => {
-                    const item = items.find(i => String(i.id) === String(id));
-                    if (!item) return null;
-                    return (
-                      <div key={id} style={{ flexShrink: 0, width: 72 }}>
-                        <div style={{ width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                          {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+      {/* ── Detail strip — full-width, below calendar ────── */}
+      {(() => {
+        const d = toLocalDate(selectedDate);
+        const dateLabel = `${MONTHS[d.getMonth()].slice(0,3)} ${String(d.getDate()).padStart(2,"0")}`;
+        const ruleLabel = detailPieces.length > 0
+          ? `${dateLabel} · ${detailPieces.length} ${detailPieces.length === 1 ? "piece" : "pieces"} worn`
+          : `${dateLabel} · Nothing logged`;
+        const colCount = Math.max(detailPieces.length, 4);
+        return (
+          <>
+            <SectionRule n={5} label={ruleLabel} color={T.sage} />
+            <div style={{ background: T.surface, paddingBottom: 0 }}>
+              {detailPieces.length > 0 ? (
+                <>
+                  {/* Piece cards — 3:4 ratio, full width */}
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${colCount}, 1fr)`, borderBottom: `1px solid ${T.rule}` }}>
+                    {detailPieces.map((p, i) => (
+                      <div key={i} style={{ aspectRatio: "3/4", borderRight: `1px solid ${T.rule}`, position: "relative", overflow: "hidden", background: T.paper }}>
+                        {(p.imageThumb || p.imageData) && (
+                          <img src={p.imageThumb ?? p.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        )}
+                        <div style={{ position: "absolute", top: 10, left: 12, fontFamily: T.mono, fontSize: 9, letterSpacing: ".2em", color: T.ink, background: T.citron, padding: "2px 6px", zIndex: 2 }}>
+                          {String(i+1).padStart(2,"0")}
                         </div>
-                        <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {selectedEntry.notes && (
-              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.ink2, lineHeight: 1.6, margin: "0 0 16px" }}>{selectedEntry.notes}</p>
-            )}
-            <button onClick={() => { setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${selectedEntry.item_ids.map(id => items.find(i => String(i.id) === String(id))?.name).filter(Boolean).join(", ")}`); setView?.("chat"); }}
-              style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
-              Chat about this →
-            </button>
-          </div>
-        ) : wornMap[selectedDate]?.length > 0 ? (
-          <div style={{ paddingTop: 16 }}>
-            <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>Items worn</div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
-              {(wornMap[selectedDate] || []).map(item => (
-                <div key={item.id} style={{ flexShrink: 0, width: 72 }}>
-                  <div style={{ width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                    {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                    ))}
                   </div>
-                  <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                  {/* Label row — brand / name / color per column */}
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${colCount}, 1fr)`, borderBottom: `1px solid ${T.rule}` }}>
+                    {detailPieces.map((p, i) => (
+                      <div key={i} style={{ padding: "12px 14px 16px", borderRight: `1px solid ${T.rule}` }}>
+                        <div style={{ fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", color: T.ink3, textTransform: "uppercase" }}>{p.brand || p.category}</div>
+                        <div style={{ fontFamily: T.sans, fontSize: 12, color: T.ink, marginTop: 4, fontWeight: 500, lineHeight: 1.25 }}>{p.name}</div>
+                        {p.color && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink3, marginTop: 2 }}>{p.color}</div>}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Footer — notes + action buttons */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 28px 32px", gap: 16 }}>
+                    <div style={{ fontFamily: T.serif, fontSize: 18, fontStyle: "italic", color: T.ink2, flex: 1, lineHeight: 1.35 }}>
+                      {detailNotes ? `"${detailNotes}"` : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                      <button onClick={openEntryForm} style={{ border: `1px solid ${T.rule}`, background: "transparent", padding: "10px 16px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer", color: T.ink }}>Edit log</button>
+                      <button onClick={saveAsOutfit} style={{ border: 0, background: T.ink, color: T.surface, padding: "10px 16px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer" }}>Save as outfit →</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: "40px 28px 56px", textAlign: "center" }}>
+                  <div style={{ fontFamily: T.serif, fontSize: 22, color: T.ink2, fontStyle: "italic" }}>No log for this day.</div>
+                  <button onClick={openEntryForm} style={{ marginTop: 16, border: 0, background: T.citron, color: T.ink, padding: "12px 22px", fontFamily: T.mono, fontSize: 10.5, letterSpacing: ".22em", textTransform: "uppercase", cursor: "pointer" }}>
+                    + Log what I wore
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
-            <button onClick={() => { setChatInput?.(`Let's talk about my outfit on ${formatDate(selectedDate)}: ${(wornMap[selectedDate] || []).map(i => i.name).join(", ")}`); setView?.("chat"); }}
-              style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
-              Chat about this →
-            </button>
-          </div>
-        ) : (
-          <div style={{ padding: "24px 0", fontFamily: T.sans, fontSize: 12, color: T.ink3 }}>
-            {isFuture ? "No outfit planned yet" : "Nothing logged for this day"}
-          </div>
-        )}
-      </div>
+          </>
+        );
+      })()}
 
       {/* ── Entry form ────────────────────────────────────── */}
       {showEntryForm && (
