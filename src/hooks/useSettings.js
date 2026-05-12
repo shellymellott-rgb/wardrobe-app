@@ -189,7 +189,7 @@ export function useSettings(user) {
     const profile = styleProfile.trim() || DEFAULT_STYLE_SYSTEM;
     const parts = [profile];
     if (styleNotes.length)
-      parts.push(`Learned preferences:\n${styleNotes.map(n => `- ${n}`).join("\n")}`);
+      parts.push(`STYLE RULES (follow strictly, never violate):\n${styleNotes.map(n => `- ${n}`).join("\n")}`);
     if (extraInstructions.trim())
       parts.push(`Current instructions:\n${extraInstructions.trim()}`);
     return parts.join("\n\n");

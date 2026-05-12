@@ -94,6 +94,9 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const weatherLine = weather
     ? `Current weather: ${weather.condition}, high ${weather.tempHigh}°F / low ${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`
     : "Weather data not yet loaded — if the user asks about what to wear, ask them about current weather conditions or temperature before suggesting an outfit.\n\n";
+  const shoeRule = weather && weather.tempLow < 60
+    ? `SHOE RULE: Temperature low is ${weather.tempLow}°F — do NOT suggest open-toe shoes, sandals, or slides. Closed-toe shoes only.\n\n`
+    : "";
   const currentSeason = getCurrentSeason(season);
   const inSeason = stripped.filter(i => {
     const s = i.season;
@@ -106,7 +109,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const offSeason = stripped.filter(i => !inSeason.includes(i));
   const seasonLine = `Current season: ${currentSeason}. Off-season items (${offSeason.length} pieces) are deprioritized — focus recommendations on in-season pieces unless the user specifically asks.\n\n`;
   const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season (stored): ${offSeason.slice(0, 20).map(i => i.name).join(", ")}` : "";
-  const base = `${buildStyleSystem()}\n\n${weatherLine}${seasonLine}${recentNote}\n\n${ctx}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot write to the journal, log outfits, or save anything — only suggest. The user saves via the UI. When suggesting outfits, ALWAYS factor in the current weather — mention the temperature and explain why each piece works for those conditions. Never suggest an outfit without referencing the weather context provided.`;
+  const base = `${buildStyleSystem()}\n\n${weatherLine}${shoeRule}${seasonLine}${recentNote}\n\n${ctx}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot write to the journal, log outfits, or save anything — only suggest. The user saves via the UI. When suggesting outfits, ALWAYS factor in the current weather — mention the temperature and explain why each piece works for those conditions. Never suggest an outfit without referencing the weather context provided.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at", "height_ft", "height_in"]);
   const profileLines = Object.entries(profile)
