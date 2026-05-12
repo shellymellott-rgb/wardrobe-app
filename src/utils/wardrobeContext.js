@@ -66,7 +66,7 @@ export function fmtItem(i) {
   );
 }
 
-export function buildChatSystem(items, question, buildStyleSystem, profile = null) {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null) {
   const stripped = items.map(stripForClaude);
   let ctx;
   if (stripped.length <= 50 || !question) {
@@ -81,7 +81,10 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const recentNote = recentlyWorn.length > 0
     ? `\nIMPORTANT: Do NOT suggest these items — worn in the last 3 days: ${recentlyWorn.map(i => i.name).join(", ")}`
     : "";
-  const base = `${buildStyleSystem()}\n\n${ctx}${recentNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct.`;
+  const weatherLine = weather
+    ? `Current weather: ${weather.condition}, ${weather.tempHigh}°/${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`
+    : "";
+  const base = `${buildStyleSystem()}\n\n${weatherLine}${ctx}${recentNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at"]);
   const profileLines = Object.entries(profile)

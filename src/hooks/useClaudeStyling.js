@@ -6,7 +6,7 @@ import { buildChatSystem, itemFocusCtx, buildContextHistory, stripForClaude } fr
 import { readFile, compressImage } from "../utils/imageUtils.js";
 import { useChatSessions } from "./useChatSessions.js";
 
-export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote, user }) {
+export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote, user, weather }) {
   const { loadProfile, createSession, saveMessage } = useChatSessions();
   const [wardrobeProfile, setWardrobeProfile] = useState(null);
   const activeSessionId = useRef(null);
@@ -218,7 +218,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       }
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile), messages:apiMessages }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather), messages:apiMessages }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
@@ -249,7 +249,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, correction, buildStyleSystem), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, correction, buildStyleSystem, null, weather), messages:buildContextHistory(newHistory) }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
@@ -278,7 +278,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, initialMsg, buildStyleSystem)+itemFocusCtx(item), messages:newHistory }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, initialMsg, buildStyleSystem, null, weather)+itemFocusCtx(item), messages:newHistory }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
@@ -296,7 +296,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem)+itemFocusCtx(itemChatModal), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, null, weather)+itemFocusCtx(itemChatModal), messages:buildContextHistory(newHistory) }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
