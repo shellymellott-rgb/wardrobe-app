@@ -143,12 +143,53 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [attachedImage, setAttachedImage] = useState(null);
+  const [planCards, setPlanCards] = useState([]);
   const [correctingIdx, setCorrectingIdx] = useState(null);
   const [correctionInput, setCorrectionInput] = useState("");
   const [learnedIndicator, setLearnedIndicator] = useState(false);
   const chatEndRef = useRef();
 
   function flashLearned() { setLearnedIndicator(true); setTimeout(() => setLearnedIndicator(false), 2000); }
+
+  function detectPlan(text) {
+    const patterns = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
+    const count = patterns.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
+    return count >= 3;
+  }
+
+  async function extractPlan(history, itemList) {
+    try {
+      const convo = history.slice(-30).map(m => {
+        const content = Array.isArray(m.content)
+          ? m.content.filter(b => b.type === "text").map(b => b.text).join(" ")
+          : m.content;
+        return `${m.role}: ${content}`;
+      }).join("\n");
+      const res = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 800,
+          system: "You extract structured outfit plans from conversations. Return ONLY a JSON array, no markdown, no explanation.",
+          messages: [{ role: "user", content: `Extract every day's outfit from this conversation as JSON. Match dates to YYYY-MM-DD format. Use the exact item names mentioned.\n\nConversation:\n${convo}` }],
+        }),
+      });
+      const data = await res.json();
+      const parsed = parseJsonArray(data.content?.[0]?.text || "");
+      if (!parsed?.length) return;
+      const cards = parsed.map(entry => {
+        const itemIds = (entry.itemNames || []).map(name => {
+          const lc = name.toLowerCase();
+          const match = itemList.find(i => i.name.toLowerCase().includes(lc) || lc.includes(i.name.toLowerCase().slice(0, 6)));
+          return match ? String(match.id) : null;
+        }).filter(Boolean);
+        return { date: entry.date, label: entry.label || "", itemIds, itemNames: entry.itemNames || [] };
+      }).filter(c => c.date && c.itemIds.length > 0);
+      if (cards.length) setPlanCards(cards);
+    } catch (e) {
+      console.error("[extractPlan] failed:", e.message);
+    }
+  }
 
   async function sendChat(chatHistory, setChatHistory) {
     const msg = chatInput.trim(); if (!msg || chatLoading) return;
@@ -190,6 +231,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         saveMessage(activeSessionId.current, "assistant", reply);
       }
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
+      if (detectPlan(reply)) extractPlan(updated, items);
     } catch {
       setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
     }
@@ -278,6 +320,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     correctingIdx, setCorrectingIdx, correctionInput, setCorrectionInput,
     learnedIndicator,
     attachedImage, setAttachedImage,
+    planCards, setPlanCards, extractPlan,
     sendChat, submitCorrection,
     // item chat
     itemChatModal, setItemChatModal, itemChatHistory, itemChatInput, setItemChatInput,

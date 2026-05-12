@@ -643,6 +643,10 @@ export default function WardrobeApp() {
           attachedImage={styling.attachedImage}
           onImageAttach={file => readFile(file).then(styling.setAttachedImage)}
           onImageClear={() => styling.setAttachedImage(null)}
+          planCards={styling.planCards}
+          setPlanCards={styling.setPlanCards}
+          items={wardrobe.items}
+          onApprovePlanDay={card => { journalRef.current?.prefillEntry(card.date, card.itemIds, card.label); setView("journal"); }}
           journalRef={journalRef}
         />
       )}
