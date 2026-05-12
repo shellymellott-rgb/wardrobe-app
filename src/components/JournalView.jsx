@@ -291,9 +291,11 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             {selectedEntry && (
               <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
             )}
-            <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
-              {selectedEntry ? "Edit" : isFuture ? "+ Plan" : "+ Log"}
-            </button>
+            {!selectedEntry && (
+              <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "6px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+                {isFuture ? "+ Plan" : "+ Log"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -304,16 +306,28 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             )}
             {selectedEntry.item_ids?.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>Items worn</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ ...ML, color: T.ink3 }}>Items worn</div>
+                  <button onClick={openEntryForm} style={{ background: T.ink, color: "#fff", border: "none", borderRadius: 0, padding: "4px 12px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Edit</button>
+                </div>
                 <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
                   {selectedEntry.item_ids.map(id => {
                     const item = items.find(i => String(i.id) === String(id));
                     if (!item) return null;
                     return (
-                      <div key={id} style={{ flexShrink: 0, width: 72 }}>
+                      <div key={id} style={{ flexShrink: 0, width: 72, position: "relative", cursor: "pointer" }}
+                           onClick={openEntryForm}>
                         <div style={{ width: 72, height: 96, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
                           {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                         </div>
+                        <button
+                          onClick={async e => {
+                            e.stopPropagation();
+                            const newIds = selectedEntry.item_ids.filter(i => String(i) !== String(id));
+                            const ok = await sbSaveJournalEntry({ ...selectedEntry, item_ids: newIds });
+                            if (ok) await onEntrySaved();
+                          }}
+                          style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 11, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
                         <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                       </div>
                     );
