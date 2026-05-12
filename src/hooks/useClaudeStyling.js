@@ -173,13 +173,14 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           : m.content;
         return `${m.role}: ${content}`;
       }).join("\n");
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const tomorrowStr = tomorrow.toISOString().split("T")[0];
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 800,
           system: "You extract structured outfit plans from conversations. Return ONLY a JSON array, no markdown, no explanation.",
-          messages: [{ role: "user", content: `Extract every day's outfit from this conversation as JSON. Match dates to YYYY-MM-DD format. Use the exact item names mentioned.\n\nConversation:\n${convo}` }],
+          messages: [{ role: "user", content: `Extract only the FINAL recommended outfit from this conversation — the last outfit that was suggested or agreed on. Ignore earlier options that were rejected or replaced. Return a JSON array with ONE entry: [{ "date": "${tomorrowStr}", "label": "brief occasion description", "itemNames": ["exact item names from the final outfit only"] }]. If no clear final outfit exists, return [].\n\nConversation:\n${convo}` }],
         }),
       });
       const data = await res.json();
