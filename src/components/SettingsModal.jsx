@@ -247,7 +247,7 @@ export default function SettingsModal({
                 <input
                   type="number" min={1} max={7} value={heightFt}
                   onChange={e => setHeightFt(e.target.value)}
-                  style={{...inputStyle,marginBottom:0,width:52,textAlign:"center"}}
+                  style={{...inputStyle,marginBottom:0,width:64,textAlign:"center"}}
                   placeholder="5"
                 />
                 <span style={{fontSize:12,color:"#666"}}>ft</span>
@@ -256,7 +256,7 @@ export default function SettingsModal({
                 <input
                   type="number" min={0} max={11} value={heightIn}
                   onChange={e => setHeightIn(e.target.value)}
-                  style={{...inputStyle,marginBottom:0,width:52,textAlign:"center"}}
+                  style={{...inputStyle,marginBottom:0,width:64,textAlign:"center"}}
                   placeholder="4"
                 />
                 <span style={{fontSize:12,color:"#666"}}>in</span>
