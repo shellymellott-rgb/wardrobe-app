@@ -239,7 +239,8 @@ export default function WardrobeApp() {
   useEffect(() => { loadJournalEntries(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(() => { try { return localStorage.getItem("wardrobe-view") || "home"; } catch { return "home"; } });
+  function navigateTo(v) { setView(v); try { localStorage.setItem("wardrobe-view", v); } catch {} }
   const [showSettings, setShowSettings] = useState(false);
   const [journalPrefill, setJournalPrefill] = useState(null);
 
@@ -252,7 +253,7 @@ export default function WardrobeApp() {
       }
       setSelectedItem(null);
       setEditing(false);
-      if (state?.view) setView(state.view);
+      if (state?.view) navigateTo(state.view);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -515,7 +516,7 @@ export default function WardrobeApp() {
           {navOpen && (
             <div style={{borderTop:`1px solid ${T.rule}`,padding:"8px 20px 16px",display:"flex",flexDirection:"column",gap:2,background:T.surface}}>
               {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
-                <button key={v} onClick={()=>{setView(v);setNavOpen(false);window.history.pushState({view:v},"");}} style={{
+                <button key={v} onClick={()=>{navigateTo(v);setNavOpen(false);window.history.pushState({view:v},"");}} style={{
                   border:0,background:"transparent",textAlign:"left",cursor:"pointer",
                   fontFamily:T.mono,fontSize:11,letterSpacing:".22em",textTransform:"uppercase",
                   color:view===v?T.ink:T.ink2,
@@ -544,7 +545,7 @@ export default function WardrobeApp() {
               <div style={{width:1,height:14,background:T.rule,flexShrink:0}}/>
               <div style={{display:"flex",gap:22,flexShrink:0}}>
                 {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
-                  <button key={v} onClick={()=>{setView(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
+                  <button key={v} onClick={()=>{navigateTo(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
                 ))}
               </div>
             </div>
@@ -571,8 +572,8 @@ export default function WardrobeApp() {
           occasion={styling.occasion} setOccasion={styling.setOccasion}
           markWorn={markWorn}
           evaluateItem={(item) => evaluateItem(item, underloved)}
-          setView={setView}
-          onAddItem={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
+          setView={navigateTo}
+          onAddItem={()=>{navigateTo("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           weatherEnabled={settings.weatherEnabled}
           weatherOutfit={weatherOutfit}
           weatherLoading={weatherLoading}
@@ -610,7 +611,7 @@ export default function WardrobeApp() {
           underloved={underloved} markWorn={markWorn} user={user}
           savedOutfits={savedOutfits} outfitsLoading={outfitsLoading} onOutfitSaved={loadSavedOutfits}
           wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}
-          setChatInput={styling.setChatInput} setView={setView}
+          setChatInput={styling.setChatInput} setView={navigateTo}
         />
       )}
 
@@ -629,7 +630,7 @@ export default function WardrobeApp() {
           onEntryDeleted={loadJournalEntries}
           markWorn={markWorn}
           setChatInput={styling.setChatInput}
-          setView={setView}
+          setView={navigateTo}
           sbSaveJournalEntry={sbSaveJournalEntry}
           sbDeleteJournalEntry={sbDeleteJournalEntry}
           journalPrefill={journalPrefill}
@@ -655,7 +656,7 @@ export default function WardrobeApp() {
           planCards={styling.planCards}
           setPlanCards={styling.setPlanCards}
           items={wardrobe.items}
-          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); setView("journal"); }}
+          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); navigateTo("journal"); }}
           journalRef={journalRef}
         />
       )}
@@ -673,7 +674,7 @@ export default function WardrobeApp() {
           onImageDrop={file => handleImageFile(file, "add")}
           setCropSrc={setCropSrc} setCropTarget={setCropTarget}
           receiptImages={receiptImages} setReceiptImages={setReceiptImages}
-          setView={setView}
+          setView={navigateTo}
         />
       )}
 
@@ -730,7 +731,7 @@ export default function WardrobeApp() {
       {/* FAB — Add Item */}
       {!cropSrc && view!=="add" && !selectedItem && !showSettings && !styling.itemChatModal && (
         <button
-          onClick={()=>{setView("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
+          onClick={()=>{navigateTo("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           style={{
             position:"fixed",bottom:28,right:28,
             background:T.cobalt,color:"#fff",
