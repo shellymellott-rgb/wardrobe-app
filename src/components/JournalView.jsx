@@ -128,7 +128,8 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
 
   const taggedItems = entryItemIds.map(id => items.find(i => String(i.id) === String(id))).filter(Boolean);
   const filteredItems = items.filter(i =>
-    i.name.toLowerCase().includes(itemSearch.toLowerCase()) &&
+    (i.name?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+     i.brand?.toLowerCase().includes(itemSearch.toLowerCase())) &&
     !entryItemIds.includes(String(i.id))
   );
 
