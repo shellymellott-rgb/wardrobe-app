@@ -75,7 +75,7 @@ export function fmtItem(i) {
   );
 }
 
-export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto") {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14) {
   const stripped = items.map(stripForClaude);
   const isOutfitQuery = question && /\b(wear|outfit|dress|tomorrow|today|suggest|what should)\b/i.test(question);
   let ctx;
@@ -86,10 +86,10 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
     ctx = `${buildWardrobeSummary(stripped)}\n\nMost relevant items (${rel.length} of ${stripped.length} shown):\n${rel.map(fmtItem).join("\n")}`;
   }
   const today = new Date().toISOString().split("T")[0];
-  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const cutoff = new Date(Date.now() - rotationDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const recentlyWorn = stripped.filter(i => (i.wornDates || []).some(d => d >= cutoff && d <= today));
   const recentNote = recentlyWorn.length > 0
-    ? `\nIMPORTANT: Do NOT suggest these items — worn in the last 3 days: ${recentlyWorn.map(i => i.name).join(", ")}`
+    ? `\nIMPORTANT: Do NOT suggest these items — worn in the last ${rotationDays} days: ${recentlyWorn.map(i => i.name).join(", ")}`
     : "";
   const weatherLine = weather
     ? `Current weather: ${weather.condition}, high ${weather.tempHigh}°F / low ${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`

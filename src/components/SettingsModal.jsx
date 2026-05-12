@@ -285,6 +285,29 @@ export default function SettingsModal({
           >Save</button>
         </div>
 
+        {/* E2. Outfit Rotation */}
+        <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+          <div style={{fontSize:13,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:4}}>Outfit Rotation</div>
+          <div style={{fontSize:11,color:"#555",marginBottom:16,lineHeight:1.5}}>How many days before you'll wear the same item again</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[7,14,21,30].map(days => {
+              const active = (wardrobeProfile?.rotation_days || 14) === days;
+              return (
+                <button key={days} onClick={async () => {
+                  await upsertProfile(user.id, { rotation_days: days });
+                  onProfileUpdated?.();
+                }} style={{
+                  background: active ? "#e8e2d8" : "transparent",
+                  color: active ? "#111" : "#666",
+                  border: `1px solid ${active ? "#e8e2d8" : "#333"}`,
+                  borderRadius: 20, padding: "5px 14px", fontSize: 11,
+                  cursor: "pointer",
+                }}>{days} days</button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* F. Weather */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:10}}>Weather-Based Outfits</div>
