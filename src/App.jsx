@@ -60,7 +60,6 @@ export default function WardrobeApp() {
     saveSettings: settings.saveSettings,
     addStyleNote: settings.addStyleNote,
     user,
-    weather: currentWeather,
   });
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
@@ -120,7 +119,6 @@ export default function WardrobeApp() {
   const [weatherError, setWeatherError] = useState(null);
   const [weatherOccasion, setWeatherOccasion] = useState("");
   const [weatherSaved, setWeatherSaved] = useState(false);
-  const [currentWeather, setCurrentWeather] = useState(null);
 
   function weatherFilter(items, { tempHigh, tempLow, isRainy }) {
     const avg    = (tempHigh + tempLow) / 2;
@@ -168,7 +166,6 @@ export default function WardrobeApp() {
       const w = settings.homeCity.trim()
         ? await fetchWeatherByCity(settings.homeCity.trim())
         : await fetchWeatherByGeolocation();
-      setCurrentWeather(w);
       const candidates = weatherFilter(wardrobe.items, w);
       const text = await callClaude(
         settings.buildStyleSystem(),
@@ -689,8 +686,6 @@ export default function WardrobeApp() {
           exportWardrobe={exportWardrobe}
           onImport={()=>importRef.current.click()}
           user={user} signOut={signOut}
-          wardrobeProfile={styling.wardrobeProfile}
-          upsertProfile={styling.upsertProfile}
         />
       )}
 
