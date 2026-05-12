@@ -241,6 +241,7 @@ export default function WardrobeApp() {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
+  const [journalPrefill, setJournalPrefill] = useState(null);
 
   useEffect(() => {
     const onPopState = () => {
@@ -631,6 +632,8 @@ export default function WardrobeApp() {
           setView={setView}
           sbSaveJournalEntry={sbSaveJournalEntry}
           sbDeleteJournalEntry={sbDeleteJournalEntry}
+          journalPrefill={journalPrefill}
+          onPrefillConsumed={() => setJournalPrefill(null)}
         />
       )}
 
@@ -652,7 +655,7 @@ export default function WardrobeApp() {
           planCards={styling.planCards}
           setPlanCards={styling.setPlanCards}
           items={wardrobe.items}
-          onApprovePlanDay={card => { journalRef.current?.prefillEntry(card.date, card.itemIds, card.label); setView("journal"); }}
+          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); setView("journal"); }}
           journalRef={journalRef}
         />
       )}

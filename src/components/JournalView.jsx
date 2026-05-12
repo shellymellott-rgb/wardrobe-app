@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { T, ML, tabStyle } from "../theme.js";
 import { inputStyle } from "../styles.js";
 
@@ -20,7 +20,7 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry }, ref) {
+const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry, journalPrefill, onPrefillConsumed }, ref) {
   const [calView, setCalView] = useState("month");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -36,6 +36,16 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
       setShowEntryForm(true);
     },
   }));
+
+  useEffect(() => {
+    if (!journalPrefill) return;
+    setSelectedDate(journalPrefill.date);
+    setEntryItemIds(journalPrefill.itemIds);
+    setEntryNotes(journalPrefill.notes || "");
+    setShowEntryForm(true);
+    onPrefillConsumed?.();
+  }, [journalPrefill]);
+
   const [saving, setSaving] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const photoRef = useRef();
