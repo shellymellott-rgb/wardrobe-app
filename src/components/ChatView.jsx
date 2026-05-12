@@ -59,7 +59,7 @@ export default function ChatView({
             {chatHistory.map((msg,i)=>(
               <div key={i}>
                 <div style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}>
-                  <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{msg.content}</div>
+                  <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{Array.isArray(msg.content)?msg.content.map((block,bi)=>block.type==="image"?<img key={bi} src={`data:${block.source.media_type};base64,${block.source.data}`} style={{maxWidth:"100%",maxHeight:200,borderRadius:8,display:"block",marginBottom:4}}/>:<span key={bi}>{block.text}</span>):msg.content}</div>
                 </div>
                 {msg.role==="assistant" && !chatLoading && (
                   correctingIdx===i ? (
