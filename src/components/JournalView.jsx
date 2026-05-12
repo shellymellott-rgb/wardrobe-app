@@ -354,7 +354,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                     {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
                   </button>
                   <button
-                    onClick={async () => { removeWornDate(item.id, item.wornDates.indexOf(selectedDate)); await onEntrySaved(); }}
+                    onClick={async e => { e.stopPropagation(); removeWornDate(item.id, item.wornDates.indexOf(selectedDate)); await onEntrySaved(); }}
                     style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 11, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
                   <div style={{ fontFamily: T.sans, fontSize: 8, color: T.ink3, marginTop: 3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                 </div>
