@@ -7,7 +7,7 @@ import { readFile, compressImage } from "../utils/imageUtils.js";
 import { useChatSessions } from "./useChatSessions.js";
 
 export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addStyleNote, user, weather }) {
-  const { loadProfile, createSession, saveMessage } = useChatSessions();
+  const { loadProfile, upsertProfile, createSession, saveMessage } = useChatSessions();
   const [wardrobeProfile, setWardrobeProfile] = useState(null);
   const activeSessionId = useRef(null);
 
@@ -326,5 +326,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     itemChatModal, setItemChatModal, itemChatHistory, itemChatInput, setItemChatInput,
     itemChatLoading, itemChatEndRef,
     openItemChat, sendItemChat,
+    // profile
+    wardrobeProfile, upsertProfile,
   };
 }

@@ -689,6 +689,8 @@ export default function WardrobeApp() {
           exportWardrobe={exportWardrobe}
           onImport={()=>importRef.current.click()}
           user={user} signOut={signOut}
+          wardrobeProfile={styling.wardrobeProfile}
+          upsertProfile={styling.upsertProfile}
         />
       )}
 
