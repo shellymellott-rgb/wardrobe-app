@@ -159,9 +159,10 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   function detectPlan(text) {
     const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
     const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
-    if (multiDayCount >= 3) return true;
+    if (multiDayCount >= 3) { console.log("[detectPlan] multiDayCount:", multiDayCount, "outfitCount: n/a"); return true; }
     const outfitLabels = [/\*{0,2}Top:\*{0,2}/i, /\*{0,2}Bottom:\*{0,2}/i, /\*{0,2}Pants:\*{0,2}/i, /\*{0,2}Shoes:\*{0,2}/i, /\*{0,2}Dress:\*{0,2}/i, /\*{0,2}Layer:\*{0,2}/i, /\*{0,2}Earrings:\*{0,2}/i, /\*{0,2}Accessories:\*{0,2}/i, /\*{0,2}Outfit:\*{0,2}/i, /\*{0,2}Logged outfit:\*{0,2}/i];
     const outfitCount = outfitLabels.reduce((acc, p) => acc + (p.test(text) ? 1 : 0), 0);
+    console.log("[detectPlan] multiDayCount:", multiDayCount, "outfitCount:", outfitCount);
     return outfitCount >= 2;
   }
 
@@ -173,6 +174,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           : m.content;
         return `${m.role}: ${content}`;
       }).join("\n");
+      console.log("[extractPlan] detecting plan, convo length:", convo.length);
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const tomorrowStr = tomorrow.toISOString().split("T")[0];
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -185,6 +187,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       });
       const data = await res.json();
       const parsed = parseJsonArray(data.content?.[0]?.text || "");
+      console.log("[extractPlan] parsed:", parsed);
       if (!parsed?.length) return;
       const cards = parsed.map(entry => {
         const itemIds = (entry.itemNames || []).map(name => {
@@ -194,6 +197,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         }).filter(Boolean);
         return { date: entry.date, label: entry.label || "", itemIds, itemNames: entry.itemNames || [] };
       }).filter(c => c.date && c.itemIds.length > 0);
+      console.log("[extractPlan] cards:", cards);
       if (cards.length) setPlanCards(cards);
     } catch (e) {
       console.error("[extractPlan] failed:", e.message);
@@ -240,7 +244,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         saveMessage(activeSessionId.current, "assistant", reply);
       }
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
-      if (detectPlan(reply)) extractPlan(updated, items);
+      const detected = detectPlan(reply); console.log("[detectPlan] result:", detected, "reply preview:", reply.slice(0, 100)); if (detected) extractPlan(updated, items);
     } catch {
       setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
     }
