@@ -108,10 +108,11 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season (stored): ${offSeason.slice(0, 20).map(i => i.name).join(", ")}` : "";
   const base = `${buildStyleSystem()}\n\n${weatherLine}${seasonLine}${ctx}${recentNote}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot write to the journal, log outfits, or save anything — only suggest. The user saves via the UI.`;
   if (!profile) return base;
-  const SKIP = new Set(["id", "user_id", "created_at", "updated_at"]);
+  const SKIP = new Set(["id", "user_id", "created_at", "updated_at", "height_ft", "height_in"]);
   const profileLines = Object.entries(profile)
     .filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== "")
     .map(([k, v]) => `${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(", ") : v}`);
+  if (profile.height_ft != null) profileLines.unshift(`height: ${profile.height_ft}'${profile.height_in ?? 0}"`);
   if (!profileLines.length) return base;
   return `What I know about you:\n${profileLines.join("\n")}\n\n${base}`;
 }

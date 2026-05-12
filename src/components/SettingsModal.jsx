@@ -22,6 +22,9 @@ export default function SettingsModal({
   const [bodyLoading, setBodyLoading] = useState(false);
   const colorPhotoRef = useRef();
   const bodyPhotoRef = useRef();
+  const [heightFt, setHeightFt] = useState(wardrobeProfile?.height_ft ?? "");
+  const [heightIn, setHeightIn] = useState(wardrobeProfile?.height_in ?? "");
+  const [sizes, setSizes] = useState(wardrobeProfile?.sizes ?? "");
 
   function handleAddCat() {
     if (addCustomCategory(newCatInput)) setNewCatInput("");
@@ -234,7 +237,55 @@ export default function SettingsModal({
           </div>
         </div>
 
-        {/* E. Weather */}
+        {/* E. Fit & Sizing */}
+        <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+          <div style={{fontSize:13,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:12}}>Fit & Sizing</div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Height</div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <input
+                  type="number" min={1} max={7} value={heightFt}
+                  onChange={e => setHeightFt(e.target.value)}
+                  style={{...inputStyle,marginBottom:0,width:52,textAlign:"center"}}
+                  placeholder="5"
+                />
+                <span style={{fontSize:12,color:"#666"}}>ft</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <input
+                  type="number" min={0} max={11} value={heightIn}
+                  onChange={e => setHeightIn(e.target.value)}
+                  style={{...inputStyle,marginBottom:0,width:52,textAlign:"center"}}
+                  placeholder="4"
+                />
+                <span style={{fontSize:12,color:"#666"}}>in</span>
+              </div>
+            </div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Sizes</div>
+            <textarea
+              value={sizes}
+              onChange={e => setSizes(e.target.value)}
+              placeholder="e.g. Tops: S/M · Denim: 27 waist · Shoes: 8.5 · Dresses: size 4 · J.Crew runs large for me"
+              style={{...inputStyle,height:72,resize:"none",lineHeight:1.6,marginBottom:0}}
+            />
+          </div>
+          <button
+            onClick={async () => {
+              const updates = {};
+              if (heightFt !== "") updates.height_ft = Number(heightFt);
+              if (heightIn !== "") updates.height_in = Number(heightIn);
+              if (sizes !== "") updates.sizes = sizes;
+              await upsertProfile(user.id, updates);
+              onProfileUpdated?.();
+            }}
+            style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"8px 20px",fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}
+          >Save</button>
+        </div>
+
+        {/* F. Weather */}
         <div style={{marginBottom:28}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#888",marginBottom:10}}>Weather-Based Outfits</div>
           <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
