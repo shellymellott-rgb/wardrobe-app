@@ -638,6 +638,9 @@ export default function WardrobeApp() {
           correctingIdx={styling.correctingIdx} setCorrectingIdx={styling.setCorrectingIdx}
           correctionInput={styling.correctionInput} setCorrectionInput={styling.setCorrectionInput}
           sendChat={styling.sendChat} submitCorrection={styling.submitCorrection}
+          attachedImage={styling.attachedImage}
+          onImageAttach={file => readFile(file).then(styling.setAttachedImage)}
+          onImageClear={() => styling.setAttachedImage(null)}
         />
       )}
 

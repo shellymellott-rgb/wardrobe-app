@@ -142,6 +142,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   // ── Main chat ──────────────────────────────────────────────────────────────
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [attachedImage, setAttachedImage] = useState(null);
   const [correctingIdx, setCorrectingIdx] = useState(null);
   const [correctionInput, setCorrectionInput] = useState("");
   const [learnedIndicator, setLearnedIndicator] = useState(false);
@@ -154,14 +155,29 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     const newHistory = [...chatHistory, { role:"user", content:msg }];
     setChatHistory(newHistory);
     try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(newHistory)); } catch {}
-    setChatInput(""); setChatLoading(true);
+    setChatInput("");
+    const imgToSend = attachedImage;
+    setAttachedImage(null);
+    setChatLoading(true);
     if (!activeSessionId.current && user?.id) {
       activeSessionId.current = await createSession(user.id);
     }
     try {
+      let apiMessages = buildContextHistory(newHistory);
+      if (imgToSend) {
+        const compressed = await compressImage(imgToSend, 400, 0.35);
+        const base64 = compressed.split(",")[1];
+        apiMessages = [
+          ...apiMessages.slice(0, -1),
+          { role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: msg },
+          ]},
+        ];
+      }
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile), messages:apiMessages }),
       });
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
@@ -261,6 +277,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     chatInput, setChatInput, chatLoading, chatEndRef,
     correctingIdx, setCorrectingIdx, correctionInput, setCorrectionInput,
     learnedIndicator,
+    attachedImage, setAttachedImage,
     sendChat, submitCorrection,
     // item chat
     itemChatModal, setItemChatModal, itemChatHistory, itemChatInput, setItemChatInput,

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { inputStyle, ghostBtn } from "../styles.js";
 
 export default function ChatView({
@@ -8,11 +8,15 @@ export default function ChatView({
   learnedIndicator, chatEndRef,
   correctingIdx, setCorrectingIdx, correctionInput, setCorrectionInput,
   sendChat, submitCorrection,
+  attachedImage, onImageAttach, onImageClear,
 }) {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatHistory]);
+  const imageInputRef = useRef();
 
   return (
     <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",height:"calc(100vh - 160px)",display:"flex",flexDirection:"column"}}>
+      <input type="file" accept="image/*" ref={imageInputRef} style={{display:"none"}}
+        onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f && onImageAttach) onImageAttach(f); }} />
       {styleNotes.length>0 && (
         <div style={{flexShrink:0,padding:"10px 24px",borderBottom:"1px solid #1a1a1a"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -34,10 +38,19 @@ export default function ChatView({
         <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 24px 40px"}}>
           <div style={{fontSize:22,fontStyle:"italic",letterSpacing:-0.5,color:"#e8e2d8",marginBottom:6}}>Ask anything</div>
           <div style={{fontSize:12,color:"#444",lineHeight:2,textAlign:"center",marginBottom:32}}>What am I missing? · What shoes go with my cream jeans?<br/>Build a capsule for a weekend trip</div>
-          <div style={{width:"100%",maxWidth:480,display:"flex",gap:8,alignItems:"center"}}>
-            {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
-            <input autoFocus value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1,fontSize:15,padding:"14px 16px"}} disabled={chatLoading}/>
-            <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"14px 20px",fontSize:13,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+          <div style={{width:"100%",maxWidth:480}}>
+            {attachedImage && (
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <img src={attachedImage} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
+                <button onClick={onImageClear} style={{...ghostBtn,fontSize:18,padding:"0 4px",color:"#666"}}>×</button>
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
+              <input autoFocus value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1,fontSize:15,padding:"14px 16px"}} disabled={chatLoading}/>
+              <button onClick={()=>imageInputRef.current?.click()} style={{background:"none",border:"none",color:"#666",fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0,lineHeight:1}} title="Attach image">📎</button>
+              <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"14px 20px",fontSize:13,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+            </div>
           </div>
         </div>
       ) : (
@@ -70,10 +83,19 @@ export default function ChatView({
             )}
             <div ref={chatEndRef}/>
           </div>
-          <div style={{flexShrink:0,padding:"12px 16px",borderTop:"1px solid #1a1a1a",background:"#111",display:"flex",gap:8,alignItems:"center"}}>
-            {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
-            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
-            <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+          <div style={{flexShrink:0,borderTop:"1px solid #1a1a1a",background:"#111"}}>
+            {attachedImage && (
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px 0"}}>
+                <img src={attachedImage} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
+                <button onClick={onImageClear} style={{...ghostBtn,fontSize:18,padding:"0 4px",color:"#666"}}>×</button>
+              </div>
+            )}
+            <div style={{padding:"12px 16px",display:"flex",gap:8,alignItems:"center"}}>
+              {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
+              <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
+              <button onClick={()=>imageInputRef.current?.click()} style={{background:"none",border:"none",color:"#666",fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0,lineHeight:1}} title="Attach image">📎</button>
+              <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+            </div>
           </div>
         </div>
       )}
