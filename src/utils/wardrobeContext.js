@@ -75,7 +75,13 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
     const rel = filterRelevantItems(stripped, question);
     ctx = `${buildWardrobeSummary(stripped)}\n\nMost relevant items (${rel.length} of ${stripped.length} shown):\n${rel.map(fmtItem).join("\n")}`;
   }
-  const base = `${buildStyleSystem()}\n\n${ctx}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Be concise and direct.`;
+  const today = new Date().toISOString().split("T")[0];
+  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const recentlyWorn = stripped.filter(i => (i.wornDates || []).some(d => d >= cutoff && d <= today));
+  const recentNote = recentlyWorn.length > 0
+    ? `\nIMPORTANT: Do NOT suggest these items — worn in the last 3 days: ${recentlyWorn.map(i => i.name).join(", ")}`
+    : "";
+  const base = `${buildStyleSystem()}\n\n${ctx}${recentNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at"]);
   const profileLines = Object.entries(profile)
