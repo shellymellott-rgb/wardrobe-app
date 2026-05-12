@@ -167,14 +167,16 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     return outfitCount >= 2;
   }
 
-  async function extractPlan(history, itemList) {
+  async function extractPlan(historyOrReply, itemList) {
     try {
-      const convo = history.slice(-30).map(m => {
-        const content = Array.isArray(m.content)
-          ? m.content.filter(b => b.type === "text").map(b => b.text).join(" ")
-          : m.content;
-        return `${m.role}: ${content}`;
-      }).join("\n");
+      const convo = typeof historyOrReply === "string"
+        ? historyOrReply
+        : historyOrReply.slice(-30).map(m => {
+            const content = Array.isArray(m.content)
+              ? m.content.filter(b => b.type === "text").map(b => b.text).join(" ")
+              : m.content;
+            return `${m.role}: ${content}`;
+          }).join("\n");
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const tomorrowStr = tomorrow.toISOString().split("T")[0];
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -248,7 +250,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         saveMessage(activeSessionId.current, "assistant", reply);
       }
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
-      if (detectPlan(reply)) extractPlan(updated, items);
+      if (detectPlan(reply)) extractPlan(reply, items);
     } catch {
       setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
     }
