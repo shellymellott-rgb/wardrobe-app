@@ -281,6 +281,7 @@ export default function WardrobeApp() {
   const importRef = useRef();
   const outfitPhotoRef = useRef();
   const headerRef = useRef();
+  const journalRef = useRef();
   const [narrowHeader, setNarrowHeader] = useState(typeof window !== "undefined" && window.innerWidth < 720);
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
@@ -612,6 +613,7 @@ export default function WardrobeApp() {
 
       {view==="journal" && (
         <JournalView
+          ref={journalRef}
           items={wardrobe.items}
           user={user}
           journalEntries={journalEntries}
@@ -641,6 +643,7 @@ export default function WardrobeApp() {
           attachedImage={styling.attachedImage}
           onImageAttach={file => readFile(file).then(styling.setAttachedImage)}
           onImageClear={() => styling.setAttachedImage(null)}
+          journalRef={journalRef}
         />
       )}
 
