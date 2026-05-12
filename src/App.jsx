@@ -183,7 +183,7 @@ export default function WardrobeApp() {
     setWeatherLoading(false);
   }
 
-  useEffect(() => { if (user?.id && !currentWeather) getWeatherOutfit(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (user?.id && !currentWeather && wardrobe.items.length >= 2) getWeatherOutfit(); }, [user?.id, wardrobe.items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function saveWeatherOutfit() {
     if (!weatherOutfit || weatherSaved) return;
