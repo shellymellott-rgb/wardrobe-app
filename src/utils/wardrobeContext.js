@@ -106,7 +106,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const offSeason = stripped.filter(i => !inSeason.includes(i));
   const seasonLine = `Current season: ${currentSeason}. Off-season items (${offSeason.length} pieces) are deprioritized — focus recommendations on in-season pieces unless the user specifically asks.\n\n`;
   const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season (stored): ${offSeason.slice(0, 20).map(i => i.name).join(", ")}` : "";
-  const base = `${buildStyleSystem()}\n\n${weatherLine}${seasonLine}${ctx}${recentNote}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot write to the journal, log outfits, or save anything — only suggest. The user saves via the UI.`;
+  const base = `${buildStyleSystem()}\n\n${weatherLine}${seasonLine}${recentNote}\n\n${ctx}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot write to the journal, log outfits, or save anything — only suggest. The user saves via the UI.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at", "height_ft", "height_in"]);
   const profileLines = Object.entries(profile)
