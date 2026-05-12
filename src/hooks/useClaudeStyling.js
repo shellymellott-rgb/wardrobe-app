@@ -157,9 +157,12 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   function flashLearned() { setLearnedIndicator(true); setTimeout(() => setLearnedIndicator(false), 2000); }
 
   function detectPlan(text) {
-    const patterns = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
-    const count = patterns.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
-    return count >= 3;
+    const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
+    const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
+    if (multiDayCount >= 3) return true;
+    const outfitLabels = [/\bTop:/i, /\bBottom:/i, /\bPants:/i, /\bShoes:/i, /\bDress:/i, /\bLayer:/i, /\bEarrings:/i, /\bAccessories:/i, /\bOutfit:/i, /\bLogged outfit:/i];
+    const outfitCount = outfitLabels.reduce((acc, p) => acc + (p.test(text) ? 1 : 0), 0);
+    return outfitCount >= 2;
   }
 
   async function extractPlan(history, itemList) {
