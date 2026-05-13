@@ -27,6 +27,11 @@ export default function SettingsModal({
   const [heightFt, setHeightFt] = useState(wardrobeProfile?.height_ft ?? "");
   const [heightIn, setHeightIn] = useState(wardrobeProfile?.height_in ?? "");
   const [sizes, setSizes] = useState(wardrobeProfile?.sizes ?? "");
+  const PRESETS = ["editorial", "supportive", "practical"];
+  const initPersonality = PRESETS.includes(wardrobeProfile?.bot_personality) ? wardrobeProfile.bot_personality : wardrobeProfile?.bot_personality ? "custom" : "";
+  const [botName, setBotName] = useState(wardrobeProfile?.bot_name || "");
+  const [botPersonality, setBotPersonality] = useState(initPersonality);
+  const [botCustomText, setBotCustomText] = useState(PRESETS.includes(wardrobeProfile?.bot_personality) ? "" : wardrobeProfile?.bot_personality || "");
 
   function handleAddCat() {
     if (addCustomCategory(newCatInput)) setNewCatInput("");
@@ -90,6 +95,57 @@ export default function SettingsModal({
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
           <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#666"}}>Settings</div>
           <button onClick={onClose} style={ghostBtn}>✕ Close</button>
+        </div>
+
+        {/* 0. Your Stylist */}
+        <div style={{marginBottom:28,background:"#161616",border:"1px solid #2a2a2a",borderRadius:4,padding:16}}>
+          <div style={{fontSize:13,letterSpacing:2,textTransform:"uppercase",color:"#aaa",marginBottom:4}}>Your Stylist</div>
+          <div style={{fontSize:11,color:"#555",marginBottom:16,lineHeight:1.5}}>Give your AI stylist a name and personality.</div>
+
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:6}}>Name</div>
+            <input
+              value={botName}
+              onChange={e => setBotName(e.target.value)}
+              placeholder="e.g. Donut"
+              style={{...inputStyle,marginBottom:0}}
+            />
+          </div>
+
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Personality</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:botPersonality==="custom"?10:0}}>
+              {["editorial","supportive","practical","custom"].map(p => {
+                const active = botPersonality === p;
+                return (
+                  <button key={p} onClick={() => setBotPersonality(p)} style={{
+                    background: active ? "#e8e2d8" : "transparent",
+                    color: active ? "#111" : "#666",
+                    border: `1px solid ${active ? "#e8e2d8" : "#333"}`,
+                    borderRadius: 20, padding: "5px 14px", fontSize: 11,
+                    textTransform: "capitalize", cursor: "pointer",
+                  }}>{p}</button>
+                );
+              })}
+            </div>
+            {botPersonality === "custom" && (
+              <textarea
+                value={botCustomText}
+                onChange={e => setBotCustomText(e.target.value)}
+                placeholder="e.g. You are sharp and witty, with a European minimalist sensibility."
+                style={{...inputStyle,height:72,resize:"none",lineHeight:1.6,marginBottom:0,marginTop:10}}
+              />
+            )}
+          </div>
+
+          <button
+            onClick={async () => {
+              const personality = botPersonality === "custom" ? botCustomText.trim() || null : botPersonality || null;
+              await upsertProfile(user.id, { bot_name: botName.trim() || null, bot_personality: personality });
+              onProfileUpdated?.();
+            }}
+            style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"8px 20px",fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}
+          >Save</button>
         </div>
 
         {/* A. Custom Categories */}
