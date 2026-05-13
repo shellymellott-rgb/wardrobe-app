@@ -51,7 +51,19 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
 
   const [saving, setSaving] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+  const [editingWornItem, setEditingWornItem] = useState(null); // { itemId, currentDate, newDate }
   const photoRef = useRef();
+
+  function saveWornDate() {
+    const { itemId, currentDate, newDate } = editingWornItem;
+    if (newDate && newDate !== currentDate) {
+      const item = items.find(i => String(i.id) === String(itemId));
+      const idx = item ? (item.wornDates || []).indexOf(currentDate) : -1;
+      if (idx !== -1) removeWornDate(itemId, idx);
+      markWorn(itemId, newDate);
+    }
+    setEditingWornItem(null);
+  }
 
   const today = todayStr();
   const isFuture = selectedDate > today;
@@ -362,7 +374,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                   {entryDisplayItems.length > 0 && (
                     <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
                       {entryDisplayItems.map(({ key, item, rawId }, idx) => (
-                        <div key={key} onClick={() => openEntryForm(entry)} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
+                        <div key={key} onClick={() => setEditingWornItem({ itemId: item.id, currentDate: selectedDate, newDate: selectedDate })} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
                           <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
                             {(item.imageThumb || item.imageData) && (
                               <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -418,7 +430,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
           <div>
             <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
               {wornMapItems.map((item, idx) => (
-                <div key={String(item.id)} style={{ flexShrink: 0, width: 100, position: "relative" }}>
+                <div key={String(item.id)} onClick={() => setEditingWornItem({ itemId: item.id, currentDate: selectedDate, newDate: selectedDate })} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
                   <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
                     {(item.imageThumb || item.imageData) && (
                       <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -463,6 +475,31 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
           </div>
         )}
       </div>
+
+      {/* ── Worn date editor ─────────────────────────────── */}
+      {editingWornItem && (() => {
+        const ewItem = items.find(i => String(i.id) === String(editingWornItem.itemId));
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(10,10,10,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setEditingWornItem(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: T.surface, border: `1px solid ${T.ink3}`, borderRadius: 4, padding: 24, width: 280 }}>
+              <div style={{ fontFamily: T.serif, fontSize: 18, color: T.ink, marginBottom: 4 }}>{ewItem?.name || "Item"}</div>
+              {ewItem?.brand && <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink3, marginBottom: 16 }}>{ewItem.brand}</div>}
+              <div style={{ fontFamily: T.mono, fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: T.ink3, marginBottom: 6 }}>Worn date</div>
+              <input
+                type="date"
+                value={editingWornItem.newDate}
+                onChange={e => setEditingWornItem(prev => ({ ...prev, newDate: e.target.value }))}
+                style={{ width: "100%", background: T.paper, border: `1px solid ${T.rule}`, color: T.ink, fontFamily: T.mono, fontSize: 13, padding: "8px 10px", marginBottom: 16, boxSizing: "border-box" }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={saveWornDate} style={{ flex: 1, background: T.citron, color: T.ink, border: "none", padding: "9px 0", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Save</button>
+                <button onClick={() => setEditingWornItem(null)} style={{ flex: 1, background: "none", border: `1px solid ${T.rule}`, color: T.ink3, padding: "9px 0", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Entry form ────────────────────────────────────── */}
       {showEntryForm && (
