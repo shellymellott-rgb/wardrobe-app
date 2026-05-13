@@ -518,7 +518,7 @@ export default function WardrobeApp() {
           </div>
           {navOpen && (
             <div style={{borderTop:`1px solid ${T.rule}`,padding:"8px 20px 16px",display:"flex",flexDirection:"column",gap:2,background:T.surface}}>
-              {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+              {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
                 <button key={v} onClick={()=>{navigateTo(v);setNavOpen(false);window.history.pushState({view:v},"");}} style={{
                   border:0,background:"transparent",textAlign:"left",cursor:"pointer",
                   fontFamily:T.mono,fontSize:11,letterSpacing:".22em",textTransform:"uppercase",
@@ -547,7 +547,7 @@ export default function WardrobeApp() {
               <div style={{fontFamily:T.serif,fontSize:22,color:T.ink,letterSpacing:"-.01em",flexShrink:0}}>Wardrobe</div>
               <div style={{width:1,height:14,background:T.rule,flexShrink:0}}/>
               <div style={{display:"flex",gap:22,flexShrink:0}}>
-                {[["Home","home"],["Closet","closet"],["Outfits","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+                {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
                   <button key={v} onClick={()=>{navigateTo(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
                 ))}
               </div>
@@ -605,9 +605,7 @@ export default function WardrobeApp() {
 
       {view==="outfits" && (
         <OutfitsView
-          items={wardrobe.items} occasion={styling.occasion} setOccasion={styling.setOccasion}
-          outfits={styling.outfits} outfitText={styling.outfitText} loadingOutfit={styling.loadingOutfit}
-          generateOutfits={styling.generateOutfits}
+          items={wardrobe.items}
           inspoImage={styling.inspoImage} inspoResult={styling.inspoResult}
           setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
           loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}

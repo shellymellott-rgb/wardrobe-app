@@ -1,13 +1,10 @@
 import { useRef, useState } from "react";
-import { T, ML, chipB } from "../theme.js";
+import { T, ML } from "../theme.js";
 import { ghostBtn } from "../styles.js";
 import { sbCreateOutfit } from "../supabase.js";
-import CompositeOutfitCard from "./CompositeOutfitCard.jsx";
-
-const OCCASION_CHIPS = ["Errands", "Dinner", "Travel", "Boat day", "Work from home", "Date night", "Beach", "Gym"];
 
 export default function OutfitsView({
-  items, occasion, setOccasion, outfits, outfitText, loadingOutfit, generateOutfits,
+  items,
   inspoImage, inspoResult, setInspoResult, setInspoImage, loadingInspo, analyzeInspo,
   underloved, markWorn, user,
   savedOutfits, outfitsLoading, onOutfitSaved,
@@ -57,84 +54,11 @@ export default function OutfitsView({
       {/* ── Hero ─────────────────────────────────────────── */}
       <div style={{ padding: "40px 28px 24px", borderBottom: `1px solid ${T.rule}` }}>
         <div style={{ ...ML, color: T.ink3, marginBottom: 12 }}>Outfit Studio</div>
-        <h2 style={{ fontFamily: T.serif, fontSize: 44, fontWeight: 400, letterSpacing: "-.02em", lineHeight: 1.0, color: T.ink, margin: "0 0 20px" }}>
-          What are you{" "}
-          <em style={{ fontStyle: "italic", color: T.cobalt }}>dressing for?</em>
+        <h2 style={{ fontFamily: T.serif, fontSize: 44, fontWeight: 400, letterSpacing: "-.02em", lineHeight: 1.0, color: T.ink, margin: 0 }}>
+          Your{" "}
+          <em style={{ fontStyle: "italic", color: T.cobalt }}>Looks</em>
         </h2>
-
-        {/* Occasion chips */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-          {OCCASION_CHIPS.map(s => (
-            <button key={s} onClick={() => setOccasion(occasion === s ? "" : s)} style={chipB(occasion === s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {/* Generate CTA */}
-        <button
-          onClick={generateOutfits}
-          disabled={loadingOutfit || items.length < 2}
-          style={{
-            width: "100%", background: items.length < 2 ? T.rule : T.cobalt,
-            color: items.length < 2 ? T.ink3 : "#fff",
-            border: "none", borderRadius: 0, padding: "16px",
-            fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em",
-            textTransform: "uppercase",
-            cursor: items.length < 2 ? "not-allowed" : "pointer",
-          }}
-        >
-          {loadingOutfit ? "Styling…" : items.length < 2 ? "Add at least 2 pieces first" : "Generate Outfits"}
-        </button>
       </div>
-
-      {/* ── Generated outfit results ─────────────────────── */}
-      {outfits.length > 0 && (
-        <div style={{ padding: "28px 28px 0", borderBottom: `1px solid ${T.rule}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ ...ML, color: T.ink3 }}>Generated Looks</div>
-            <button onClick={generateOutfits} style={{ ...ML, background: "none", border: "none", color: T.ink3, cursor: "pointer", padding: 0 }}>↻ Regenerate</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)" }}>
-            {outfits.map((outfit, oi) => {
-              const outfitItems = (outfit.pieces || []).map(name => {
-                const q = name.toLowerCase().trim();
-                return (
-                  items.find(i => i.name.toLowerCase() === q) ||
-                  items.find(i => i.name.toLowerCase().includes(q) || q.includes(i.name.toLowerCase())) ||
-                  null
-                );
-              }).filter(Boolean);
-              return (
-                <div key={oi} style={{ borderRight: oi < outfits.length - 1 ? `1px solid ${T.rule}` : "none", borderBottom: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                  {/* 2×2 quadrant */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-                    {[0,1,2,3].map(idx => (
-                      <div key={idx} style={{ aspectRatio: "1/1", overflow: "hidden", background: T.paper, borderRight: idx % 2 === 0 ? `1px solid ${T.rule}` : "none", borderBottom: idx < 2 ? `1px solid ${T.rule}` : "none" }}>
-                        {outfitItems[idx]?.imageData
-                          ? <img src={outfitItems[idx].imageThumb ?? outfitItems[idx].imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                          : null
-                        }
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: "12px 14px 14px" }}>
-                    <div style={{ ...ML, color: T.ink3, marginBottom: 4 }}>{outfit.why?.slice(0, 24) || "Outfit"}</div>
-                    <div style={{ fontFamily: T.serif, fontSize: 18, color: T.ink, lineHeight: 1.1 }}>{outfit.name}</div>
-                    {outfit.tip && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 4 }}>✦ {outfit.tip}</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {outfitText && (
-        <div style={{ padding: "16px 28px", background: T.paper, borderBottom: `1px solid ${T.rule}`, fontFamily: T.sans, fontSize: 13, lineHeight: 1.8, color: T.ink2, whiteSpace: "pre-wrap" }}>
-          {outfitText}
-        </div>
-      )}
 
       {/* ── Inspo section ────────────────────────────────── */}
       <div style={{ padding: "28px 28px 0", borderBottom: `1px solid ${T.rule}` }}>
@@ -268,7 +192,6 @@ export default function OutfitsView({
               const outfitItems = (outfit.itemIds || []).map(id => items.find(i => String(i.id) === id)).filter(Boolean);
               return (
                 <div key={outfit.id} style={{ borderRight: idx % 3 < 2 ? `1px solid ${T.rule}` : "none", borderBottom: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                  {/* 2×2 quadrant */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
                     {[0,1,2,3].map(i => (
                       <div key={i} style={{ aspectRatio: "1/1", overflow: "hidden", background: T.paper, borderRight: i % 2 === 0 ? `1px solid ${T.rule}` : "none", borderBottom: i < 2 ? `1px solid ${T.rule}` : "none" }}>
