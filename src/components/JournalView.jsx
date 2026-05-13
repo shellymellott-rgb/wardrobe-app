@@ -362,7 +362,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                   {entryDisplayItems.length > 0 && (
                     <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
                       {entryDisplayItems.map(({ key, item, rawId }, idx) => (
-                        <div key={key} style={{ flexShrink: 0, width: 100, position: "relative" }}>
+                        <div key={key} onClick={() => openEntryForm(entry)} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
                           <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
                             {(item.imageThumb || item.imageData) && (
                               <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
