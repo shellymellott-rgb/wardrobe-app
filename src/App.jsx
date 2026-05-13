@@ -639,6 +639,7 @@ export default function WardrobeApp() {
           journalPrefill={journalPrefill}
           onPrefillConsumed={() => setJournalPrefill(null)}
           removeWornDate={removeWornDate}
+          onSelectItem={item => setSelectedItem(item)}
         />
       )}
 
