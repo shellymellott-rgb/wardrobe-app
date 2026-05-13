@@ -404,7 +404,10 @@ export default function WardrobeApp() {
   }
 
   function removeItem(id) {
-    wardrobe.persist(wardrobe.items.filter(i=>String(i.id)!==String(id)));
+    console.log("[removeItem] removing id:", id, typeof id);
+    const filtered = wardrobe.items.filter(i=>String(i.id)!==String(id));
+    console.log("[removeItem] items before:", wardrobe.items.length, "after:", filtered.length);
+    wardrobe.persist(filtered);
     setSelectedItem(null); styling.setItemEval(""); setEditing(false); setWornDateInput(null);
     window.history.pushState({ view }, "");
   }
