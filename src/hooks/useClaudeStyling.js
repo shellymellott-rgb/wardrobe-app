@@ -164,7 +164,10 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     if (multiDayCount >= 3) return true;
     const outfitLabels = [/\*{0,2}Top:\*{0,2}/i, /\*{0,2}Bottom:\*{0,2}/i, /\*{0,2}Pants:\*{0,2}/i, /\*{0,2}Shoes:\*{0,2}/i, /\*{0,2}Dress:\*{0,2}/i, /\*{0,2}Layer:\*{0,2}/i, /\*{0,2}Earrings:\*{0,2}/i, /\*{0,2}Accessories:\*{0,2}/i, /\*{0,2}Outfit:\*{0,2}/i, /\*{0,2}Logged outfit:\*{0,2}/i];
     const outfitCount = outfitLabels.reduce((acc, p) => acc + (p.test(text) ? 1 : 0), 0);
-    return outfitCount >= 2;
+    if (outfitCount >= 2) return true;
+    const numberedBold = (text.match(/^\d+\.\s+\*\*/gm) || []).length;
+    if (numberedBold >= 3) return true;
+    return false;
   }
 
   async function extractPlan(historyOrReply, itemList) {
