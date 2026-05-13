@@ -404,7 +404,7 @@ export default function WardrobeApp() {
   }
 
   function removeItem(id) {
-    wardrobe.persist(wardrobe.items.filter(i=>i.id!==id));
+    wardrobe.persist(wardrobe.items.filter(i=>String(i.id)!==String(id)));
     setSelectedItem(null); styling.setItemEval(""); setEditing(false); setWornDateInput(null);
     window.history.pushState({ view }, "");
   }
