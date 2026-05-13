@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { inputStyle, ghostBtn } from "../styles.js";
 
 export default function ChatView({
@@ -14,25 +14,28 @@ export default function ChatView({
 }) {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatHistory]);
   const imageInputRef = useRef();
+  const [showNotes, setShowNotes] = useState(false);
 
   return (
     <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",height:"calc(100vh - 160px)",display:"flex",flexDirection:"column"}}>
       <input type="file" accept="image/*" ref={imageInputRef} style={{display:"none"}}
         onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f && onImageAttach) onImageAttach(f); }} />
       {styleNotes.length>0 && (
-        <div style={{flexShrink:0,padding:"10px 24px",borderBottom:"1px solid #1a1a1a"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555"}}>Your style notes</div>
-            <button onClick={clearStyleNotes} style={{...ghostBtn,fontSize:9,color:"#444",letterSpacing:1}}>clear all</button>
+        <div style={{flexShrink:0,borderBottom:"1px solid #1a1a1a"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 24px",cursor:"pointer"}} onClick={()=>setShowNotes(s=>!s)}>
+            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555"}}>· STYLE NOTES ({styleNotes.length}) {showNotes?"▾":"▸"}</div>
+            {showNotes && <button onClick={e=>{e.stopPropagation();clearStyleNotes();}} style={{...ghostBtn,fontSize:9,color:"#444",letterSpacing:1}}>clear all</button>}
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:3}}>
-            {styleNotes.map((n,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>· {n}</div>
-                <button onClick={()=>removeStyleNote(i)} style={{...ghostBtn,fontSize:13,color:"#3a3a3a",padding:0,flexShrink:0}}>×</button>
-              </div>
-            ))}
-          </div>
+          {showNotes && (
+            <div style={{display:"flex",flexDirection:"column",gap:3,padding:"0 24px 10px"}}>
+              {styleNotes.map((n,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>· {n}</div>
+                  <button onClick={()=>removeStyleNote(i)} style={{...ghostBtn,fontSize:13,color:"#3a3a3a",padding:0,flexShrink:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
