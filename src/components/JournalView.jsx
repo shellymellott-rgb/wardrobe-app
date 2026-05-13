@@ -24,6 +24,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   const [calView, setCalView] = useState("month");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState(null);
   const [entryPhoto, setEntryPhoto] = useState(null);
   const [entryItemIds, setEntryItemIds] = useState([]);
   const [entryNotes, setEntryNotes] = useState("");
@@ -31,6 +32,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   useImperativeHandle(ref, () => ({
     prefillEntry(date, itemIds, notes) {
       setSelectedDate(date);
+      setEditingEntryId(null);
       setEntryItemIds(itemIds);
       setEntryNotes(notes || "");
       setShowEntryForm(true);
@@ -40,6 +42,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   useEffect(() => {
     if (!journalPrefill) return;
     setSelectedDate(journalPrefill.date);
+    setEditingEntryId(null);
     setEntryItemIds(journalPrefill.itemIds);
     setEntryNotes(journalPrefill.notes || "");
     setShowEntryForm(true);
@@ -53,22 +56,26 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   const today = todayStr();
   const isFuture = selectedDate > today;
 
-  // Build entry map
+  // Build entry map: { date: [entry, entry, ...] }
   const entryMap = {};
-  journalEntries.forEach(e => { entryMap[e.date] = e; });
+  journalEntries.forEach(e => {
+    if (!entryMap[e.date]) entryMap[e.date] = [];
+    entryMap[e.date].push(e);
+  });
 
-  // Build worn map for dates with no journal entry
+  // Build worn map for dates with no journal entries
   const wornMap = {};
   items.forEach(item => {
     (item.wornDates || []).forEach(date => {
-      if (!entryMap[date]) {
+      if (!entryMap[date]?.length) {
         if (!wornMap[date]) wornMap[date] = [];
         wornMap[date].push(item);
       }
     });
   });
 
-  const selectedEntry = entryMap[selectedDate];
+  const entriesForDate = entryMap[selectedDate] || [];
+  const wornMapItems = wornMap[selectedDate] || [];
 
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -80,10 +87,10 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     if (!user?.id) return;
     setSaving(true);
     const entry = {
-      id: selectedEntry?.id || crypto.randomUUID(),
+      id: editingEntryId || crypto.randomUUID(),
       user_id: user.id,
       date: selectedDate,
-      photo: entryPhoto || selectedEntry?.photo || null,
+      photo: entryPhoto || null,
       item_ids: entryItemIds,
       notes: entryNotes,
     };
@@ -95,16 +102,19 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
       setEntryPhoto(null);
       setEntryItemIds([]);
       setEntryNotes("");
+      setEditingEntryId(null);
     }
     setSaving(false);
   }
 
-  function openEntryForm() {
-    if (selectedEntry) {
-      setEntryPhoto(selectedEntry.photo || null);
-      setEntryItemIds(selectedEntry.item_ids || []);
-      setEntryNotes(selectedEntry.notes || "");
+  function openEntryForm(entryToEdit = null) {
+    if (entryToEdit) {
+      setEditingEntryId(entryToEdit.id);
+      setEntryPhoto(entryToEdit.photo || null);
+      setEntryItemIds(entryToEdit.item_ids || []);
+      setEntryNotes(entryToEdit.notes || "");
     } else {
+      setEditingEntryId(null);
       setEntryPhoto(null);
       setEntryItemIds([]);
       setEntryNotes("");
@@ -112,9 +122,9 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     setShowEntryForm(true);
   }
 
-  async function deleteEntry() {
-    if (!selectedEntry || !user?.id) return;
-    await sbDeleteJournalEntry(selectedEntry.id, user.id);
+  async function deleteEntry(entryId) {
+    if (!entryId || !user?.id) return;
+    await sbDeleteJournalEntry(entryId, user.id);
     await onEntryDeleted();
   }
 
@@ -133,14 +143,12 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     !entryItemIds.includes(String(i.id))
   );
 
-  // Unified items for the detail strip — merges selectedEntry and wornMap
-  const displayItems = selectedEntry
-    ? selectedEntry.item_ids
-        .map(id => { const item = items.find(i => String(i.id) === String(id)); return item ? { key: String(id), item, source: "entry", rawId: id } : null; })
-        .filter(Boolean)
-    : (wornMap[selectedDate] || []).map(item => ({ key: String(item.id), item, source: "worn", rawId: item.id }));
-
-  const chatLabel = `Let's talk about my outfit on ${formatDate(selectedDate)}${displayItems.length > 0 ? `: ${displayItems.map(d => d.item.name).join(", ")}` : ""}`;
+  // Chat label — all items from all entries for the selected date
+  const allEntryItems = entriesForDate.flatMap(e =>
+    (e.item_ids || []).map(id => items.find(i => String(i.id) === String(id))).filter(Boolean)
+  );
+  const allDisplayItems = entriesForDate.length > 0 ? allEntryItems : wornMapItems;
+  const chatLabel = `Let's talk about my outfit on ${formatDate(selectedDate)}${allDisplayItems.length > 0 ? `: ${allDisplayItems.map(d => d.name).join(", ")}` : ""}`;
 
   // 2×2 collage helper for calendar cells
   function renderCollage(thumbItems) {
@@ -190,12 +198,12 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
           {cells.map((day, i) => {
             if (!day) return <div key={i} style={{ aspectRatio: "1/1", borderRight: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }} />;
             const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-            const entry = entryMap[dateStr];
-            const wornItems = !entry ? (wornMap[dateStr] || []) : [];
-            const thumbItems = entry?.item_ids?.length > 0
-              ? entry.item_ids.slice(0, 4).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)
+            const entries = entryMap[dateStr] || [];
+            const wornItems = !entries.length ? (wornMap[dateStr] || []) : [];
+            const thumbItems = entries.length > 0
+              ? entries.flatMap(e => (e.item_ids || []).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)).slice(0, 4)
               : wornItems.slice(0, 4);
-            const hasContent = !!(entry || wornItems.length > 0);
+            const hasContent = !!(entries.length > 0 || wornItems.length > 0);
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
             const col = i % 7;
@@ -258,10 +266,10 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {days.map((dateStr, i) => {
-            const entry = entryMap[dateStr];
-            const wornItems = !entry ? (wornMap[dateStr] || []) : [];
-            const thumbItems = entry?.item_ids?.length > 0
-              ? entry.item_ids.slice(0, 4).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)
+            const entries = entryMap[dateStr] || [];
+            const wornItems = !entries.length ? (wornMap[dateStr] || []) : [];
+            const thumbItems = entries.length > 0
+              ? entries.flatMap(e => (e.item_ids || []).map(id => items.find(it => String(it.id) === String(id))).filter(Boolean)).slice(0, 4)
               : wornItems.slice(0, 4);
             const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
@@ -327,48 +335,103 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             {selectedDate === today && <span style={{ color: T.ink3, marginLeft: 8, fontSize: 10 }}>· Today</span>}
             {isFuture && selectedDate !== today && <span style={{ color: T.ink3, marginLeft: 8, fontSize: 10 }}>· Planned</span>}
           </div>
-          {selectedEntry && (
-            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-              <button onClick={openEntryForm} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Edit</button>
-              <button onClick={deleteEntry} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
+          {entriesForDate.length > 0 && (
+            <div style={{ fontFamily: T.mono, fontSize: 9, letterSpacing: ".1em", color: T.ink3 }}>
+              {entriesForDate.length} {entriesForDate.length === 1 ? "outfit" : "outfits"}
             </div>
           )}
         </div>
 
-        {displayItems.length > 0 ? (
+        {/* Journal entries — one card per entry */}
+        {entriesForDate.length > 0 && (
           <div>
-            {/* Entry photo (if present) */}
-            {selectedEntry?.photo && (
-              <img src={selectedEntry.photo} style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
-            )}
+            {entriesForDate.map((entry, eIdx) => {
+              const entryDisplayItems = (entry.item_ids || [])
+                .map(id => { const item = items.find(i => String(i.id) === String(id)); return item ? { key: String(id), item, rawId: id } : null; })
+                .filter(Boolean);
+              return (
+                <div key={entry.id}>
+                  {eIdx > 0 && <div style={{ height: 1, background: T.rule, margin: "0 28px" }} />}
 
-            {/* Item cards row */}
+                  {/* Entry photo */}
+                  {entry.photo && (
+                    <img src={entry.photo} style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
+                  )}
+
+                  {/* Item cards */}
+                  {entryDisplayItems.length > 0 && (
+                    <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
+                      {entryDisplayItems.map(({ key, item, rawId }, idx) => (
+                        <div key={key} style={{ flexShrink: 0, width: 100, position: "relative" }}>
+                          <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
+                            {(item.imageThumb || item.imageData) && (
+                              <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                            )}
+                            <div style={{ position: "absolute", top: 6, left: 6, background: T.citron, color: T.ink, fontFamily: T.mono, fontSize: 8, letterSpacing: ".08em", padding: "2px 5px", lineHeight: 1.4 }}>
+                              {String(idx + 1).padStart(2, "0")}
+                            </div>
+                          </div>
+                          <button
+                            onClick={async e => {
+                              e.stopPropagation();
+                              const newIds = entry.item_ids.filter(i => String(i) !== String(rawId));
+                              const ok = await sbSaveJournalEntry({ ...entry, item_ids: newIds });
+                              if (ok) await onEntrySaved();
+                            }}
+                            style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", border: "none", color: T.surface, borderRadius: "50%", width: 18, height: 18, fontSize: 12, lineHeight: "18px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
+                          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink, marginTop: 7, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                          {item.brand && <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.brand}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {entry.notes && (
+                    <p style={{ fontFamily: T.sans, fontSize: 12, color: T.ink2, lineHeight: 1.6, margin: "4px 28px 8px", padding: 0 }}>{entry.notes}</p>
+                  )}
+
+                  {/* Per-entry Edit / Delete */}
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "8px 28px 16px" }}>
+                    <button onClick={() => openEntryForm(entry)} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Edit</button>
+                    <button onClick={() => deleteEntry(entry.id)} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Bottom actions */}
+            <div style={{ display: "flex", gap: 10, padding: "8px 28px 24px", alignItems: "center", flexWrap: "wrap", borderTop: `1px solid ${T.rule}` }}>
+              <button onClick={() => openEntryForm()} style={{ background: T.citron, color: T.ink, border: "none", padding: "8px 16px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+                + Add outfit
+              </button>
+              <button onClick={() => { setChatInput?.(chatLabel); setView?.("chat"); }}
+                style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
+                Chat about this →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Worn-map items (no journal entry, but worn dates exist) */}
+        {entriesForDate.length === 0 && wornMapItems.length > 0 && (
+          <div>
             <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "20px 28px 8px" }}>
-              {displayItems.map(({ key, item, source, rawId }, idx) => (
-                <div key={key} style={{ flexShrink: 0, width: 100, position: "relative" }}>
-                  <button
-                    onClick={openEntryForm}
-                    style={{ display: "block", width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", padding: 0, cursor: "pointer", position: "relative" }}>
+              {wornMapItems.map((item, idx) => (
+                <div key={String(item.id)} style={{ flexShrink: 0, width: 100, position: "relative" }}>
+                  <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
                     {(item.imageThumb || item.imageData) && (
                       <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                     )}
-                    {/* Citron numbered badge */}
                     <div style={{ position: "absolute", top: 6, left: 6, background: T.citron, color: T.ink, fontFamily: T.mono, fontSize: 8, letterSpacing: ".08em", padding: "2px 5px", lineHeight: 1.4 }}>
                       {String(idx + 1).padStart(2, "0")}
                     </div>
-                  </button>
-                  {/* × remove button */}
+                  </div>
                   <button
                     onClick={async e => {
                       e.stopPropagation();
-                      if (source === "entry") {
-                        const newIds = selectedEntry.item_ids.filter(i => String(i) !== String(rawId));
-                        const ok = await sbSaveJournalEntry({ ...selectedEntry, item_ids: newIds });
-                        if (ok) await onEntrySaved();
-                      } else {
-                        removeWornDate(item.id, item.wornDates.indexOf(selectedDate));
-                        await onEntrySaved();
-                      }
+                      removeWornDate(item.id, item.wornDates.indexOf(selectedDate));
+                      await onEntrySaved();
                     }}
                     style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", border: "none", color: T.surface, borderRadius: "50%", width: 18, height: 18, fontSize: 12, lineHeight: "18px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
                   <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink, marginTop: 7, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
@@ -376,32 +439,25 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                 </div>
               ))}
             </div>
-
-            {/* Notes */}
-            {selectedEntry?.notes && (
-              <p style={{ fontFamily: T.sans, fontSize: 12, color: T.ink2, lineHeight: 1.6, margin: "4px 28px 12px", padding: 0 }}>{selectedEntry.notes}</p>
-            )}
-
-            {/* Actions */}
             <div style={{ display: "flex", gap: 10, padding: "8px 28px 24px", alignItems: "center", flexWrap: "wrap" }}>
-              {!selectedEntry && (
-                <button onClick={openEntryForm} style={{ background: T.citron, color: T.ink, border: "none", padding: "8px 16px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
-                  + {isFuture ? "Plan outfit" : "Log outfit"}
-                </button>
-              )}
+              <button onClick={() => openEntryForm()} style={{ background: T.citron, color: T.ink, border: "none", padding: "8px 16px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+                + {isFuture ? "Plan outfit" : "Log outfit"}
+              </button>
               <button onClick={() => { setChatInput?.(chatLabel); setView?.("chat"); }}
                 style={{ background: "none", border: `1px solid ${T.rule}`, color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", padding: "8px 14px" }}>
                 Chat about this →
               </button>
             </div>
           </div>
-        ) : (
-          /* Empty state */
+        )}
+
+        {/* Empty state */}
+        {entriesForDate.length === 0 && wornMapItems.length === 0 && (
           <div style={{ padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14 }}>
             <div style={{ fontFamily: T.sans, fontSize: 12, color: T.ink3 }}>
               {isFuture ? "No outfit planned yet" : "Nothing logged for this day"}
             </div>
-            <button onClick={openEntryForm} style={{ background: T.citron, color: T.ink, border: "none", padding: "10px 20px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+            <button onClick={() => openEntryForm()} style={{ background: T.citron, color: T.ink, border: "none", padding: "10px 20px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
               + {isFuture ? "Plan outfit" : "Log outfit"}
             </button>
           </div>
@@ -413,7 +469,9 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.5)", overflowY: "auto" }}>
           <div style={{ maxWidth: 480, margin: "0 auto", background: T.surface, minHeight: "100vh", padding: "28px 28px 100px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: T.serif, fontSize: 22, color: T.ink }}>{isFuture ? "Plan Outfit" : "Log Outfit"} · {formatDate(selectedDate)}</div>
+              <div style={{ fontFamily: T.serif, fontSize: 22, color: T.ink }}>
+                {editingEntryId ? "Edit Outfit" : (isFuture ? "Plan Outfit" : "Log Outfit")} · {formatDate(selectedDate)}
+              </div>
               <button onClick={() => setShowEntryForm(false)} style={{ background: "none", border: "none", color: T.ink3, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
             </div>
 
@@ -474,7 +532,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
               fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase",
               cursor: "pointer",
             }}>
-              {saving ? "Saving…" : isFuture ? "Save Plan" : "Log Outfit"}
+              {saving ? "Saving…" : editingEntryId ? "Save Changes" : (isFuture ? "Save Plan" : "Log Outfit")}
             </button>
           </div>
         </div>
