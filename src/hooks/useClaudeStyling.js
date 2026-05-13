@@ -184,7 +184,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           model: "claude-sonnet-4-6",
           max_tokens: 800,
           system: "You extract structured outfit plans from conversations. Return ONLY a JSON array, no markdown, no explanation.",
-          messages: [{ role: "user", content: `Extract only the FINAL recommended outfit from this conversation — the last outfit that was suggested or agreed on. Ignore earlier options that were rejected or replaced. Return a JSON array with ONE entry: [{ "date": "${tomorrowStr}", "label": "brief occasion description", "itemNames": ["exact item names from the final outfit only"] }]. If no clear final outfit exists, return [].\n\nConversation:\n${convo}` }],
+          messages: [{ role: "user", content: `Extract outfit(s) from this text. If it contains multiple days/occasions, extract each one separately. If it contains a single outfit suggestion, extract just that one. Return a JSON array where each entry is: { "date": "YYYY-MM-DD", "label": "brief occasion label", "itemNames": ["exact item names"] }. For single outfits use tomorrow's date: ${tomorrowStr}. For multi-day plans, infer dates sequentially starting from tomorrow if no explicit dates are given. Ignore outfits that were rejected or replaced earlier in the text. If nothing clear exists, return [].\n\nConversation:\n${convo}` }],
         }),
       });
       const data = await res.json();
