@@ -32,6 +32,7 @@ export default function SettingsModal({
   const [botName, setBotName] = useState(wardrobeProfile?.bot_name || "");
   const [botPersonality, setBotPersonality] = useState(initPersonality);
   const [botCustomText, setBotCustomText] = useState(PRESETS.includes(wardrobeProfile?.bot_personality) ? "" : wardrobeProfile?.bot_personality || "");
+  const [stylistSaved, setStylistSaved] = useState(false);
 
   function handleAddCat() {
     if (addCustomCategory(newCatInput)) setNewCatInput("");
@@ -143,9 +144,11 @@ export default function SettingsModal({
               const personality = botPersonality === "custom" ? botCustomText.trim() || null : botPersonality || null;
               await upsertProfile(user.id, { bot_name: botName.trim() || null, bot_personality: personality });
               onProfileUpdated?.();
+              setStylistSaved(true);
+              setTimeout(() => setStylistSaved(false), 2000);
             }}
             style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"8px 20px",fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:"pointer"}}
-          >Save</button>
+          >{stylistSaved ? "Saved ✓" : "Save"}</button>
         </div>
 
         {/* A. Custom Categories */}
