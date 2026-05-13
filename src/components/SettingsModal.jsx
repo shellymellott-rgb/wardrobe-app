@@ -439,6 +439,29 @@ export default function SettingsModal({
                   placeholder="e.g. Miami, New York, Chicago"
                   style={{...inputStyle,marginBottom:0}}
                 />
+                <div style={{marginTop:16}}>
+                  <div style={{fontSize:11,color:"#aaa",letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Seasons You Dress For</div>
+                  <div style={{fontSize:10,color:"#555",marginBottom:8}}>Helps Claude understand your wardrobe size across seasonal rotation</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {["Spring","Summer","Fall","Winter"].map(s => {
+                      const active = (wardrobeProfile?.dressing_seasons || []).includes(s);
+                      return (
+                        <button key={s} onClick={async () => {
+                          const current = wardrobeProfile?.dressing_seasons || [];
+                          const next = active ? current.filter(x => x !== s) : [...current, s];
+                          await upsertProfile(user.id, { dressing_seasons: next });
+                          onProfileUpdated?.();
+                        }} style={{
+                          background: active ? "#e8e2d8" : "transparent",
+                          color: active ? "#111" : "#666",
+                          border: `1px solid ${active ? "#e8e2d8" : "#333"}`,
+                          borderRadius: 20, padding: "5px 14px", fontSize: 11,
+                          cursor: "pointer",
+                        }}>{s}</button>
+                      );
+                    })}
+                  </div>
+                </div>
               </>
             )}
           </div>
