@@ -209,8 +209,8 @@ export function useWardrobeData(user) {
       }
     }
 
-    setItems(finalItems);
     saveToStorage(finalItems);
+    setItems(finalItems);
 
     const newIds = new Set(finalItems.map(i => String(i.id)));
     const removed = prevItems.filter(i => !newIds.has(String(i.id)));
