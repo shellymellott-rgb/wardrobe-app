@@ -184,6 +184,15 @@ export function useSettings(user) {
     saveSettings({ styleNotes: [] });
   }
 
+  function editStyleNote(idx, newText) {
+    const trimmed = newText.trim();
+    if (!trimmed) return removeStyleNote(idx);
+    const next = styleNotes.map((n, j) => j === idx ? trimmed : n);
+    setStyleNotes(next);
+    try { localStorage.setItem("wardrobe-style-notes", JSON.stringify(next)); } catch {}
+    saveSettings({ styleNotes: next });
+  }
+
   // ── Style system builder ───────────────────────────────────────────────────
   function buildStyleSystem() {
     const profile = styleProfile.trim() || DEFAULT_STYLE_SYSTEM;
@@ -202,7 +211,7 @@ export function useSettings(user) {
     styleProfile, setStyleProfile,
     extraInstructions, setExtraInstructions,
     chatHistory, setChatHistory,
-    styleNotes, addStyleNote, removeStyleNote, clearStyleNotes,
+    styleNotes, addStyleNote, removeStyleNote, clearStyleNotes, editStyleNote,
     weatherEnabled, setWeatherEnabled,
     homeCity, setHomeCity,
     seasonOverride, setSeasonOverride,

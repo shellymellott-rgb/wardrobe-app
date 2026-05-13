@@ -693,6 +693,7 @@ export default function WardrobeApp() {
           styleNotes={settings.styleNotes}
           removeStyleNote={settings.removeStyleNote}
           clearStyleNotes={settings.clearStyleNotes}
+          editStyleNote={settings.editStyleNote}
           weatherEnabled={settings.weatherEnabled} setWeatherEnabled={settings.setWeatherEnabled}
           homeCity={settings.homeCity} setHomeCity={settings.setHomeCity}
           exportWardrobe={exportWardrobe}

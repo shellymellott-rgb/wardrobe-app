@@ -10,7 +10,7 @@ export default function SettingsModal({
   customCategories, addCustomCategory, removeCustomCategory,
   styleProfile, setStyleProfile, saveSettings,
   extraInstructions, setExtraInstructions,
-  styleNotes, removeStyleNote, clearStyleNotes,
+  styleNotes, removeStyleNote, clearStyleNotes, editStyleNote,
   weatherEnabled, setWeatherEnabled, homeCity, setHomeCity,
   exportWardrobe, onImport,
   user, signOut,
@@ -18,6 +18,8 @@ export default function SettingsModal({
   seasonOverride, setSeasonOverride,
 }) {
   const [newCatInput, setNewCatInput] = useState("");
+  const [editingNoteIdx, setEditingNoteIdx] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
   const [colorLoading, setColorLoading] = useState(false);
   const [bodyLoading, setBodyLoading] = useState(false);
   const colorPhotoRef = useRef();
@@ -150,7 +152,20 @@ export default function SettingsModal({
             : <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {styleNotes.map((n,i)=>(
                   <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:20,padding:"5px 10px 5px 12px"}}>
-                    <span style={{fontSize:11,color:"#c8c0b0"}}>{n}</span>
+                    {editingNoteIdx === i
+                      ? <input
+                          autoFocus
+                          value={editingNoteText}
+                          onChange={e => setEditingNoteText(e.target.value)}
+                          onBlur={() => { editStyleNote(i, editingNoteText); setEditingNoteIdx(null); }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") { editStyleNote(i, editingNoteText); setEditingNoteIdx(null); }
+                            if (e.key === "Escape") setEditingNoteIdx(null);
+                          }}
+                          style={{fontSize:11,color:"#c8c0b0",background:"none",border:"none",outline:"none",minWidth:60,width:`${Math.max(editingNoteText.length, 6)}ch`}}
+                        />
+                      : <span style={{fontSize:11,color:"#c8c0b0",cursor:"text"}} onClick={() => { setEditingNoteIdx(i); setEditingNoteText(n); }}>{n}</span>
+                    }
                     <button onClick={()=>removeStyleNote(i)} style={{background:"none",border:"none",color:"#555",cursor:"pointer",padding:0,fontSize:14,lineHeight:1,display:"flex",alignItems:"center"}}>×</button>
                   </span>
                 ))}
