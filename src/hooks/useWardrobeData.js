@@ -224,6 +224,16 @@ export function useWardrobeData(user) {
       sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
 
     localStorage.setItem("lastPersistAt", String(Date.now()));
+    // Fire-and-forget: embed new/updated items (non-blocking, never throws)
+    if (uid && upserted.length) {
+      upserted.forEach(item => {
+        fetch("/api/embed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: uid, itemId: String(item.id) }),
+        }).catch(() => {});
+      });
+    }
     return finalItems;
   }
 
