@@ -26,7 +26,7 @@ export default function TripsView({
 
         {/* Trip context pills */}
         {(activeTrip.itinerary || activeTrip.weather_notes) && (
-          <div style={{ padding: "8px 24px", borderBottom: `1px solid ${T.rule}`, background: T.wash, flexShrink: 0 }}>
+          <div style={{ padding: "8px 24px", borderBottom: `1px solid ${T.rule}`, background: T.paper, flexShrink: 0 }}>
             {activeTrip.itinerary && <div style={{ fontSize: 11, color: T.ink3, marginBottom: 4 }}><span style={{ ...ML, color: T.ink2 }}>ITINERARY: </span>{activeTrip.itinerary.slice(0, 120)}{activeTrip.itinerary.length > 120 ? "…" : ""}</div>}
             {activeTrip.weather_notes && <div style={{ fontSize: 11, color: T.ink3 }}><span style={{ ...ML, color: T.ink2 }}>WEATHER: </span>{activeTrip.weather_notes}</div>}
           </div>
@@ -41,7 +41,7 @@ export default function TripsView({
           )}
           {tripMessages.map((msg, i) => (
             <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
-              <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px", background: msg.role === "user" ? T.sand : T.ink, color: msg.role === "user" ? T.ink : T.sand, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+              <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px", background: msg.role === "user" ? T.paper : T.inkSurface, color: msg.role === "user" ? T.ink : "#c8c0b0", fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
                 {msg.content}
               </div>
             </div>
