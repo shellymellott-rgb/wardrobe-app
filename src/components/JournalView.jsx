@@ -523,7 +523,8 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             </div>
 
             <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder="How did you feel? Where did you go? Any styling notes…"
-              style={{ ...inputStyle, minHeight: 80, resize: "vertical", marginBottom: 16 }} />
+              style={{ ...inputStyle, minHeight: 80, resize: "vertical", marginBottom: 4 }} />
+            <div style={{fontSize:10, color:T.ink3, fontFamily:T.mono, letterSpacing:'.1em', marginBottom:16}}>NOTES ARE VISIBLE TO YOUR STYLIST — ADD ACTIVITY DETAILS FOR TRIP PLANNING</div>
 
             <button onClick={saveEntry} disabled={saving || (!entryPhoto && entryItemIds.length === 0)} style={{
               width: "100%", background: saving || (!entryPhoto && entryItemIds.length === 0) ? T.rule : T.cobalt,

@@ -147,9 +147,12 @@ export default function ItemDetailModal({
           )}
         </div>
 
-        <div style={{display:"flex",gap:8,marginBottom:10}}>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
           <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="donate"?null:"donate")} style={{flex:1,background:selectedItem.status==="donate"?"#c8601022":"transparent",border:`1px solid ${selectedItem.status==="donate"?T.hot:T.rule}`,color:selectedItem.status==="donate"?T.hot:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="donate"?"✓ To Donate":"Mark to Donate"}</button>
           <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="sell"?null:"sell")} style={{flex:1,background:selectedItem.status==="sell"?"#3a8a4a22":"transparent",border:`1px solid ${selectedItem.status==="sell"?T.sage:T.rule}`,color:selectedItem.status==="sell"?T.sage:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="sell"?"✓ To Sell":"Mark to Sell"}</button>
+        </div>
+        <div style={{marginBottom:10}}>
+          <button onClick={()=>setItemStatus(selectedItem.id,selectedItem.status==="archived"?null:"archived")} style={{width:"100%",background:selectedItem.status==="archived"?"#55555522":"transparent",border:`1px solid ${selectedItem.status==="archived"?T.ink3:T.rule}`,color:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{selectedItem.status==="archived"?"✓ Archived":"Archive Item"}</button>
         </div>
 
         <button onClick={()=>openItemChat(selectedItem)} style={{width:"100%",background:"transparent",border:`1px solid ${T.rule}`,color:T.ink3,borderRadius:3,padding:"10px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginBottom:16}}>Chat about this →</button>

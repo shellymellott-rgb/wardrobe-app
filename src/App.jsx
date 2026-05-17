@@ -55,6 +55,7 @@ export default function WardrobeApp() {
   const settings = useSettings(user);
   const wardrobe = useWardrobeData(user);
   const [currentWeather, setCurrentWeather] = useState(null);
+  const [journalEntries, setJournalEntries] = useState([]);
   const styling = useClaudeStyling({
     items: wardrobe.items,
     buildStyleSystem: settings.buildStyleSystem,
@@ -63,6 +64,7 @@ export default function WardrobeApp() {
     user,
     weather: currentWeather,
     season: settings.seasonOverride,
+    journalEntries,
   });
 
   // ── Auth: wait for session before syncing ───────────────────────────────────
@@ -220,7 +222,6 @@ export default function WardrobeApp() {
   useEffect(() => { loadSavedOutfits(); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Journal ─────────────────────────────────────────────────────────────────
-  const [journalEntries, setJournalEntries] = useState([]);
   const [journalLoading, setJournalLoading] = useState(false);
 
   async function loadJournalEntries() {
@@ -267,6 +268,7 @@ export default function WardrobeApp() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeFilters, setActiveFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   // ── Item detail ──────────────────────────────────────────────────────────────
   const [selectedItem, setSelectedItem] = useState(null);
@@ -467,6 +469,7 @@ export default function WardrobeApp() {
   // ── Derived state ───────────────────────────────────────────────────────────
   const allCategories = [...CATEGORIES, ...(Array.isArray(settings.customCategories) ? settings.customCategories : [])];
   const filtered = wardrobe.items.filter(i => {
+    if (!showArchived && i.status === "archived") return false;
     if (activeCategory==="To Go") return i.status==="donate"||i.status==="sell";
     if (activeCategory!=="All" && i.category!==activeCategory) return false;
     const fv = (key) => { const v = activeFilters[key]; return Array.isArray(v) ? v : (v ? [v] : []); };
@@ -597,6 +600,7 @@ export default function WardrobeApp() {
           allCategories={allCategories}
           activeFilters={activeFilters} setActiveFilters={setActiveFilters}
           showFilters={showFilters} setShowFilters={setShowFilters}
+          showArchived={showArchived} setShowArchived={setShowArchived}
           brands={wardrobe.brands} allTags={allTags} allCustomColors={allCustomColors}
           evaluateItem={(item) => evaluateItem(item, filtered)}
           syncing={wardrobe.syncing}

@@ -75,7 +75,7 @@ export function fmtItem(i) {
   );
 }
 
-export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14) {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14, journalEntries = null) {
   const stripped = items.map(stripForClaude);
   const isOutfitQuery = question && /\b(wear|outfit|dress|tomorrow|today|suggest|what should)\b/i.test(question);
   let ctx;
@@ -121,7 +121,26 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   if (profile?.bot_name) botIdentity += `Your name is ${profile.bot_name}.\n`;
   if (profile?.bot_personality) botIdentity += (PERSONALITY_MAP[profile.bot_personality] || profile.bot_personality) + "\n";
   if (botIdentity) botIdentity += "\n";
-  const base = `${botIdentity}${buildStyleSystem()}\n\n${weatherLine}${shoeRule}${seasonLine}${dressingNote}${recentNote}\n\n${ctx}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. You cannot directly write to the journal or log outfits yourself. However, when you suggest outfits using labeled format (**Top:** ItemName, **Pants:** ItemName, **Shoes:** ItemName), the app automatically detects this and shows the user a save card to log the outfit to their journal with one tap. So always use the labeled outfit format — it triggers the journal save feature automatically. When suggesting outfits, ALWAYS factor in the current weather — mention the temperature and explain why each piece works for those conditions. Never suggest an outfit without referencing the weather context provided.`;
+  // Build planned outfits context from future-dated journal entries
+  let plannedNote = "";
+  if (journalEntries?.length) {
+    const today = new Date().toISOString().split("T")[0];
+    const upcoming = journalEntries
+      .filter(e => e.date >= today && (e.item_ids?.length || e.notes))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (upcoming.length) {
+      const lines = upcoming.map(e => {
+        const names = e.item_ids
+          .map(id => items.find(i => String(i.id) === String(id))?.name)
+          .filter(Boolean)
+          .join(", ");
+        const notePart = e.notes ? ` — ${e.notes}` : "";
+        return names ? `- ${e.date}${notePart}: ${names}` : `- ${e.date}${notePart} (outfit not yet chosen)`;
+      });
+      plannedNote = `\n\nAlready planned outfits (do not re-suggest these items for these dates):\n${lines.join("\n")}\n`;
+    }
+  }
+  const base = `${botIdentity}${buildStyleSystem()}\n\n${weatherLine}${shoeRule}${seasonLine}${dressingNote}${recentNote}${plannedNote}\n\n${ctx}${offSeasonNote}\n\nAnswer questions about her wardrobe, suggest outfits, identify gaps, give honest style advice. Reference specific items by name. Always check worn counts and avoid recently worn items. Follow learned preferences exactly. Be concise and direct. If the user mentions a trip or travel, use the planned journal entries above to understand what's already decided, identify days still marked 'outfit not yet chosen', and suggest outfits for those remaining days without repeating already-planned items. You cannot directly write to the journal or log outfits yourself. However, when you suggest outfits using labeled format (**Top:** ItemName, **Pants:** ItemName, **Shoes:** ItemName), the app automatically detects this and shows the user a save card to log the outfit to their journal with one tap. So always use the labeled outfit format — it triggers the journal save feature automatically. When suggesting outfits, ALWAYS factor in the current weather — mention the temperature and explain why each piece works for those conditions. Never suggest an outfit without referencing the weather context provided.`;
   if (!profile) return base;
   const SKIP = new Set(["id", "user_id", "created_at", "updated_at", "height_ft", "height_in", "bot_name", "bot_personality", "dressing_seasons"]);
   const profileLines = Object.entries(profile)

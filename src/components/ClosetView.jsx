@@ -6,6 +6,7 @@ export default function ClosetView({
   items, filtered, activeCategory, setActiveCategory, allCategories,
   activeFilters, setActiveFilters, showFilters, setShowFilters,
   brands, allTags, allCustomColors = [], evaluateItem, syncing,
+  showArchived = false, setShowArchived,
 }) {
   const [search, setSearch] = useState("");
 
@@ -108,6 +109,12 @@ export default function ClosetView({
             Clear
           </button>
         )}
+        <button
+          onClick={() => setShowArchived(prev => !prev)}
+          style={{ background: "transparent", border: `1px solid ${showArchived ? T.ink3 : T.rule}`, color: showArchived ? T.ink : T.ink3, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", padding: "6px 14px", cursor: "pointer", marginLeft: "auto" }}
+        >
+          {showArchived ? "✓ Archived" : "Archived"}
+        </button>
       </div>
 
       {/* Grid */}
