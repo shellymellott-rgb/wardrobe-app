@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase, sbLoadOutfits, sbLoadJournalEntries, sbSaveJournalEntry, sbDeleteJournalEntry } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
@@ -18,14 +18,15 @@ import LoginScreen from "./components/LoginScreen.jsx";
 import CropModal from "./components/CropModal.jsx";
 import HomeView from "./components/HomeView.jsx";
 import ClosetView from "./components/ClosetView.jsx";
-import AddItemView from "./components/AddItemView.jsx";
-import OutfitsView from "./components/OutfitsView.jsx";
-import WishlistView from "./components/WishlistView.jsx";
-import JournalView from "./components/JournalView.jsx";
-import ChatView from "./components/ChatView.jsx";
-import ItemDetailModal from "./components/ItemDetailModal.jsx";
-import ItemChatModal from "./components/ItemChatModal.jsx";
-import SettingsModal from "./components/SettingsModal.jsx";
+
+const AddItemView = lazy(() => import("./components/AddItemView.jsx"));
+const OutfitsView = lazy(() => import("./components/OutfitsView.jsx"));
+const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
+const JournalView = lazy(() => import("./components/JournalView.jsx"));
+const ChatView = lazy(() => import("./components/ChatView.jsx"));
+const ItemDetailModal = lazy(() => import("./components/ItemDetailModal.jsx"));
+const ItemChatModal = lazy(() => import("./components/ItemChatModal.jsx"));
+const SettingsModal = lazy(() => import("./components/SettingsModal.jsx"));
 
 // Read the cached Supabase user ID directly from localStorage so we can kick
 // off the data fetch before getSession() resolves its network token check.
@@ -608,6 +609,7 @@ export default function WardrobeApp() {
         />
       )}
 
+      <Suspense fallback={null}>
       {view==="outfits" && (
         <OutfitsView
           items={wardrobe.items}
@@ -766,6 +768,7 @@ export default function WardrobeApp() {
           sendItemChat={styling.sendItemChat}
         />
       )}
+      </Suspense>
     </div>
     </div>
   );

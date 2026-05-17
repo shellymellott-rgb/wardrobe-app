@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS, ITEM_TYPES } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
-import ImageEditor from "./ImageEditor.jsx";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+
+const ImageEditor = lazy(() => import("./ImageEditor.jsx"));
 
 export default function FormFields({ form, setForm, onImageClick, onImageDrop, onRecrop, brands = [], onAddBrand, categories, allCustomColors = [], customCategories = [], onAddCustomCategory, customTags = [], onAddCustomTag }) {
   const showSleeve = ["Tops","Dresses"].includes(form.category);
@@ -89,14 +90,16 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
         </div>
       )}
       {showEditor && (
-        <ImageEditor
-          imageData={form.imageData}
-          onApply={(full, thumb) => {
-            setForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
-            setShowEditor(false);
-          }}
-          onClose={() => setShowEditor(false)}
-        />
+        <Suspense fallback={null}>
+          <ImageEditor
+            imageData={form.imageData}
+            onApply={(full, thumb) => {
+              setForm(f => ({ ...f, imageData: full, imageThumb: thumb }));
+              setShowEditor(false);
+            }}
+            onClose={() => setShowEditor(false)}
+          />
+        </Suspense>
       )}
 
       <label style={labelStyle}>Name *</label>
