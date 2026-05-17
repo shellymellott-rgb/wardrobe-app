@@ -1,6 +1,6 @@
 export const CATEGORIES = ["Tops","Bottoms","Dresses","Outerwear","Shoes","Accessories","Swimwear"];
 export const ITEM_TYPES = {
-  Tops: ["Tank", "Tee", "Button-Down", "Blouse", "Sweater", "Cardigan", "Hoodie", "Crop Top", "Blazer", "Polo", "Pop Over"],
+  Tops: ["Tank", "Tee", "Button-Down", "Blouse", "Sweater", "Cardigan", "Hoodie", "Vest", "Crop Top", "Blazer", "Polo", "Pop Over"],
   Bottoms: ["Jeans", "Trousers", "Shorts", "Skirt", "Leggings"],
   Dresses: ["Midi", "Maxi", "Mini", "Wrap", "Shirt Dress"],
   Outerwear: ["Jacket", "Blazer", "Coat", "Vest", "Cardigan"],
