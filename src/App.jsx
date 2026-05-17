@@ -762,7 +762,7 @@ export default function WardrobeApp() {
       )}
 
       {/* FAB — Add Item */}
-      {!cropSrc && view!=="add" && !selectedItem && !showSettings && !styling.itemChatModal && (
+      {!cropSrc && view!=="add" && view!=="trips" && !selectedItem && !showSettings && !styling.itemChatModal && (
         <button
           onClick={()=>{navigateTo("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
           style={{
