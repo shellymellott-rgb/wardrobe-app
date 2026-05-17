@@ -138,9 +138,13 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
 
   const taggedItems = entryItemIds.map(id => items.find(i => String(i.id) === String(id))).filter(Boolean);
   const filteredItems = items.filter(i =>
+    i.status !== "archived" &&
+    !entryItemIds.includes(String(i.id)) &&
     (i.name?.toLowerCase().includes(itemSearch.toLowerCase()) ||
-     i.brand?.toLowerCase().includes(itemSearch.toLowerCase())) &&
-    !entryItemIds.includes(String(i.id))
+     i.brand?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+     i.category?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+     i.color?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+     (Array.isArray(i.tags) && i.tags.some(t => t.toLowerCase().includes(itemSearch.toLowerCase()))))
   );
 
   // Chat label — all items from all entries for the selected date
