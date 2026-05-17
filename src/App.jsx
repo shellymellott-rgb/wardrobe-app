@@ -658,9 +658,9 @@ export default function WardrobeApp() {
           correctingIdx={styling.correctingIdx} setCorrectingIdx={styling.setCorrectingIdx}
           correctionInput={styling.correctionInput} setCorrectionInput={styling.setCorrectionInput}
           sendChat={styling.sendChat} submitCorrection={styling.submitCorrection}
-          attachedImage={styling.attachedImage}
-          onImageAttach={file => readFile(file).then(styling.setAttachedImage)}
-          onImageClear={() => styling.setAttachedImage(null)}
+          attachedImages={styling.attachedImages}
+          onImageAttach={file => readFile(file).then(data => styling.setAttachedImages(prev => [...prev, data]))}
+          onImageClear={i => styling.setAttachedImages(prev => prev.filter((_,idx) => idx !== i))}
           planCards={styling.planCards}
           setPlanCards={styling.setPlanCards}
           items={wardrobe.items}

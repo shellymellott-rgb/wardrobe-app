@@ -9,7 +9,7 @@ export default function ChatView({
   learnedIndicator, chatEndRef,
   correctingIdx, setCorrectingIdx, correctionInput, setCorrectionInput,
   sendChat, submitCorrection,
-  attachedImage, onImageAttach, onImageClear,
+  attachedImages = [], onImageAttach, onImageClear,
   planCards, setPlanCards, onApprovePlanDay, items,
 }) {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatHistory]);
@@ -18,8 +18,8 @@ export default function ChatView({
 
   return (
     <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",height:"calc(100vh - 160px)",display:"flex",flexDirection:"column"}}>
-      <input type="file" accept="image/*" ref={imageInputRef} style={{display:"none"}}
-        onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f && onImageAttach) onImageAttach(f); }} />
+      <input type="file" accept="image/*" multiple ref={imageInputRef} style={{display:"none"}}
+        onChange={e => { const files = [...e.target.files]; e.target.value = ""; files.forEach(f => { if (f && onImageAttach) onImageAttach(f); }); }} />
       {styleNotes.length>0 && (
         <div style={{flexShrink:0,borderBottom:"1px solid #1a1a1a"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 24px",cursor:"pointer"}} onClick={()=>setShowNotes(s=>!s)}>
@@ -47,10 +47,14 @@ export default function ChatView({
             {weather && (
               <div style={{fontSize:11,color:"#555",marginBottom:8,textAlign:"center"}}>🌤 {weather.tempHigh}°F · {weather.condition}</div>
             )}
-            {attachedImage && (
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                <img src={attachedImage} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
-                <button onClick={onImageClear} style={{...ghostBtn,fontSize:18,padding:"0 4px",color:"#666"}}>×</button>
+            {attachedImages.length > 0 && (
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                {attachedImages.map((img, i) => (
+                  <div key={i} style={{position:"relative"}}>
+                    <img src={img} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
+                    <button onClick={()=>onImageClear(i)} style={{position:"absolute",top:-4,right:-4,background:"#333",border:"none",borderRadius:"50%",width:14,height:14,color:"#fff",fontSize:8,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  </div>
+                ))}
               </div>
             )}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -119,10 +123,14 @@ export default function ChatView({
             </div>
           )}
           <div style={{flexShrink:0,borderTop:"1px solid #1a1a1a",background:"#111"}}>
-            {attachedImage && (
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px 0"}}>
-                <img src={attachedImage} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
-                <button onClick={onImageClear} style={{...ghostBtn,fontSize:18,padding:"0 4px",color:"#666"}}>×</button>
+            {attachedImages.length > 0 && (
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",padding:"8px 16px 0"}}>
+                {attachedImages.map((img, i) => (
+                  <div key={i} style={{position:"relative"}}>
+                    <img src={img} style={{height:48,width:36,objectFit:"cover",borderRadius:3,border:"1px solid #333"}}/>
+                    <button onClick={()=>onImageClear(i)} style={{position:"absolute",top:-4,right:-4,background:"#333",border:"none",borderRadius:"50%",width:14,height:14,color:"#fff",fontSize:8,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  </div>
+                ))}
               </div>
             )}
             <div style={{padding:"12px 16px",display:"flex",gap:8,alignItems:"center"}}>

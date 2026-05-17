@@ -149,7 +149,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   // ── Main chat ──────────────────────────────────────────────────────────────
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
-  const [attachedImage, setAttachedImage] = useState(null);
+  const [attachedImages, setAttachedImages] = useState([]);
   const [planCards, setPlanCards] = useState([]);
   const [correctingIdx, setCorrectingIdx] = useState(null);
   const [correctionInput, setCorrectionInput] = useState("");
@@ -219,21 +219,24 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     setChatHistory(newHistory);
     try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(newHistory)); } catch {}
     setChatInput("");
-    const imgToSend = attachedImage;
-    setAttachedImage(null);
+    const imagesToSend = attachedImages;
+    setAttachedImages([]);
     setChatLoading(true);
     if (!activeSessionId.current && user?.id) {
       activeSessionId.current = await createSession(user.id);
     }
     try {
       let apiMessages = buildContextHistory(newHistory);
-      if (imgToSend) {
-        const compressed = await compressImage(imgToSend, 400, 0.35);
-        const base64 = compressed.split(",")[1];
+      if (imagesToSend.length) {
+        const imageBlocks = await Promise.all(imagesToSend.map(async (img) => {
+          const compressed = await compressImage(img, 400, 0.35);
+          const base64 = compressed.split(",")[1];
+          return { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } };
+        }));
         apiMessages = [
           ...apiMessages.slice(0, -1),
           { role: "user", content: [
-            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            ...imageBlocks,
             { type: "text", text: msg },
           ]},
         ];
@@ -343,7 +346,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     chatInput, setChatInput, chatLoading, chatEndRef,
     correctingIdx, setCorrectingIdx, correctionInput, setCorrectionInput,
     learnedIndicator,
-    attachedImage, setAttachedImage,
+    attachedImages, setAttachedImages,
     planCards, setPlanCards, extractPlan,
     sendChat, submitCorrection,
     // item chat
