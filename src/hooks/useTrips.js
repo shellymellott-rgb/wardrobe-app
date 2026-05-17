@@ -100,7 +100,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
   }
 
   return {
-    trips, activeTrip, setActiveTrip,
+    trips, setTrips, activeTrip, setActiveTrip,
     tripMessages, tripInput, setTripInput,
     tripLoading, tripEndRef,
     showNewTripForm, setShowNewTripForm,

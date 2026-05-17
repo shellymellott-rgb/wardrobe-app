@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { T } from "../theme.js";
+import { sbSaveTrip } from "../supabase.js";
 
 const ML = { fontFamily: T.mono, letterSpacing: ".18em", textTransform: "uppercase", fontSize: 10 };
 
 export default function TripsView({
-  trips, activeTrip, setActiveTrip,
+  trips, setTrips, activeTrip, setActiveTrip,
   tripMessages, tripInput, setTripInput,
   tripLoading, tripEndRef,
   showNewTripForm, setShowNewTripForm,
@@ -12,20 +13,24 @@ export default function TripsView({
   journalPrefill, onPrefillConsumed,
 }) {
   const [form, setForm] = useState({ name: "", destination: "", startDate: "", endDate: "", itinerary: "", weatherNotes: "" });
+  const [showContext, setShowContext] = useState(false);
+  const [editingTrip, setEditingTrip] = useState(false);
+  const [editForm, setEditForm] = useState({});
 
   if (activeTrip) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
         {/* Header */}
-        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${T.rule}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <div style={{ padding: "12px 24px", borderBottom: `1px solid ${T.rule}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <button onClick={() => setActiveTrip(null)} style={{ background: "none", border: "none", color: T.ink3, cursor: "pointer", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase" }}>← TRIPS</button>
-          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.ink }}>{activeTrip.name}</div>
+          <div style={{ fontFamily: T.serif, fontSize: 18, color: T.ink, flex: 1 }}>{activeTrip.name}</div>
           {activeTrip.destination && <div style={{ ...ML, color: T.ink3 }}>{activeTrip.destination}</div>}
-          {activeTrip.start_date && <div style={{ ...ML, color: T.ink3 }}>{activeTrip.start_date}{activeTrip.end_date ? ` – ${activeTrip.end_date}` : ""}</div>}
+          <button onClick={() => { setEditForm({ name: activeTrip.name, destination: activeTrip.destination, startDate: activeTrip.start_date, endDate: activeTrip.end_date, itinerary: activeTrip.itinerary, weatherNotes: activeTrip.weather_notes }); setEditingTrip(true); }} style={{ background: "none", border: "none", color: T.ink3, cursor: "pointer", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase" }}>EDIT</button>
+          <button onClick={() => setShowContext(s => !s)} style={{ background: "none", border: "none", color: T.ink3, cursor: "pointer", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase" }}>{showContext ? "▲ INFO" : "▼ INFO"}</button>
         </div>
 
         {/* Trip context pills */}
-        {(activeTrip.itinerary || activeTrip.weather_notes) && (
+        {showContext && (activeTrip.itinerary || activeTrip.weather_notes) && (
           <div style={{ padding: "8px 24px", borderBottom: `1px solid ${T.rule}`, background: T.paper, flexShrink: 0 }}>
             {activeTrip.itinerary && <div style={{ fontSize: 11, color: T.ink3, marginBottom: 4 }}><span style={{ ...ML, color: T.ink2 }}>ITINERARY: </span>{activeTrip.itinerary.slice(0, 120)}{activeTrip.itinerary.length > 120 ? "…" : ""}</div>}
             {activeTrip.weather_notes && <div style={{ fontSize: 11, color: T.ink3 }}><span style={{ ...ML, color: T.ink2 }}>WEATHER: </span>{activeTrip.weather_notes}</div>}
@@ -61,6 +66,46 @@ export default function TripsView({
           />
           <button onClick={() => sendTripMessage(tripInput)} disabled={tripLoading || !tripInput.trim()} style={{ background: T.cobalt, border: "none", borderRadius: 3, padding: "10px 16px", color: "#fff", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>SEND</button>
         </div>
+
+        {editingTrip && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: T.surface, borderRadius: 4, padding: 24, width: "100%", maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
+              <div style={{ ...ML, marginBottom: 16 }}>EDIT TRIP</div>
+              {[
+                { key: "name", label: "TRIP NAME" },
+                { key: "destination", label: "DESTINATION" },
+                { key: "startDate", label: "START DATE", type: "date" },
+                { key: "endDate", label: "END DATE", type: "date" },
+              ].map(({ key, label, type }) => (
+                <div key={key} style={{ marginBottom: 12 }}>
+                  <div style={{ ...ML, fontSize: 9, marginBottom: 4, color: T.ink3 }}>{label}</div>
+                  <input type={type || "text"} value={editForm[key] || ""} onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
+                    style={{ width: "100%", background: "transparent", border: `1px solid ${T.rule}`, borderRadius: 3, padding: "8px 12px", fontSize: 13, color: T.ink, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                </div>
+              ))}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...ML, fontSize: 9, marginBottom: 4, color: T.ink3 }}>ITINERARY</div>
+                <textarea value={editForm.itinerary || ""} onChange={e => setEditForm(f => ({ ...f, itinerary: e.target.value }))}
+                  style={{ width: "100%", background: "transparent", border: `1px solid ${T.rule}`, borderRadius: 3, padding: "8px 12px", fontSize: 13, color: T.ink, fontFamily: "inherit", outline: "none", minHeight: 120, resize: "vertical", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ ...ML, fontSize: 9, marginBottom: 4, color: T.ink3 }}>WEATHER NOTES</div>
+                <input value={editForm.weatherNotes || ""} onChange={e => setEditForm(f => ({ ...f, weatherNotes: e.target.value }))}
+                  style={{ width: "100%", background: "transparent", border: `1px solid ${T.rule}`, borderRadius: 3, padding: "8px 12px", fontSize: 13, color: T.ink, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={async () => {
+                  const updated = { ...activeTrip, name: editForm.name, destination: editForm.destination, start_date: editForm.startDate, end_date: editForm.endDate, itinerary: editForm.itinerary, weather_notes: editForm.weatherNotes };
+                  await sbSaveTrip(updated);
+                  setActiveTrip(updated);
+                  setTrips(prev => prev.map(t => t.id === updated.id ? updated : t));
+                  setEditingTrip(false);
+                }} style={{ flex: 1, background: T.cobalt, border: "none", borderRadius: 3, padding: "10px", color: "#fff", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>SAVE</button>
+                <button onClick={() => setEditingTrip(false)} style={{ background: "transparent", border: `1px solid ${T.rule}`, borderRadius: 3, padding: "10px 16px", color: T.ink3, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>CANCEL</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

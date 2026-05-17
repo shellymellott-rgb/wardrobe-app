@@ -660,7 +660,7 @@ export default function WardrobeApp() {
 
       {view==="trips" && (
         <TripsView
-          trips={trips.trips} activeTrip={trips.activeTrip} setActiveTrip={trips.setActiveTrip}
+          trips={trips.trips} setTrips={trips.setTrips} activeTrip={trips.activeTrip} setActiveTrip={trips.setActiveTrip}
           tripMessages={trips.tripMessages} tripInput={trips.tripInput} setTripInput={trips.setTripInput}
           tripLoading={trips.tripLoading} tripEndRef={trips.tripEndRef}
           showNewTripForm={trips.showNewTripForm} setShowNewTripForm={trips.setShowNewTripForm}
