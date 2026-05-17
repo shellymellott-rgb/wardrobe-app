@@ -1,12 +1,37 @@
 import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "node:crypto";
 
 export const config = { maxDuration: 300 };
+
+function getProvidedSecret(req) {
+  const auth = req.headers.authorization || "";
+  if (auth.startsWith("Bearer ")) return auth.slice("Bearer ".length).trim();
+  return req.headers["x-backfill-secret"] || "";
+}
+
+function secretsMatch(provided, expected) {
+  if (!provided || !expected) return false;
+  const providedBuf = Buffer.from(String(provided));
+  const expectedBuf = Buffer.from(String(expected));
+  return providedBuf.length === expectedBuf.length && timingSafeEqual(providedBuf, expectedBuf);
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  const expectedSecret = process.env.EMBED_BACKFILL_SECRET;
+  if (!expectedSecret) {
+    return res.status(503).json({ error: "Embedding backfill is not configured" });
+  }
+  if (!secretsMatch(getProvidedSecret(req), expectedSecret)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "userId is required" });
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: "Embedding backfill dependencies are not configured" });
+  }
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
