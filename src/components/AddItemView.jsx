@@ -86,8 +86,16 @@ export default function AddItemView({
     setScanning(true); setReceiptData(null); setReceiptImages({});
     const dataUrl = await readFile(file);
     const base64 = dataUrl.split(",")[1];
+    const isPdf = file.type === "application/pdf";
+    const mediaType = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
     try {
-      const text = await callClaude(RECEIPT_PROMPT, [{ type:"image", source:{ type:"base64", media_type:"image/jpeg", data:base64 } }, { type:"text", text:"Extract all clothing items from this receipt or order confirmation." }], 1000);
+      let claudeContent;
+      if (isPdf) {
+        claudeContent = [{ type:"document", source:{ type:"base64", media_type:"application/pdf", data:base64 } }, { type:"text", text:"Extract all clothing items from this receipt or order confirmation." }];
+      } else {
+        claudeContent = [{ type:"image", source:{ type:"base64", media_type:mediaType, data:base64 } }, { type:"text", text:"Extract all clothing items from this receipt or order confirmation." }];
+      }
+      const text = await callClaude(RECEIPT_PROMPT, claudeContent, 1000);
       const parsed = parseJsonObject(text);
       setReceiptDate(parsed.purchaseDate || "");
       setReceiptData((parsed.items||[]).map((item,i)=>({ ...item, tempId:i, season:"All Year", sleeveLength:"N/A", length:"N/A", materials:[], customMaterial:"", tags:[], comments:"", price:item.price||"" })));
@@ -201,7 +209,7 @@ export default function AddItemView({
         <button onClick={()=>{setReceiptData(null);setReceiptDate("");setReceiptImages({});}} style={{width:"100%",background:"transparent",border:"1px solid #222",color:"#555",borderRadius:3,padding:"11px",fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",marginTop:8}}>Scan Different Receipt</button>
       </>)}
 
-      <input ref={receiptFileRef} type="file" accept="image/*" onChange={scanReceipt} style={{display:"none"}}/>
+      <input ref={receiptFileRef} type="file" accept="image/*,application/pdf" onChange={scanReceipt} style={{display:"none"}}/>
     </div>
   );
 }
