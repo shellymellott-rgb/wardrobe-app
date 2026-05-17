@@ -111,7 +111,7 @@ export default function TripsView({
             />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { console.log("[button] clicked, form:", form); alert("clicked: " + form.name); if (form.name.trim()) createTrip(form); }} disabled={!form.name.trim()} style={{ flex: 1, background: T.cobalt, border: "none", borderRadius: 3, padding: "10px", color: "#fff", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>CREATE TRIP</button>
+            <button onClick={() => { if (form.name.trim()) createTrip(form); }} disabled={!form.name.trim()} style={{ flex: 1, background: T.cobalt, border: "none", borderRadius: 3, padding: "10px", color: "#fff", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: form.name.trim() ? "pointer" : "not-allowed", opacity: form.name.trim() ? 1 : 0.4 }}>CREATE TRIP</button>
             <button onClick={() => setShowNewTripForm(false)} style={{ background: "transparent", border: `1px solid ${T.rule}`, borderRadius: 3, padding: "10px 16px", color: T.ink3, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>CANCEL</button>
           </div>
         </div>
