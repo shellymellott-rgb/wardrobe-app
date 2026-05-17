@@ -265,3 +265,35 @@ export async function sbDeleteJournalEntry(id, userId) {
     return true;
   } catch (e) { console.error("[sb] deleteJournalEntry ERROR:", e.message); return false; }
 }
+
+export async function sbLoadTrips(userId) {
+  try {
+    const { data, error } = await supabase.from("trips").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (error) { console.error("[sb] loadTrips FAILED:", error.message); return null; }
+    return data;
+  } catch (e) { console.error("[sb] loadTrips ERROR:", e.message); return null; }
+}
+
+export async function sbSaveTrip(trip) {
+  try {
+    const { error } = await supabase.from("trips").upsert(trip);
+    if (error) { console.error("[sb] saveTrip FAILED:", error.message); return false; }
+    return true;
+  } catch (e) { console.error("[sb] saveTrip ERROR:", e.message); return false; }
+}
+
+export async function sbDeleteTrip(id, userId) {
+  try {
+    const { error } = await supabase.from("trips").delete().eq("id", id).eq("user_id", userId);
+    if (error) { console.error("[sb] deleteTrip FAILED:", error.message); return false; }
+    return true;
+  } catch (e) { console.error("[sb] deleteTrip ERROR:", e.message); return false; }
+}
+
+export async function sbLoadTripMessages(sessionId) {
+  try {
+    const { data, error } = await supabase.from("chat_messages").select("*").eq("session_id", sessionId).order("created_at", { ascending: true });
+    if (error) { console.error("[sb] loadTripMessages FAILED:", error.message); return null; }
+    return data;
+  } catch (e) { console.error("[sb] loadTripMessages ERROR:", e.message); return null; }
+}

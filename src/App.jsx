@@ -12,6 +12,7 @@ import { parseJsonObject } from "./utils/parseJson.js";
 import { useSettings } from "./hooks/useSettings.js";
 import { useWardrobeData } from "./hooks/useWardrobeData.js";
 import { useClaudeStyling } from "./hooks/useClaudeStyling.js";
+import { useTrips } from "./hooks/useTrips.js";
 import { T, tabStyle, ML } from "./theme.js";
 
 import LoginScreen from "./components/LoginScreen.jsx";
@@ -23,6 +24,7 @@ const AddItemView = lazy(() => import("./components/AddItemView.jsx"));
 const OutfitsView = lazy(() => import("./components/OutfitsView.jsx"));
 const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
 const JournalView = lazy(() => import("./components/JournalView.jsx"));
+const TripsView = lazy(() => import("./components/TripsView.jsx"));
 const ChatView = lazy(() => import("./components/ChatView.jsx"));
 const ItemDetailModal = lazy(() => import("./components/ItemDetailModal.jsx"));
 const ItemChatModal = lazy(() => import("./components/ItemChatModal.jsx"));
@@ -57,6 +59,14 @@ export default function WardrobeApp() {
   const wardrobe = useWardrobeData(user);
   const [currentWeather, setCurrentWeather] = useState(null);
   const [journalEntries, setJournalEntries] = useState([]);
+  const trips = useTrips({
+    user,
+    items: wardrobe.items,
+    buildStyleSystem: settings.buildStyleSystem,
+    weather: currentWeather,
+    season: settings.seasonOverride,
+    journalEntries,
+  });
   const styling = useClaudeStyling({
     items: wardrobe.items,
     buildStyleSystem: settings.buildStyleSystem,
@@ -523,7 +533,7 @@ export default function WardrobeApp() {
           </div>
           {navOpen && (
             <div style={{borderTop:`1px solid ${T.rule}`,padding:"8px 20px 16px",display:"flex",flexDirection:"column",gap:2,background:T.surface}}>
-              {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+              {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"],["Trips","trips"]].map(([label,v])=>(
                 <button key={v} onClick={()=>{navigateTo(v);setNavOpen(false);window.history.pushState({view:v},"");}} style={{
                   border:0,background:"transparent",textAlign:"left",cursor:"pointer",
                   fontFamily:T.mono,fontSize:11,letterSpacing:".22em",textTransform:"uppercase",
@@ -552,7 +562,7 @@ export default function WardrobeApp() {
               <div style={{fontFamily:T.serif,fontSize:22,color:T.ink,letterSpacing:"-.01em",flexShrink:0}}>Wardrobe</div>
               <div style={{width:1,height:14,background:T.rule,flexShrink:0}}/>
               <div style={{display:"flex",gap:22,flexShrink:0}}>
-                {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"]].map(([label,v])=>(
+                {[["Home","home"],["Closet","closet"],["Stylist","chat"],["Looks","outfits"],["Wishlist","wishlist"],["Journal","journal"],["Trips","trips"]].map(([label,v])=>(
                   <button key={v} onClick={()=>{navigateTo(v);window.history.pushState({view:v},"");}} style={tabStyle(view===v)}>{label}</button>
                 ))}
               </div>
@@ -645,6 +655,17 @@ export default function WardrobeApp() {
           onPrefillConsumed={() => setJournalPrefill(null)}
           removeWornDate={removeWornDate}
           onSelectItem={item => setSelectedItem(item)}
+        />
+      )}
+
+      {view==="trips" && (
+        <TripsView
+          trips={trips.trips} activeTrip={trips.activeTrip} setActiveTrip={trips.setActiveTrip}
+          tripMessages={trips.tripMessages} tripInput={trips.tripInput} setTripInput={trips.setTripInput}
+          tripLoading={trips.tripLoading} tripEndRef={trips.tripEndRef}
+          showNewTripForm={trips.showNewTripForm} setShowNewTripForm={trips.setShowNewTripForm}
+          createTrip={trips.createTrip} openTrip={trips.openTrip}
+          deleteTrip={trips.deleteTrip} sendTripMessage={trips.sendTripMessage}
         />
       )}
 
