@@ -75,7 +75,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. Suggest outfits day by day. When suggesting outfits use the labeled format so they can be saved to the journal.`;
 
     try {
-      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries) + tripContext;
+      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, null) + tripContext;
       const apiMessages = newHistory.map(m => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/claude", {
         method: "POST",
