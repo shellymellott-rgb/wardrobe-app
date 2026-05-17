@@ -73,7 +73,7 @@ export function useSettings(user) {
       homeCity,
       seasonOverride,
       ...patch,
-    }, id);
+    }, id).catch(e => console.warn("[settings] save failed:", e.message));
   }
 
   // ── Hydrate from DB ────────────────────────────────────────────────────────

@@ -115,12 +115,18 @@ export async function sbGetSignedUrls(paths, expiresIn = 3600) {
 export async function sbUpsert(table, rows) {
   if (!rows.length) return;
   const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
-  if (error) console.error(`[sb] upsert ${table} FAILED:`, error.message);
+  if (error) {
+    console.error(`[sb] upsert ${table} FAILED:`, error.message);
+    throw error;
+  }
 }
 
 export async function sbDel(table, id, uid) {
   const { error } = await supabase.from(table).delete().eq("id", String(id)).eq("user_id", uid);
-  if (error) console.error(`[sb] delete ${table} FAILED:`, error.message);
+  if (error) {
+    console.error(`[sb] delete ${table} FAILED:`, error.message);
+    throw error;
+  }
 }
 
 export async function sbLoad(table, uid) {

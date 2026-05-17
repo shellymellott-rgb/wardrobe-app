@@ -209,9 +209,6 @@ export function useWardrobeData(user) {
       }
     }
 
-    saveToStorage(finalItems);
-    setItems(finalItems);
-
     const newIds = new Set(finalItems.map(i => String(i.id)));
     const removed = prevItems.filter(i => !newIds.has(String(i.id)));
     const upserted = finalItems.filter(i => {
@@ -219,25 +216,20 @@ export function useWardrobeData(user) {
       return !old || JSON.stringify(stripImages(old)) !== JSON.stringify(stripImages(i));
     });
     console.log(`[persist] Supabase diff: ${removed.length} removed, ${upserted.length} upserted`);
-    removed.forEach(i => sbDel("wardrobe_items", i.id, uid));
-    if (upserted.length)
-      sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
-
-    localStorage.setItem("lastPersistAt", String(Date.now()));
-    // Fire-and-forget: embed new/updated items (non-blocking, never throws)
-    if (uid && upserted.length) {
-      upserted.forEach(item => {
-        fetch("/api/embed", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: uid, itemId: String(item.id) }),
-        }).catch(() => {});
-      });
+    if (uid) {
+      await Promise.all(removed.map(i => sbDel("wardrobe_items", i.id, uid)));
+      if (upserted.length) {
+        await sbUpsert("wardrobe_items", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
+      }
     }
+
+    saveToStorage(finalItems);
+    setItems(finalItems);
+    localStorage.setItem("lastPersistAt", String(Date.now()));
     return finalItems;
   }
 
-  function persistWishlist(w) {
+  async function persistWishlist(w) {
     const uid = user?.id;
     const newIds = new Set(w.map(i => String(i.id)));
     const removed = wishlist.filter(i => !newIds.has(String(i.id)));
@@ -245,13 +237,14 @@ export function useWardrobeData(user) {
       const old = wishlist.find(j => String(j.id) === String(i.id));
       return !old || JSON.stringify(old) !== JSON.stringify(i);
     });
+    if (uid) {
+      await Promise.all(removed.map(i => sbDel("wardrobe_wishlist", i.id, uid)));
+      if (upserted.length) {
+        await sbUpsert("wardrobe_wishlist", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
+      }
+    }
     setWishlist(w);
     saveWishlistToStorage(w);
-    if (uid) {
-      removed.forEach(i => sbDel("wardrobe_wishlist", i.id, uid));
-      if (upserted.length)
-        sbUpsert("wardrobe_wishlist", upserted.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
-    }
   }
 
   function addBrand(brand) {
@@ -374,8 +367,10 @@ export function useWardrobeData(user) {
       setItems(merged);
       saveToStorage(merged);
 
-      if (normalized.length > 0 && localOnly.length)
-        sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
+      if (normalized.length > 0 && localOnly.length) {
+        sbUpsert("wardrobe_items", localOnly.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })))
+          .catch(e => console.warn("[sync] local-only item backfill failed:", e.message));
+      }
     }
 
     if (dbWish !== null) {
@@ -384,8 +379,10 @@ export function useWardrobeData(user) {
         saveWishlistToStorage(dbWish);
       } else {
         const loc = loadWishlistFromStorage();
-        if (loc.length)
-          sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })));
+        if (loc.length) {
+          sbUpsert("wardrobe_wishlist", loc.map(i => ({ id: String(i.id), user_id: uid, data: stripImages(i) })))
+            .catch(e => console.warn("[sync] local wishlist backfill failed:", e.message));
+        }
       }
     }
 
