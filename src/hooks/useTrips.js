@@ -27,9 +27,12 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
   }
 
   async function createTrip({ name, destination, startDate, endDate, itinerary, weatherNotes }) {
+    console.log("[createTrip] starting", { name, destination });
     const id = crypto.randomUUID();
     // Create a chat session for this trip
+    console.log("[createTrip] creating session for", user.id);
     const sessionId = await createSession(user.id);
+    console.log("[createTrip] sessionId:", sessionId);
     const trip = {
       id,
       user_id: user.id,
@@ -41,7 +44,9 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
       weather_notes: weatherNotes || "",
       session_id: sessionId,
     };
-    await sbSaveTrip(trip);
+    console.log("[createTrip] saving trip", trip);
+    const saved = await sbSaveTrip(trip);
+    console.log("[createTrip] saved:", saved);
     setTrips(prev => [trip, ...prev]);
     setActiveTrip(trip);
     setTripMessages([]);
