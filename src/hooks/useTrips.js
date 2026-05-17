@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { sbLoadTrips, sbSaveTrip, sbDeleteTrip, sbLoadTripMessages } from "../supabase.js";
 import { buildChatSystem } from "../utils/wardrobeContext.js";
+import { useChatSessions } from "./useChatSessions.js";
 
 export function useTrips({ user, items, buildStyleSystem, weather, season, journalEntries }) {
+  const { createSession, saveMessage } = useChatSessions();
   const [trips, setTrips] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
   const [tripMessages, setTripMessages] = useState([]);
@@ -27,7 +29,6 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
   async function createTrip({ name, destination, startDate, endDate, itinerary, weatherNotes }) {
     const id = crypto.randomUUID();
     // Create a chat session for this trip
-    const { createSession } = await import("./useChatSessions.js");
     const sessionId = await createSession(user.id);
     const trip = {
       id,
@@ -89,7 +90,6 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
 
       // Save messages to DB
       if (activeTrip.session_id) {
-        const { saveMessage } = await import("./useChatSessions.js");
         await saveMessage(activeTrip.session_id, "user", msg);
         await saveMessage(activeTrip.session_id, "assistant", reply);
       }
