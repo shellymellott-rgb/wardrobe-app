@@ -469,7 +469,8 @@ export default function WardrobeApp() {
   // ── Derived state ───────────────────────────────────────────────────────────
   const allCategories = [...CATEGORIES, ...(Array.isArray(settings.customCategories) ? settings.customCategories : [])];
   const filtered = wardrobe.items.filter(i => {
-    if (!showArchived && i.status === "archived") return false;
+    if (showArchived) return i.status === "archived";
+    if (i.status === "archived") return false;
     if (activeCategory==="To Go") return i.status==="donate"||i.status==="sell";
     if (activeCategory!=="All" && i.category!==activeCategory) return false;
     const fv = (key) => { const v = activeFilters[key]; return Array.isArray(v) ? v : (v ? [v] : []); };
