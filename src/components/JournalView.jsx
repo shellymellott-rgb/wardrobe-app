@@ -530,9 +530,9 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
               style={{ ...inputStyle, minHeight: 80, resize: "vertical", marginBottom: 4 }} />
             <div style={{fontSize:10, color:T.ink3, fontFamily:T.mono, letterSpacing:'.1em', marginBottom:16}}>NOTES ARE VISIBLE TO YOUR STYLIST — ADD ACTIVITY DETAILS FOR TRIP PLANNING</div>
 
-            <button onClick={saveEntry} disabled={saving || (!entryPhoto && entryItemIds.length === 0)} style={{
-              width: "100%", background: saving || (!entryPhoto && entryItemIds.length === 0) ? T.rule : T.cobalt,
-              color: saving || (!entryPhoto && entryItemIds.length === 0) ? T.ink3 : "#fff",
+            <button onClick={saveEntry} disabled={saving || (!entryPhoto && entryItemIds.length === 0 && !entryNotes.trim())} style={{
+              width: "100%", background: saving || (!entryPhoto && entryItemIds.length === 0 && !entryNotes.trim()) ? T.rule : T.cobalt,
+              color: saving || (!entryPhoto && entryItemIds.length === 0 && !entryNotes.trim()) ? T.ink3 : "#fff",
               border: "none", borderRadius: 0, padding: "14px",
               fontFamily: T.mono, fontSize: 11, letterSpacing: ".24em", textTransform: "uppercase",
               cursor: "pointer",
