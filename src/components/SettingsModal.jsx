@@ -1,9 +1,19 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CATEGORIES, DEFAULT_STYLE_SYSTEM } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
 import { compressImage } from "../utils/imageUtils.js";
 import { parseJsonObject } from "../utils/parseJson.js";
 import { getCurrentSeason } from "../utils/wardrobeContext.js";
+
+const PERSONALITY_PRESETS = ["editorial", "supportive", "practical"];
+
+function profilePersonalityState(profile) {
+  const personality = profile?.bot_personality || "";
+  return {
+    botPersonality: PERSONALITY_PRESETS.includes(personality) ? personality : personality ? "custom" : "",
+    botCustomText: PERSONALITY_PRESETS.includes(personality) ? "" : personality,
+  };
+}
 
 export default function SettingsModal({
   onClose,
@@ -27,12 +37,27 @@ export default function SettingsModal({
   const [heightFt, setHeightFt] = useState(wardrobeProfile?.height_ft ?? "");
   const [heightIn, setHeightIn] = useState(wardrobeProfile?.height_in ?? "");
   const [sizes, setSizes] = useState(wardrobeProfile?.sizes ?? "");
-  const PRESETS = ["editorial", "supportive", "practical"];
-  const initPersonality = PRESETS.includes(wardrobeProfile?.bot_personality) ? wardrobeProfile.bot_personality : wardrobeProfile?.bot_personality ? "custom" : "";
+  const initPersonality = profilePersonalityState(wardrobeProfile);
   const [botName, setBotName] = useState(wardrobeProfile?.bot_name || "");
-  const [botPersonality, setBotPersonality] = useState(initPersonality);
-  const [botCustomText, setBotCustomText] = useState(PRESETS.includes(wardrobeProfile?.bot_personality) ? "" : wardrobeProfile?.bot_personality || "");
+  const [botPersonality, setBotPersonality] = useState(initPersonality.botPersonality);
+  const [botCustomText, setBotCustomText] = useState(initPersonality.botCustomText);
   const [stylistSaved, setStylistSaved] = useState(false);
+
+  useEffect(() => {
+    const nextPersonality = profilePersonalityState(wardrobeProfile);
+    setHeightFt(wardrobeProfile?.height_ft ?? "");
+    setHeightIn(wardrobeProfile?.height_in ?? "");
+    setSizes(wardrobeProfile?.sizes ?? "");
+    setBotName(wardrobeProfile?.bot_name || "");
+    setBotPersonality(nextPersonality.botPersonality);
+    setBotCustomText(nextPersonality.botCustomText);
+  }, [
+    wardrobeProfile?.height_ft,
+    wardrobeProfile?.height_in,
+    wardrobeProfile?.sizes,
+    wardrobeProfile?.bot_name,
+    wardrobeProfile?.bot_personality,
+  ]);
 
   function handleAddCat() {
     if (addCustomCategory(newCatInput)) setNewCatInput("");
@@ -116,7 +141,7 @@ export default function SettingsModal({
           <div style={{marginBottom:16}}>
             <div style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#777",marginBottom:8}}>Personality</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:botPersonality==="custom"?10:0}}>
-              {["editorial","supportive","practical","custom"].map(p => {
+              {[...PERSONALITY_PRESETS, "custom"].map(p => {
                 const active = botPersonality === p;
                 return (
                   <button key={p} onClick={() => setBotPersonality(p)} style={{
