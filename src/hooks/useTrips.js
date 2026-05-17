@@ -26,16 +26,6 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
 
   async function createTrip({ name, destination, startDate, endDate, itinerary, weatherNotes }) {
     const id = crypto.randomUUID();
-    const sessionRes = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "hi" }],
-        system: "respond with ok",
-      }),
-    });
     // Create a chat session for this trip
     const { createSession } = await import("./useChatSessions.js");
     const sessionId = await createSession(user.id);
