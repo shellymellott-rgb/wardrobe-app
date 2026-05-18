@@ -3,6 +3,14 @@ import { sbLoadTrips, sbSaveTrip, sbDeleteTrip, sbLoadTripMessages } from "../su
 import { buildChatSystem } from "../utils/wardrobeContext.js";
 import { useChatSessions } from "./useChatSessions.js";
 
+function parseJsonArray(text) {
+  try {
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch { return null; }
+}
+
 export function useTrips({ user, items, buildStyleSystem, weather, season, journalEntries }) {
   const { createSession, saveMessage } = useChatSessions();
   const [trips, setTrips] = useState([]);
@@ -11,7 +19,46 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
   const [tripInput, setTripInput] = useState("");
   const [tripLoading, setTripLoading] = useState(false);
   const [showNewTripForm, setShowNewTripForm] = useState(false);
+  const [planCards, setPlanCards] = useState([]);
   const tripEndRef = useRef(null);
+
+  function detectPlan(text) {
+    const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g];
+    const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
+    if (multiDayCount >= 3) return true;
+    const outfitLabels = [/\*{0,2}Top:\*{0,2}/i, /\*{0,2}Bottom:\*{0,2}/i, /\*{0,2}Pants:\*{0,2}/i, /\*{0,2}Shoes:\*{0,2}/i, /\*{0,2}Dress:\*{0,2}/i, /\*{0,2}Accessories:\*{0,2}/i];
+    const outfitCount = outfitLabels.reduce((acc, p) => acc + (p.test(text) ? 1 : 0), 0);
+    return outfitCount >= 2;
+  }
+
+  async function extractPlan(reply) {
+    try {
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+      const res = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6", max_tokens: 800,
+          system: "You extract structured outfit plans from conversations. Return ONLY a JSON array, no markdown, no explanation.",
+          messages: [{ role: "user", content: `Extract outfit(s) from this text. Return a JSON array where each entry is: { "date": "YYYY-MM-DD", "label": "brief occasion label", "itemNames": ["exact item names"] }. For single outfits use tomorrow's date: ${tomorrowStr}. For multi-day plans, infer dates from the trip context if dates are mentioned. Return []  if nothing clear.\n\nText:\n${reply}` }],
+        }),
+      });
+      const data = await res.json();
+      const parsed = parseJsonArray(data.content?.[0]?.text || "");
+      if (!parsed?.length) return;
+      const cards = parsed.map(entry => {
+        const itemIds = (entry.itemNames || []).map(name => {
+          const lc = name.toLowerCase();
+          const exact = items.find(i => i.name.toLowerCase() === lc);
+          const contains = items.find(i => i.name.toLowerCase().includes(lc));
+          const match = exact || contains;
+          return match ? String(match.id) : null;
+        }).filter(Boolean);
+        return { date: entry.date, label: entry.label || "", itemIds, itemNames: entry.itemNames || [] };
+      }).filter(c => c.date && c.itemIds.length > 0);
+      if (cards.length) setPlanCards(prev => [...prev, ...cards]);
+    } catch (e) { console.error("[trip extractPlan] failed:", e.message); }
+  }
 
   useEffect(() => {
     if (user?.id) loadTrips();
@@ -85,6 +132,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
       const data = await res.json();
       const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
       const assistantMsg = { role: "assistant", content: reply };
+      if (detectPlan(reply)) extractPlan(reply);
       const finalHistory = [...newHistory, assistantMsg];
       setTripMessages(finalHistory);
 
@@ -104,6 +152,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     tripMessages, tripInput, setTripInput,
     tripLoading, tripEndRef,
     showNewTripForm, setShowNewTripForm,
+    planCards, setPlanCards,
     createTrip, openTrip, deleteTrip, sendTripMessage,
   };
 }

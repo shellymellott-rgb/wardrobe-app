@@ -666,6 +666,9 @@ export default function WardrobeApp() {
           showNewTripForm={trips.showNewTripForm} setShowNewTripForm={trips.setShowNewTripForm}
           createTrip={trips.createTrip} openTrip={trips.openTrip}
           deleteTrip={trips.deleteTrip} sendTripMessage={trips.sendTripMessage}
+          planCards={trips.planCards} setPlanCards={trips.setPlanCards}
+          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); navigateTo("journal"); }}
+          items={wardrobe.items}
         />
       )}
 

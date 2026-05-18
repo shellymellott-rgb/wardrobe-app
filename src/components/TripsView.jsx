@@ -10,6 +10,7 @@ export default function TripsView({
   tripLoading, tripEndRef,
   showNewTripForm, setShowNewTripForm,
   createTrip, openTrip, deleteTrip, sendTripMessage,
+  planCards = [], setPlanCards, onApprovePlanDay,
   journalPrefill, onPrefillConsumed,
 }) {
   const [form, setForm] = useState({ name: "", destination: "", startDate: "", endDate: "", itinerary: "", weatherNotes: "" });
@@ -54,6 +55,38 @@ export default function TripsView({
           {tripLoading && <div style={{ color: T.ink3, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em" }}>THINKING…</div>}
           <div ref={tripEndRef} />
         </div>
+
+        {/* Plan cards tray */}
+        {planCards.length > 0 && (
+          <div style={{ flexShrink: 0, background: "#161616", borderTop: "1px solid #2a2a2a", maxHeight: 220, overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 16px 4px" }}>
+              <div style={{ fontSize: 9, color: "#888", letterSpacing: 2, textTransform: "uppercase" }}>Save to journal</div>
+              <button onClick={() => setPlanCards([])} style={{ background: "none", border: "none", color: "#666", fontSize: 16, cursor: "pointer" }}>×</button>
+            </div>
+            {planCards.map((card, ci) => (
+              <div key={ci} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 16px", borderTop: "1px solid #222" }}>
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, color: "#ccc", fontWeight: 600 }}>{card.date}</div>
+                  <div style={{ fontSize: 10, color: "#888" }}>{card.label}</div>
+                </div>
+                <div style={{ display: "flex", gap: 4, flex: 1, overflowX: "auto" }}>
+                  {card.itemIds.slice(0, 5).map((id, ii) => {
+                    const item = items?.find(i => String(i.id) === id);
+                    return item ? (
+                      <div key={ii} style={{ width: 40, height: 54, flexShrink: 0, background: "#222", borderRadius: 2, overflow: "hidden" }}>
+                        {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => { onApprovePlanDay(card); setPlanCards(prev => prev.filter((_, i) => i !== ci)); }} style={{ background: T.cobalt, border: "none", borderRadius: 2, padding: "6px 10px", color: "#fff", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Add</button>
+                  <button onClick={() => setPlanCards(prev => prev.filter((_, i) => i !== ci))} style={{ background: "none", border: "1px solid #444", borderRadius: 2, padding: "6px 10px", color: "#888", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>Skip</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Input */}
         <div style={{ flexShrink: 0, borderTop: `1px solid ${T.rule}`, padding: "12px 16px", display: "flex", gap: 8, alignItems: "center" }}>
