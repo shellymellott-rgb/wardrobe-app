@@ -122,10 +122,39 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     setShowEntryForm(true);
   }
 
-  async function deleteEntry(entryId) {
-    if (!entryId || !user?.id) return;
-    await sbDeleteJournalEntry(entryId, user.id);
+  async function deleteEntry(entry) {
+    if (!entry?.id || !user?.id) return;
+    const hasNotes = !!entry.notes?.trim();
+    const ok = confirm(
+      hasNotes
+        ? "Delete this journal entry? This will remove the clothes and the notes saved for this day."
+        : "Delete this journal entry?"
+    );
+    if (!ok) return;
+    await sbDeleteJournalEntry(entry.id, user.id);
     await onEntryDeleted();
+  }
+
+  async function removeEntryItem(entry, rawId, itemName) {
+    const ok = confirm(`Remove ${itemName || "this item"} from ${formatDate(entry.date)}?`);
+    if (!ok) return;
+
+    const newIds = (entry.item_ids || []).filter(i => String(i) !== String(rawId));
+    let notes = entry.notes || "";
+    if (notes.trim()) {
+      const keepNotes = confirm(
+        "Keep this day's notes for styling and trip planning?\n\nOK keeps the notes. Cancel deletes the notes too."
+      );
+      if (!keepNotes) notes = "";
+    }
+
+    if (!newIds.length && !notes.trim() && !entry.photo) {
+      await sbDeleteJournalEntry(entry.id, user.id);
+    } else {
+      const okSave = await sbSaveJournalEntry({ ...entry, item_ids: newIds, notes });
+      if (!okSave) return;
+    }
+    await onEntrySaved();
   }
 
   function handlePhoto(e) {
@@ -378,9 +407,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                           <button
                             onClick={async e => {
                               e.stopPropagation();
-                              const newIds = entry.item_ids.filter(i => String(i) !== String(rawId));
-                              const ok = await sbSaveJournalEntry({ ...entry, item_ids: newIds });
-                              if (ok) await onEntrySaved();
+                              await removeEntryItem(entry, rawId, item.name);
                             }}
                             style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", border: "none", color: T.surface, borderRadius: "50%", width: 18, height: 18, fontSize: 12, lineHeight: "18px", textAlign: "center", cursor: "pointer", padding: 0 }}>×</button>
                           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink, marginTop: 7, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
@@ -398,7 +425,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                   {/* Per-entry Edit / Delete */}
                   <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "8px 28px 16px" }}>
                     <button onClick={() => openEntryForm(entry)} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Edit</button>
-                    <button onClick={() => deleteEntry(entry.id)} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
+                    <button onClick={() => deleteEntry(entry)} style={{ background: "none", border: "none", color: T.ink3, fontFamily: T.mono, fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Delete</button>
                   </div>
                 </div>
               );
@@ -434,6 +461,8 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                   <button
                     onClick={async e => {
                       e.stopPropagation();
+                      const ok = confirm(`Remove ${item.name || "this item"} from ${formatDate(selectedDate)}?`);
+                      if (!ok) return;
                       removeWornDate(item.id, item.wornDates.indexOf(selectedDate));
                       await onEntrySaved();
                     }}
@@ -503,7 +532,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                     <div style={{ width: 64, height: 85, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
                       {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                     </div>
-                    <button onClick={() => setEntryItemIds(ids => ids.filter(id => id !== String(item.id)))} style={{ position: "absolute", top: -4, right: -4, background: T.ink, border: "none", borderRadius: "50%", width: 16, height: 16, color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                    <button onClick={() => { if (confirm(`Remove ${item.name || "this item"} from this journal form?`)) setEntryItemIds(ids => ids.filter(id => id !== String(item.id))); }} style={{ position: "absolute", top: -4, right: -4, background: T.ink, border: "none", borderRadius: "50%", width: 16, height: 16, color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                     <div style={{ fontFamily: T.sans, fontSize: 7, color: T.ink3, marginTop: 2, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                   </div>
                 ))}
