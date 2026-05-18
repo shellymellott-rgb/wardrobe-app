@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { sbLoadTrips, sbSaveTrip, sbDeleteTrip, sbLoadTripMessages } from "../supabase.js";
-import { buildChatSystem } from "../utils/wardrobeContext.js";
+import { buildChatSystem, buildContextHistory } from "../utils/wardrobeContext.js";
 import { useChatSessions } from "./useChatSessions.js";
 
 function parseJsonArray(text) {
@@ -162,7 +162,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     try {
       const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries) + tripContext;
       const fallbackSystem = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }) + tripContext;
-      const apiMessages = newHistory.map(m => ({ role: m.role, content: m.content }));
+      const apiMessages = buildContextHistory(newHistory).map(m => ({ role: m.role, content: m.content }));
       const reply = await postClaudeWithRetry({
         label: "trip-chat",
         messages: apiMessages,
