@@ -40,6 +40,40 @@ function findItemByName(items, name) {
   return scored[0]?.score >= 2 ? scored[0].item : null;
 }
 
+function buildTripJournalSnapshot({ activeTrip, journalEntries = [], items = [] }) {
+  const start = activeTrip?.start_date || "";
+  const end = activeTrip?.end_date || activeTrip?.start_date || "";
+  const rangeEntries = journalEntries
+    .filter(entry => {
+      if (!entry?.date) return false;
+      if (start && entry.date < start) return false;
+      if (end && entry.date > end) return false;
+      return true;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const lines = rangeEntries.map(entry => {
+    const itemLines = (entry.item_ids || [])
+      .map(id => items.find(item => String(item.id) === String(id)))
+      .filter(Boolean)
+      .map(item => {
+        const details = [item.category, item.brand, item.color].filter(Boolean).join(" / ");
+        return details ? `${item.name} (${details})` : item.name;
+      });
+    const notes = entry.notes?.trim() ? ` Notes: ${entry.notes.trim()}` : "";
+    return `- ${entry.date}: ${itemLines.length ? itemLines.join("; ") : "no items saved"}${notes}`;
+  });
+
+  const rangeLabel = start || end ? `${start || "trip start"} to ${end || "trip end"}` : "all journal dates";
+  return [
+    `\n\nCURRENT TRIP JOURNAL SNAPSHOT (${rangeLabel})`,
+    "This snapshot is generated fresh for this request from the app's current journal state.",
+    "You CAN see these current saved/planned journal outfits. Do not say you only saw entries at the start of the chat.",
+    "If earlier assistant messages claimed journal updates are not visible, ignore those claims and use this snapshot instead.",
+    lines.length ? lines.join("\n") : "No journal outfits are currently saved in this trip date range.",
+  ].join("\n");
+}
+
 async function readClaudeResponse(res, label) {
   const raw = await res.text();
   let data = {};
@@ -187,7 +221,8 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     setTripInput("");
     setTripLoading(true);
 
-    const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. When suggesting outfits, use labeled lines like **Top:**, **Bottoms:**, **Shoes:**, **Accessories:**, **Date:**, and **Notes:** so the app can create save-to-journal cards. If the user asks for cards or asks to add/save to journal, restate the outfit in that labeled format using exact closet item names. Do not say you cannot create cards or cannot see the journal; the app handles cards and passes planned journal context in your system prompt.`;
+    const tripJournalSnapshot = buildTripJournalSnapshot({ activeTrip, journalEntries, items });
+    const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. When suggesting outfits, use labeled lines like **Top:**, **Bottoms:**, **Shoes:**, **Accessories:**, **Date:**, and **Notes:** so the app can create save-to-journal cards. If the user asks for cards or asks to add/save to journal, restate the outfit in that labeled format using exact closet item names. Do not say you cannot create cards or cannot see the journal; the app handles cards and passes current planned journal context in your system prompt.${tripJournalSnapshot}`;
 
     try {
       const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 32, maxCompactIndex: 18 }) + tripContext;
