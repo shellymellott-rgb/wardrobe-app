@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { callClaude } from "../utils/callClaude.js";
 import { parseJsonObject, parseJsonArray } from "../utils/parseJson.js";
 import { OUTFIT_PROMPT, EVALUATE_PROMPT, INSPO_PROMPT } from "../utils/prompts.js";
-import { buildChatSystem, itemFocusCtx, buildContextHistory, stripForClaude } from "../utils/wardrobeContext.js";
+import { buildChatSystem, itemFocusCtx, buildContextHistory, stripForClaude, filterRelevantItems } from "../utils/wardrobeContext.js";
 import { readFile, compressImage } from "../utils/imageUtils.js";
 import { useChatSessions } from "./useChatSessions.js";
 
@@ -37,7 +37,8 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     if (items.length < 2) return;
     setLoadingOutfit(true); setOutfits([]); setOutfitText("");
     try {
-      const text = await callClaude(buildStyleSystem(), OUTFIT_PROMPT(items.map(stripForClaude), occasion, outfits), 1000);
+      const outfitItems = filterRelevantItems(items, occasion || "everyday complete outfits");
+      const text = await callClaude(buildStyleSystem(), OUTFIT_PROMPT(outfitItems.map(stripForClaude), occasion, outfits), 1000);
       console.log("[outfits] response preview:", text?.slice(0, 200));
       setOutfits(parseJsonArray(text));
     } catch (e) {
@@ -87,7 +88,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-            { type: "text",  text: INSPO_PROMPT(items.map(stripForClaude)) },
+            { type: "text",  text: INSPO_PROMPT(filterRelevantItems(items, "recreate outfit inspiration with available closet pieces").map(stripForClaude)) },
           ],
         }],
       };

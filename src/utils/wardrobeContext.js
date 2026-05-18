@@ -1,5 +1,13 @@
 import { fmtMaterials } from "./normalizeItem.js";
 
+const MAX_DETAILED_ITEMS = 70;
+const MAX_COMPACT_INDEX_ITEMS = 140;
+const STOP_WORDS = new Set([
+  "the", "and", "for", "with", "that", "this", "what", "wear", "should", "could",
+  "would", "have", "from", "into", "about", "your", "you", "are", "not", "but",
+  "outfit", "outfits", "item", "items", "piece", "pieces", "closet", "wardrobe",
+]);
+
 export function getCurrentSeason(override) {
   if (override && override !== "auto") return override;
   const m = new Date().getMonth();
@@ -14,21 +22,27 @@ export function stripForClaude({ imageData, originalImageData, outfitPhotos, ...
 }
 
 export function buildWardrobeSummary(items) {
-  const byCat = {};
-  items.forEach(i => { byCat[i.category] = (byCat[i.category] || 0) + 1; });
-  const catStr = Object.entries(byCat).filter(([, n]) => n > 0)
-    .map(([c, n]) => `${n} ${c.toLowerCase()}`).join(", ");
-  const brandCounts = {};
-  items.forEach(i => { if (i.brand) brandCounts[i.brand] = (brandCounts[i.brand] || 0) + 1; });
-  const topBrands = Object.entries(brandCounts).sort((a, b) => b[1] - a[1])
-    .slice(0, 10).map(([b]) => b).join(", ");
-  const colorCounts = {};
-  items.forEach(i => { if (i.color) colorCounts[i.color] = (colorCounts[i.color] || 0) + 1; });
-  const topColors = Object.entries(colorCounts).sort((a, b) => b[1] - a[1])
-    .slice(0, 6).map(([c, n]) => `${c}(${n})`).join(", ");
+  const byCat = countBy(items, i => i.category);
+  const byType = countBy(items, i => i.itemType);
+  const byColor = countBy(items, i => i.color);
+  const byBrand = countBy(items, i => i.brand);
+  const bySeason = countBy(items, i => i.season);
+  const catStr = formatCounts(byCat, 10, c => c.toLowerCase());
+  const topTypes = formatCounts(byType, 12);
+  const topBrands = formatCounts(byBrand, 10);
+  const topColors = formatCounts(byColor, 10);
+  const seasons = formatCounts(bySeason, 6);
   const mostWorn = [...items].sort((a, b) => (b.wornDates?.length || 0) - (a.wornDates?.length || 0))
     .slice(0, 5).map(i => i.name).join(", ");
-  return `Shelly owns ${items.length} pieces: ${catStr}.\nTop brands: ${topBrands || "none listed"}.\nColors: ${topColors || "mixed"}.\nMost worn: ${mostWorn || "none yet"}.`;
+  const neverWorn = items.filter(i => !i.wornDates?.length).length;
+  return [
+    `Full closet summary: ${items.length} pieces${catStr ? ` (${catStr})` : ""}.`,
+    `Types: ${topTypes || "not tagged yet"}.`,
+    `Colors: ${topColors || "mixed/unknown"}.`,
+    `Seasons: ${seasons || "not tagged yet"}.`,
+    `Top brands: ${topBrands || "none listed"}.`,
+    `Wear signals: ${neverWorn} never logged as worn; most worn: ${mostWorn || "none yet"}.`,
+  ].join("\n");
 }
 
 const CAT_KEYWORDS = {
@@ -45,16 +59,7 @@ const COMPLEMENTS = {
 };
 
 export function filterRelevantItems(items, question) {
-  const q = question.toLowerCase();
-  const cats = new Set();
-  Object.entries(CAT_KEYWORDS).forEach(([cat, kws]) => {
-    if (kws.some(k => q.includes(k))) cats.add(cat);
-  });
-  items.filter(i => i.name && q.includes(i.name.toLowerCase().slice(0, 8)))
-    .forEach(i => cats.add(i.category));
-  [...cats].forEach(c => (COMPLEMENTS[c] || []).forEach(x => cats.add(x)));
-  const pool = cats.size > 0 ? items.filter(i => cats.has(i.category)) : items;
-  return [...pool].sort((a, b) => (b.wornDates?.length || 0) - (a.wornDates?.length || 0)).slice(0, 200);
+  return selectClosetContext(items, question).detailedItems;
 }
 
 export function buildContextHistory(history) {
@@ -75,16 +80,189 @@ export function fmtItem(i) {
   );
 }
 
+function countBy(items, getValue) {
+  const counts = {};
+  items.forEach(item => {
+    const raw = getValue(item);
+    const values = Array.isArray(raw) ? raw : [raw];
+    values.filter(Boolean).forEach(value => {
+      counts[value] = (counts[value] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+function formatCounts(counts, max, label = x => x) {
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, max)
+    .map(([key, count]) => `${label(key)} ${count}`)
+    .join(", ");
+}
+
+function tokensFor(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s/-]/g, " ")
+    .split(/[\s/,-]+/)
+    .filter(token => token.length >= 3 && !STOP_WORDS.has(token));
+}
+
+function itemSearchText(item) {
+  return [
+    item.name,
+    item.brand,
+    item.category,
+    item.itemType,
+    item.color,
+    fmtMaterials(item),
+    ...(item.tags || []),
+    item.comments,
+    item.stylingNotes,
+    item.keepNote,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function scoreItem(item, question, queryTokens, wantedCats) {
+  const q = String(question || "").toLowerCase();
+  const text = itemSearchText(item);
+  const name = String(item.name || "").toLowerCase();
+  let score = 0;
+
+  if (name && q.includes(name)) score += 120;
+  if (name && name.length >= 8 && q.includes(name.slice(0, 14))) score += 45;
+  if (item.brand && q.includes(String(item.brand).toLowerCase())) score += 25;
+  if (item.itemType && q.includes(String(item.itemType).toLowerCase())) score += 30;
+  if (item.category && wantedCats.has(item.category)) score += 20;
+  if (item.color && q.includes(String(item.color).toLowerCase())) score += 16;
+  if (fmtMaterials(item) && tokensFor(fmtMaterials(item)).some(t => queryTokens.includes(t))) score += 12;
+  if ((item.tags || []).some(tag => q.includes(String(tag).toLowerCase()))) score += 18;
+
+  queryTokens.forEach(token => {
+    if (text.includes(token)) score += name.includes(token) ? 10 : 4;
+  });
+
+  return score;
+}
+
+function inferWantedCategories(question) {
+  const q = String(question || "").toLowerCase();
+  const cats = new Set();
+  Object.entries(CAT_KEYWORDS).forEach(([cat, kws]) => {
+    if (kws.some(k => q.includes(k))) cats.add(cat);
+  });
+  [...cats].forEach(cat => (COMPLEMENTS[cat] || []).forEach(c => cats.add(c)));
+  return cats;
+}
+
+function isOutfitQuery(question) {
+  return /\b(wear|outfit|dress|pack|packing|trip|travel|tomorrow|today|suggest|style|pair|with)\b/i.test(question || "");
+}
+
+function isAuditQuery(question) {
+  return /\b(missing|gap|gaps|buy|purchase|need|too many|enough|replace|duplicate|duplicates|donate|sell|keep)\b/i.test(question || "");
+}
+
+function takeBalanced(items, max, existingIds = new Set()) {
+  const quotas = {
+    Tops: 16,
+    Bottoms: 16,
+    Dresses: 10,
+    Shoes: 14,
+    Outerwear: 8,
+    Accessories: 8,
+    Swimwear: 4,
+  };
+  const selected = [];
+  Object.entries(quotas).forEach(([cat, quota]) => {
+    items
+      .filter(item => item.category === cat && !existingIds.has(String(item.id)))
+      .sort((a, b) => (b.wornDates?.length || 0) - (a.wornDates?.length || 0))
+      .slice(0, quota)
+      .forEach(item => {
+        if (selected.length < max && !existingIds.has(String(item.id))) {
+          selected.push(item);
+          existingIds.add(String(item.id));
+        }
+      });
+  });
+  return selected;
+}
+
+export function selectClosetContext(items, question, options = {}) {
+  const maxDetailed = options.maxDetailed || (isOutfitQuery(question) ? 80 : MAX_DETAILED_ITEMS);
+  const stripped = items.map(stripForClaude);
+  const queryTokens = tokensFor(question);
+  const wantedCats = inferWantedCategories(question);
+  const scored = stripped
+    .map(item => ({ item, score: scoreItem(item, question, queryTokens, wantedCats) }))
+    .filter(entry => entry.score > 0)
+    .sort((a, b) => b.score - a.score || (b.item.wornDates?.length || 0) - (a.item.wornDates?.length || 0));
+
+  const selected = [];
+  const selectedIds = new Set();
+  scored.forEach(({ item }) => {
+    if (selected.length < maxDetailed && !selectedIds.has(String(item.id))) {
+      selected.push(item);
+      selectedIds.add(String(item.id));
+    }
+  });
+
+  const shouldBalance = isOutfitQuery(question) || selected.length < Math.min(30, maxDetailed);
+  if (shouldBalance) {
+    takeBalanced(stripped, maxDetailed - selected.length, selectedIds).forEach(item => selected.push(item));
+  }
+
+  if (isAuditQuery(question)) {
+    stripped
+      .filter(item => !selectedIds.has(String(item.id)))
+      .sort((a, b) => (a.wornDates?.length || 0) - (b.wornDates?.length || 0))
+      .slice(0, Math.max(0, maxDetailed - selected.length))
+      .forEach(item => {
+        selected.push(item);
+        selectedIds.add(String(item.id));
+      });
+  }
+
+  const compactIndex = scored
+    .map(({ item }) => item)
+    .concat(stripped)
+    .filter((item, idx, arr) => arr.findIndex(other => String(other.id) === String(item.id)) === idx)
+    .slice(0, MAX_COMPACT_INDEX_ITEMS);
+
+  return {
+    detailedItems: selected.slice(0, maxDetailed),
+    compactIndex,
+    matchedCount: scored.length,
+    totalCount: stripped.length,
+  };
+}
+
+function compactItemLine(i) {
+  return `- ${i.name}${i.category ? ` [${i.category}]` : ""}${i.itemType ? ` / ${i.itemType}` : ""}${i.brand ? ` / ${i.brand}` : ""}${i.color ? ` / ${i.color}` : ""}`;
+}
+
+function buildClosetContext(items, question) {
+  const { detailedItems, compactIndex, matchedCount, totalCount } = selectClosetContext(items, question);
+  const detailLines = detailedItems.map(fmtItem).join("\n");
+  const indexLines = compactIndex
+    .filter(item => !detailedItems.some(d => String(d.id) === String(item.id)))
+    .slice(0, 80)
+    .map(compactItemLine)
+    .join("\n");
+  return [
+    buildWardrobeSummary(items),
+    `Retrieval: showing ${detailedItems.length} detailed items from ${totalCount} total. ${matchedCount} matched the user's words exactly/structurally before balanced closet coverage was added.`,
+    "Detailed item context available for exact recommendations:",
+    detailLines || "No detailed items available.",
+    indexLines ? `\nCompact closet index (names only, for broader awareness):\n${indexLines}` : "",
+    "If the user asks for a specific item and it is not in detailed context, say you need to search/open that item rather than pretending it is absent from the closet.",
+  ].filter(Boolean).join("\n\n");
+}
+
 export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14, journalEntries = null) {
   const stripped = items.map(stripForClaude);
-  const isOutfitQuery = question && /\b(wear|outfit|dress|tomorrow|today|suggest|what should)\b/i.test(question);
-  let ctx;
-  if (stripped.length <= 999 || !question || isOutfitQuery) {
-    ctx = `Her complete wardrobe (${stripped.length} pieces):\n${stripped.map(fmtItem).join("\n")}`;
-  } else {
-    const rel = filterRelevantItems(stripped, question);
-    ctx = `${buildWardrobeSummary(stripped)}\n\nMost relevant items (${rel.length} of ${stripped.length} shown):\n${rel.map(fmtItem).join("\n")}`;
-  }
+  const ctx = buildClosetContext(stripped, question);
   const today = new Date().toISOString().split("T")[0];
   const cutoff = new Date(Date.now() - rotationDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const recentlyWorn = stripped.filter(i => (i.wornDates || []).some(d => d >= cutoff && d <= today));
