@@ -36,11 +36,9 @@ export default function HomeView({
 
   const hasEnoughItems = items.length >= 2;
   const withImages = items.filter(i => i.imageData && i.status !== "archived");
-  const todayStr = new Date().toDateString();
-  let seedVal = todayStr.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  function seededRand() { seedVal = (seedVal * 1664525 + 1013904223) & 0xffffffff; return (seedVal >>> 0) / 0xffffffff; }
-  const shuffled = [...withImages].sort(() => seededRand() - 0.5);
-  const stripItems = shuffled.slice(0, 4);
+  const stripItems = useMemo(() =>
+    [...withImages].sort(() => Math.random() - 0.5).slice(0, 4),
+  [items.length]);
   const firstOutfit = outfits[0];
   const firstOutfitPieces = firstOutfit
     ? (firstOutfit.pieces || []).map(name => {
