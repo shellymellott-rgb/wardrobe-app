@@ -1,7 +1,8 @@
 import { fmtMaterials } from "./normalizeItem.js";
 
-const MAX_DETAILED_ITEMS = 70;
-const MAX_COMPACT_INDEX_ITEMS = 140;
+const MAX_DETAILED_ITEMS = 45;
+const MAX_OUTFIT_DETAILED_ITEMS = 60;
+const MAX_COMPACT_INDEX_ITEMS = 90;
 const STOP_WORDS = new Set([
   "the", "and", "for", "with", "that", "this", "what", "wear", "should", "could",
   "would", "have", "from", "into", "about", "your", "you", "are", "not", "but",
@@ -19,6 +20,11 @@ export function getCurrentSeason(override) {
 
 export function stripForClaude({ imageData, originalImageData, outfitPhotos, ...rest }) {
   return rest;
+}
+
+function truncate(value, max = 90) {
+  const text = String(value || "").trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 export function buildWardrobeSummary(items) {
@@ -69,14 +75,15 @@ export function buildContextHistory(history) {
 /** Format a single item for Claude context. Uses fmtMaterials to handle both legacy and current data models. */
 export function fmtItem(i) {
   return (
-    `- [${i.category}] ${i.name}` +
-    (i.brand ? ` / ${i.brand}` : "") +
-    (i.color ? ` / ${i.color}` : "") +
-    (fmtMaterials(i) ? ` / ${fmtMaterials(i)}` : "") +
-    (i.tags?.length ? ` / Tags: ${i.tags.join(", ")}` : "") +
+    `- [${i.category}] ${truncate(i.name, 80)}` +
+    (i.itemType ? ` / ${truncate(i.itemType, 30)}` : "") +
+    (i.brand ? ` / ${truncate(i.brand, 35)}` : "") +
+    (i.color ? ` / ${truncate(i.color, 35)}` : "") +
+    (fmtMaterials(i) ? ` / ${truncate(fmtMaterials(i), 50)}` : "") +
+    (i.tags?.length ? ` / Tags: ${i.tags.slice(0, 4).map(t => truncate(t, 24)).join(", ")}` : "") +
     ` (worn ${i.wornDates?.length || 0}x)` +
-    (i.stylingNotes ? ` [Styling: ${i.stylingNotes}]` : "") +
-    (i.keepNote ? ` [${i.keepNote}]` : "")
+    (i.stylingNotes ? ` [Styling: ${truncate(i.stylingNotes, 110)}]` : "") +
+    (i.keepNote ? ` [${truncate(i.keepNote, 80)}]` : "")
   );
 }
 
@@ -190,7 +197,7 @@ function takeBalanced(items, max, existingIds = new Set()) {
 }
 
 export function selectClosetContext(items, question, options = {}) {
-  const maxDetailed = options.maxDetailed || (isOutfitQuery(question) ? 80 : MAX_DETAILED_ITEMS);
+  const maxDetailed = options.maxDetailed || (isOutfitQuery(question) ? MAX_OUTFIT_DETAILED_ITEMS : MAX_DETAILED_ITEMS);
   const stripped = items.map(stripForClaude);
   const queryTokens = tokensFor(question);
   const wantedCats = inferWantedCategories(question);
@@ -239,7 +246,7 @@ export function selectClosetContext(items, question, options = {}) {
 }
 
 function compactItemLine(i) {
-  return `- ${i.name}${i.category ? ` [${i.category}]` : ""}${i.itemType ? ` / ${i.itemType}` : ""}${i.brand ? ` / ${i.brand}` : ""}${i.color ? ` / ${i.color}` : ""}`;
+  return `- ${truncate(i.name, 70)}${i.category ? ` [${i.category}]` : ""}${i.itemType ? ` / ${truncate(i.itemType, 24)}` : ""}${i.brand ? ` / ${truncate(i.brand, 30)}` : ""}${i.color ? ` / ${truncate(i.color, 30)}` : ""}`;
 }
 
 function buildClosetContext(items, question) {
@@ -247,7 +254,7 @@ function buildClosetContext(items, question) {
   const detailLines = detailedItems.map(fmtItem).join("\n");
   const indexLines = compactIndex
     .filter(item => !detailedItems.some(d => String(d.id) === String(item.id)))
-    .slice(0, 80)
+    .slice(0, 45)
     .map(compactItemLine)
     .join("\n");
   return [
@@ -267,7 +274,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const cutoff = new Date(Date.now() - rotationDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const recentlyWorn = stripped.filter(i => (i.wornDates || []).some(d => d >= cutoff && d <= today));
   const recentNote = recentlyWorn.length > 0
-    ? `\nIMPORTANT: Do NOT suggest these items — worn in the last ${rotationDays} days: ${recentlyWorn.map(i => i.name).join(", ")}`
+    ? `\nIMPORTANT: Do NOT suggest these items — worn in the last ${rotationDays} days: ${recentlyWorn.slice(0, 40).map(i => i.name).join(", ")}${recentlyWorn.length > 40 ? `, plus ${recentlyWorn.length - 40} more` : ""}`
     : "";
   const weatherLine = weather
     ? `Current weather: ${weather.condition}, high ${weather.tempHigh}°F / low ${weather.tempLow}°F${weather.isRainy ? ", rainy" : ""}.\n\n`
@@ -286,7 +293,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   });
   const offSeason = stripped.filter(i => !inSeason.includes(i));
   const seasonLine = `Current season: ${currentSeason}. Off-season items (${offSeason.length} pieces) are deprioritized — focus recommendations on in-season pieces unless the user specifically asks.\n\n`;
-  const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season (stored): ${offSeason.slice(0, 20).map(i => i.name).join(", ")}` : "";
+  const offSeasonNote = offSeason.length > 0 ? `\n\nOff-season examples (stored): ${offSeason.slice(0, 12).map(i => i.name).join(", ")}${offSeason.length > 12 ? `, plus ${offSeason.length - 12} more` : ""}` : "";
   const dressingNote = profile?.dressing_seasons?.length > 0
     ? `This person dresses for ${profile.dressing_seasons.length} season${profile.dressing_seasons.length > 1 ? "s" : ""} (${profile.dressing_seasons.join(", ")}), so their wardrobe size reflects seasonal rotation — do not suggest they have too many clothes.\n\n`
     : "";

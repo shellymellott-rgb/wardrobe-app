@@ -37,7 +37,7 @@ describe("wardrobe context retrieval", () => {
     );
 
     expect(system).toContain("Full closet summary: 337 pieces");
-    expect(system).toContain("showing 80 detailed items from 337 total");
+    expect(system).toContain("showing 60 detailed items from 337 total");
     expect(system).toContain("Aritzia Effortless Linen Shorts");
     expect(system).not.toContain("Generic piece 336");
   });

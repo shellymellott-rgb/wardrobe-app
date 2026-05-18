@@ -263,7 +263,7 @@ export default async function handler(req, res) {
     });
     const data = await response.json();
     if (data.error) console.error('[api/claude] Anthropic error:', data.error);
-    res.status(200).json(data);
+    res.status(response.ok ? 200 : response.status).json(data);
   } catch (err) {
     console.error('[api/claude] top-level error:', err.message);
     res.status(500).json({ error: err.message });

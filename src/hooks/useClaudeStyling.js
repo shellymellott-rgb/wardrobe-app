@@ -159,6 +159,16 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
 
   function flashLearned() { setLearnedIndicator(true); setTimeout(() => setLearnedIndicator(false), 2000); }
 
+  async function readClaudeResponse(res, label) {
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      const message = typeof data.error === "object" ? data.error?.message : data.error;
+      console.error(`[${label}] Claude API failed:`, message || `HTTP ${res.status}`);
+      throw new Error(message || `HTTP ${res.status}`);
+    }
+    return data.content?.[0]?.text || "";
+  }
+
   function detectPlan(text) {
     const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
     const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
@@ -246,8 +256,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries), messages:apiMessages }),
       });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+      const reply = await readClaudeResponse(res, "chat");
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
       try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
@@ -258,8 +267,8 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       }
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
       if (detectPlan(reply)) extractPlan(reply, items);
-    } catch {
-      setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
+    } catch (e) {
+      setChatHistory(h => [...h, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
     }
     setChatLoading(false);
   }
@@ -277,14 +286,13 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, correction, buildStyleSystem, null, weather, season, rotationDays, journalEntries), messages:buildContextHistory(newHistory) }),
       });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+      const reply = await readClaudeResponse(res, "correction");
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
       try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
       saveSettings({ chatHistory: updated.slice(-30) });
-    } catch {
-      setChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
+    } catch (e) {
+      setChatHistory(h => [...h, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
     }
     setChatLoading(false);
   }
@@ -306,11 +314,10 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, initialMsg, buildStyleSystem, null, weather, season, rotationDays, journalEntries)+itemFocusCtx(item), messages:newHistory }),
       });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+      const reply = await readClaudeResponse(res, "item-chat-open");
       setItemChatHistory([...newHistory, { role:"assistant", content:reply }]);
-    } catch {
-      setItemChatHistory([...newHistory, { role:"assistant", content:"Error. Try again." }]);
+    } catch (e) {
+      setItemChatHistory([...newHistory, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
     }
     setItemChatLoading(false);
   }
@@ -324,12 +331,11 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, null, weather, season, rotationDays, journalEntries)+itemFocusCtx(itemChatModal), messages:buildContextHistory(newHistory) }),
       });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
+      const reply = await readClaudeResponse(res, "item-chat");
       setItemChatHistory(h => [...h, { role:"assistant", content:reply }]);
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
-    } catch {
-      setItemChatHistory(h => [...h, { role:"assistant", content:"Error. Try again." }]);
+    } catch (e) {
+      setItemChatHistory(h => [...h, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
     }
     setItemChatLoading(false);
   }
