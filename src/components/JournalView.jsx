@@ -20,6 +20,11 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
+function compactDate(dateStr) {
+  const d = toLocalDate(dateStr);
+  return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
+}
+
 function itemChatLine(item) {
   const details = [
     item.brand,
@@ -64,6 +69,10 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
   const [entryPhoto, setEntryPhoto] = useState(null);
   const [entryItemIds, setEntryItemIds] = useState([]);
   const [entryNotes, setEntryNotes] = useState("");
+  const [showPackingList, setShowPackingList] = useState(false);
+  const [packingStart, setPackingStart] = useState(todayStr());
+  const [packingEnd, setPackingEnd] = useState(todayStr());
+  const [packingCopied, setPackingCopied] = useState(false);
 
   useImperativeHandle(ref, () => ({
     prefillEntry(date, itemIds, notes) {
@@ -112,6 +121,8 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
 
   const entriesForDate = entryMap[selectedDate] || [];
   const wornMapItems = wornMap[selectedDate] || [];
+  const packingRangeStart = packingStart && packingEnd && packingStart > packingEnd ? packingEnd : packingStart;
+  const packingRangeEnd = packingStart && packingEnd && packingStart > packingEnd ? packingStart : packingEnd;
 
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -199,6 +210,86 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     const reader = new FileReader();
     reader.onload = ev => setEntryPhoto(ev.target.result);
     reader.readAsDataURL(file);
+  }
+
+  function openPackingList() {
+    setPackingStart(selectedDate);
+    setPackingEnd(selectedDate);
+    setPackingCopied(false);
+    setShowPackingList(true);
+  }
+
+  function buildPackingRows() {
+    if (!packingRangeStart || !packingRangeEnd) return [];
+    const rows = new Map();
+    const seen = new Set();
+
+    function addItem(item, date) {
+      if (!item?.id || !date) return;
+      const key = `${item.id}:${date}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const id = String(item.id);
+      if (!rows.has(id)) {
+        rows.set(id, {
+          item,
+          dates: new Set(),
+          count: 0,
+        });
+      }
+      const row = rows.get(id);
+      row.dates.add(date);
+      row.count += 1;
+    }
+
+    journalEntries
+      .filter(entry => entry.date >= packingRangeStart && entry.date <= packingRangeEnd)
+      .forEach(entry => {
+        (entry.item_ids || []).forEach(id => {
+          addItem(items.find(item => String(item.id) === String(id)), entry.date);
+        });
+      });
+
+    items.forEach(item => {
+      (item.wornDates || [])
+        .filter(date => date >= packingRangeStart && date <= packingRangeEnd && !entryMap[date]?.length)
+        .forEach(date => addItem(item, date));
+    });
+
+    return [...rows.values()]
+      .map(row => ({ ...row, dates: [...row.dates].sort() }))
+      .sort((a, b) => {
+        const cat = (a.item.category || "").localeCompare(b.item.category || "");
+        if (cat) return cat;
+        return (a.item.name || "").localeCompare(b.item.name || "");
+      });
+  }
+
+  const packingRows = buildPackingRows();
+  const packingGroups = packingRows.reduce((groups, row) => {
+    const key = row.item.category || "Other";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(row);
+    return groups;
+  }, {});
+  const packingDates = [...new Set(packingRows.flatMap(row => row.dates))].sort();
+  const packingText = [
+    `Packing list: ${packingRangeStart || "start"} to ${packingRangeEnd || "end"}`,
+    "",
+    ...Object.entries(packingGroups).flatMap(([category, rows]) => [
+      category.toUpperCase(),
+      ...rows.map(({ item, dates }) => `- ${item.name}${item.brand ? ` (${item.brand})` : ""} - ${dates.map(compactDate).join(", ")}`),
+      "",
+    ]),
+  ].join("\n").trim();
+
+  async function copyPackingList() {
+    try {
+      await navigator.clipboard.writeText(packingText);
+      setPackingCopied(true);
+    } catch {
+      setPackingCopied(false);
+    }
   }
 
   const taggedItems = entryItemIds.map(id => items.find(i => String(i.id) === String(id))).filter(Boolean);
@@ -390,7 +481,10 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
             <em style={{ fontStyle: "italic", color: T.sage }}>{calYear}</em>
           </h2>
         </div>
-        <div style={{ display: "flex", gap: 16 }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button onClick={openPackingList} style={{ background: T.citron, border: "none", color: T.ink, padding: "8px 14px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+            Packing List
+          </button>
           {["month", "week"].map(v => (
             <button key={v} onClick={() => setCalView(v)} style={tabStyle(calView === v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
           ))}
@@ -534,6 +628,71 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
           </div>
         )}
       </div>
+
+      {/* ── Packing list ─────────────────────────────────── */}
+      {showPackingList && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(10,10,10,0.5)", overflowY: "auto" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto", background: T.surface, minHeight: "100vh", padding: "28px 28px 100px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 22 }}>
+              <div>
+                <div style={{ ...ML, color: T.ink3, marginBottom: 8 }}>Date range</div>
+                <div style={{ fontFamily: T.serif, fontSize: 28, color: T.ink, lineHeight: 1 }}>Packing List</div>
+              </div>
+              <button onClick={() => setShowPackingList(false)} style={{ background: "none", border: "none", color: T.ink3, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <label>
+                <span style={{ ...ML, color: T.ink3, display: "block", marginBottom: 6 }}>Start</span>
+                <input type="date" value={packingStart} onChange={e => { setPackingStart(e.target.value); setPackingCopied(false); }} style={inputStyle} />
+              </label>
+              <label>
+                <span style={{ ...ML, color: T.ink3, display: "block", marginBottom: 6 }}>End</span>
+                <input type="date" value={packingEnd} onChange={e => { setPackingEnd(e.target.value); setPackingCopied(false); }} style={inputStyle} />
+              </label>
+            </div>
+
+            <div style={{ borderTop: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`, padding: "12px 0", marginBottom: 16, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: T.sans, color: T.ink2, fontSize: 13 }}>
+                {packingRows.length} unique {packingRows.length === 1 ? "item" : "items"}
+                {packingDates.length > 0 && <> · {packingDates.length} planned {packingDates.length === 1 ? "day" : "days"}</>}
+              </div>
+              <button onClick={copyPackingList} disabled={!packingRows.length} style={{ background: packingRows.length ? T.cobalt : T.rule, color: packingRows.length ? "#fff" : T.ink3, border: "none", padding: "8px 12px", fontFamily: T.mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", cursor: packingRows.length ? "pointer" : "not-allowed" }}>
+                {packingCopied ? "Copied" : "Copy List"}
+              </button>
+            </div>
+
+            {packingRows.length === 0 ? (
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink3, lineHeight: 1.6 }}>
+                No journal outfits found in this date range yet.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {Object.entries(packingGroups).map(([category, rows]) => (
+                  <div key={category}>
+                    <div style={{ ...ML, color: T.ink3, marginBottom: 10 }}>{category}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {rows.map(({ item, dates }) => (
+                        <div key={item.id} style={{ display: "grid", gridTemplateColumns: "44px 1fr", gap: 10, alignItems: "center", borderBottom: `1px solid ${T.rule}`, paddingBottom: 8 }}>
+                          <div style={{ width: 44, height: 58, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
+                            <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink, lineHeight: 1.3 }}>{item.name}</div>
+                            <div style={{ fontFamily: T.sans, fontSize: 11, color: T.ink3, lineHeight: 1.5 }}>
+                              {[item.brand, dates.map(compactDate).join(", ")].filter(Boolean).join(" · ")}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Entry form ────────────────────────────────────── */}
       {showEntryForm && (
