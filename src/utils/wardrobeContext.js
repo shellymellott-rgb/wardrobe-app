@@ -54,7 +54,7 @@ export function filterRelevantItems(items, question) {
     .forEach(i => cats.add(i.category));
   [...cats].forEach(c => (COMPLEMENTS[c] || []).forEach(x => cats.add(x)));
   const pool = cats.size > 0 ? items.filter(i => cats.has(i.category)) : items;
-  return [...pool].sort((a, b) => (b.wornDates?.length || 0) - (a.wornDates?.length || 0)).slice(0, 80);
+  return [...pool].sort((a, b) => (b.wornDates?.length || 0) - (a.wornDates?.length || 0)).slice(0, 200);
 }
 
 export function buildContextHistory(history) {
@@ -79,7 +79,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const stripped = items.map(stripForClaude);
   const isOutfitQuery = question && /\b(wear|outfit|dress|tomorrow|today|suggest|what should)\b/i.test(question);
   let ctx;
-  if (stripped.length <= 50 || !question || isOutfitQuery) {
+  if (stripped.length <= 200 || !question || isOutfitQuery) {
     ctx = `Her complete wardrobe (${stripped.length} pieces):\n${stripped.map(fmtItem).join("\n")}`;
   } else {
     const rel = filterRelevantItems(stripped, question);
