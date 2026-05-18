@@ -35,7 +35,15 @@ export default function HomeView({
   const dayNum = now.getDate();
 
   const hasEnoughItems = items.length >= 2;
-  const stripItems = items.filter(i => i.imageData).slice(0, 4);
+  const seed = new Date().toDateString();
+  const seedNum = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const withImages = items.filter(i => i.imageData && i.status !== "archived");
+  const stripItems = withImages.length <= 4 ? withImages :
+    [...withImages].sort((a, b) => {
+      const ha = (String(a.id).charCodeAt(0) + seedNum) % withImages.length;
+      const hb = (String(b.id).charCodeAt(0) + seedNum) % withImages.length;
+      return ha - hb;
+    }).slice(0, 4);
   const firstOutfit = outfits[0];
   const firstOutfitPieces = firstOutfit
     ? (firstOutfit.pieces || []).map(name => {
