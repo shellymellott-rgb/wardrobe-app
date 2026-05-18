@@ -141,7 +141,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
 
     const newIds = (entry.item_ids || []).filter(i => String(i) !== String(rawId));
     let notes = entry.notes || "";
-    if (notes.trim()) {
+    if (!newIds.length && notes.trim()) {
       const keepNotes = confirm(
         "Keep this day's notes for styling and trip planning?\n\nOK keeps the notes. Cancel deletes the notes too."
       );
