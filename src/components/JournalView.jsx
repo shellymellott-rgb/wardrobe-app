@@ -31,6 +31,31 @@ function itemChatLine(item) {
   return `- ${item.name}${details.length ? ` (${details.join("; ")})` : ""}`;
 }
 
+function itemImageSources(item) {
+  return [item?.imageThumb, item?.imageData].filter(Boolean);
+}
+
+function JournalItemImage({ item, style }) {
+  const sources = itemImageSources(item);
+  const [srcIndex, setSrcIndex] = useState(0);
+
+  useEffect(() => {
+    setSrcIndex(0);
+  }, [item?.id, item?.imageThumb, item?.imageData]);
+
+  if (!sources[srcIndex]) return null;
+
+  return (
+    <img
+      src={sources[srcIndex]}
+      alt={item?.name || ""}
+      loading="lazy"
+      onError={() => setSrcIndex(i => i + 1)}
+      style={style}
+    />
+  );
+}
+
 const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, removeWornDate, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry, journalPrefill, onPrefillConsumed, onSelectItem }, ref) {
   const [calView, setCalView] = useState("month");
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -209,9 +234,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", position: "absolute", inset: 0, gap: 1 }}>
         {slots.map((item, idx) => (
           <div key={idx} style={{ background: T.paper, overflow: "hidden" }}>
-            {item && (item.imageThumb || item.imageData) && (
-              <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            )}
+            <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         ))}
       </div>
@@ -416,9 +439,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                       {entryDisplayItems.map(({ key, item, rawId }, idx) => (
                         <div key={key} onClick={() => onSelectItem?.(item)} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
                           <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
-                            {(item.imageThumb || item.imageData) && (
-                              <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                            )}
+                            <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                             <div style={{ position: "absolute", top: 6, left: 6, background: T.citron, color: T.ink, fontFamily: T.mono, fontSize: 8, letterSpacing: ".08em", padding: "2px 5px", lineHeight: 1.4 }}>
                               {String(idx + 1).padStart(2, "0")}
                             </div>
@@ -470,9 +491,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
               {wornMapItems.map((item, idx) => (
                 <div key={String(item.id)} onClick={() => onSelectItem?.(item)} style={{ flexShrink: 0, width: 100, position: "relative", cursor: "pointer" }}>
                   <div style={{ width: 100, height: 133, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", position: "relative" }}>
-                    {(item.imageThumb || item.imageData) && (
-                      <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    )}
+                    <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                     <div style={{ position: "absolute", top: 6, left: 6, background: T.citron, color: T.ink, fontFamily: T.mono, fontSize: 8, letterSpacing: ".08em", padding: "2px 5px", lineHeight: 1.4 }}>
                       {String(idx + 1).padStart(2, "0")}
                     </div>
@@ -549,7 +568,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                 {taggedItems.map(item => (
                   <div key={item.id} style={{ flexShrink: 0, width: 64, position: "relative" }}>
                     <div style={{ width: 64, height: 85, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden" }}>
-                      {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                      <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
                     <button onClick={() => { if (confirm(`Remove ${item.name || "this item"} from this journal form?`)) setEntryItemIds(ids => ids.filter(id => id !== String(item.id))); }} style={{ position: "absolute", top: -4, right: -4, background: T.ink, border: "none", borderRadius: "50%", width: 16, height: 16, color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                     <div style={{ fontFamily: T.sans, fontSize: 7, color: T.ink3, marginTop: 2, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
@@ -564,7 +583,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
                 <div key={item.id} onClick={() => { setEntryItemIds(ids => [...ids, String(item.id)]); setItemSearch(""); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.rule}`, cursor: "pointer" }}>
                   <div style={{ width: 32, height: 42, background: T.paper, border: `1px solid ${T.rule}`, overflow: "hidden", flexShrink: 0 }}>
-                    {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                    <JournalItemImage item={item} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                   <div>
                     <div style={{ fontFamily: T.sans, fontSize: 12, color: T.ink }}>{item.name}</div>
