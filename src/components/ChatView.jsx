@@ -12,7 +12,10 @@ export default function ChatView({
   attachedImages = [], onImageAttach, onImageClear,
   planCards, setPlanCards, onApprovePlanDay, items,
 }) {
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [chatHistory]);
+  const safeChatHistory = Array.isArray(chatHistory) ? chatHistory : [];
+  const safeStyleNotes = Array.isArray(styleNotes) ? styleNotes : [];
+  const safePlanCards = Array.isArray(planCards) ? planCards : [];
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [safeChatHistory]);
   const imageInputRef = useRef();
   const [showNotes, setShowNotes] = useState(false);
 
@@ -20,15 +23,15 @@ export default function ChatView({
     <div style={{fontFamily:"'DM Sans', system-ui, sans-serif",height:"calc(100vh - 160px)",display:"flex",flexDirection:"column"}}>
       <input type="file" accept="image/*" multiple ref={imageInputRef} style={{display:"none"}}
         onChange={e => { const files = [...e.target.files]; e.target.value = ""; files.forEach(f => { if (f && onImageAttach) onImageAttach(f); }); }} />
-      {styleNotes.length>0 && (
+      {safeStyleNotes.length>0 && (
         <div style={{flexShrink:0,borderBottom:"1px solid #1a1a1a"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 24px",cursor:"pointer"}} onClick={()=>setShowNotes(s=>!s)}>
-            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555"}}>· STYLE NOTES ({styleNotes.length}) {showNotes?"▾":"▸"}</div>
+            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#555"}}>· STYLE NOTES ({safeStyleNotes.length}) {showNotes?"▾":"▸"}</div>
             {showNotes && <button onClick={e=>{e.stopPropagation();clearStyleNotes();}} style={{...ghostBtn,fontSize:9,color:"#444",letterSpacing:1}}>clear all</button>}
           </div>
           {showNotes && (
             <div style={{display:"flex",flexDirection:"column",gap:3,padding:"0 24px 10px"}}>
-              {styleNotes.map((n,i)=>(
+              {safeStyleNotes.map((n,i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                   <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>· {n}</div>
                   <button onClick={()=>removeStyleNote(i)} style={{...ghostBtn,fontSize:13,color:"#3a3a3a",padding:0,flexShrink:0}}>×</button>
@@ -39,7 +42,7 @@ export default function ChatView({
         </div>
       )}
 
-      {chatHistory.length===0 && !chatLoading ? (
+      {safeChatHistory.length===0 && !chatLoading ? (
         <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 24px 40px"}}>
           <div style={{fontSize:22,fontStyle:"italic",letterSpacing:-0.5,color:"#e8e2d8",marginBottom:6}}>Ask anything</div>
           <div style={{fontSize:12,color:"#444",lineHeight:2,textAlign:"center",marginBottom:32}}>What am I missing? · What shoes go with my cream jeans?<br/>Build a capsule for a weekend trip</div>
@@ -59,16 +62,16 @@ export default function ChatView({
             )}
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
-              <input autoFocus value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1,fontSize:15,padding:"14px 16px"}} disabled={chatLoading}/>
+              <input autoFocus value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(safeChatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1,fontSize:15,padding:"14px 16px"}} disabled={chatLoading}/>
               <button onClick={()=>imageInputRef.current?.click()} style={{background:"none",border:"none",color:"#666",fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0,lineHeight:1}} title="Attach image">📎</button>
-              <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"14px 20px",fontSize:13,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+              <button onClick={()=>sendChat(safeChatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"14px 20px",fontSize:13,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
             </div>
           </div>
         </div>
       ) : (
         <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
           <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12}}>
-            {chatHistory.map((msg,i)=>(
+            {safeChatHistory.map((msg,i)=>(
               <div key={i}>
                 <div style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start"}}>
                   <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:msg.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px",background:msg.role==="user"?"#e8e2d8":"#1a1a1a",color:msg.role==="user"?"#111":"#c8c0b0",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{Array.isArray(msg.content)?msg.content.map((block,bi)=>block.type==="image"?<img key={bi} src={`data:${block.source.media_type};base64,${block.source.data}`} style={{maxWidth:"100%",maxHeight:200,borderRadius:8,display:"block",marginBottom:4}}/>:<span key={bi}>{block.text}</span>):msg.content}</div>
@@ -76,8 +79,8 @@ export default function ChatView({
                 {msg.role==="assistant" && !chatLoading && (
                   correctingIdx===i ? (
                     <div style={{display:"flex",gap:6,marginTop:4,paddingLeft:4}}>
-                      <input autoFocus value={correctionInput} onChange={e=>setCorrectionInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submitCorrection(chatHistory,setChatHistory,i);if(e.key==="Escape")setCorrectingIdx(null);}} placeholder="What was wrong?" style={{...inputStyle,marginBottom:0,flex:1,fontSize:11}}/>
-                      <button type="button" onClick={()=>submitCorrection(chatHistory,setChatHistory,i)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"0 12px",fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>Save</button>
+                      <input autoFocus value={correctionInput} onChange={e=>setCorrectionInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submitCorrection(safeChatHistory,setChatHistory,i);if(e.key==="Escape")setCorrectingIdx(null);}} placeholder="What was wrong?" style={{...inputStyle,marginBottom:0,flex:1,fontSize:11}}/>
+                      <button type="button" onClick={()=>submitCorrection(safeChatHistory,setChatHistory,i)} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"0 12px",fontSize:11,cursor:"pointer",fontWeight:600,flexShrink:0}}>Save</button>
                       <button type="button" onClick={()=>setCorrectingIdx(null)} style={{...ghostBtn,fontSize:16,padding:"0 6px",flexShrink:0}}>✕</button>
                     </div>
                   ) : (
@@ -95,13 +98,13 @@ export default function ChatView({
             )}
             <div ref={chatEndRef}/>
           </div>
-          {planCards?.length > 0 && (
+          {safePlanCards.length > 0 && (
             <div style={{flexShrink:0,borderTop:"1px solid #2a2a2a",background:"#161616",maxHeight:220,overflowY:"auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px 6px"}}>
                 <div style={{fontSize:9,color:"#888",letterSpacing:2,textTransform:"uppercase"}}>Save to journal</div>
-                <button onClick={()=>setPlanCards([])} style={{background:"none",border:"none",color:"#555",fontSize:16,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
+                <button onClick={()=>setPlanCards?.([])} style={{background:"none",border:"none",color:"#555",fontSize:16,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
               </div>
-              {planCards.map((card,ci)=>(
+              {safePlanCards.map((card,ci)=>(
                 <div key={ci} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderTop:"1px solid #1a1a1a"}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:10,color:"#e8e2d8",marginBottom:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{card.date}{card.label?` · ${card.label}`:""}</div>
@@ -116,8 +119,8 @@ export default function ChatView({
                       })}
                     </div>
                   </div>
-                  <button onClick={()=>{onApprovePlanDay(card);setPlanCards(p=>p.filter((_,i)=>i!==ci));}} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"6px 12px",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",flexShrink:0,fontWeight:600}}>Add</button>
-                  <button onClick={()=>setPlanCards(p=>p.filter((_,i)=>i!==ci))} style={{background:"none",border:"1px solid #333",color:"#666",borderRadius:3,padding:"6px 10px",fontSize:9,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",flexShrink:0}}>Skip</button>
+                  <button onClick={()=>{onApprovePlanDay?.(card);setPlanCards?.(p=>(Array.isArray(p)?p:[]).filter((_,i)=>i!==ci));}} style={{background:"#e8e2d8",color:"#111",border:"none",borderRadius:3,padding:"6px 12px",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",flexShrink:0,fontWeight:600}}>Add</button>
+                  <button onClick={()=>setPlanCards?.(p=>(Array.isArray(p)?p:[]).filter((_,i)=>i!==ci))} style={{background:"none",border:"1px solid #333",color:"#666",borderRadius:3,padding:"6px 10px",fontSize:9,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",flexShrink:0}}>Skip</button>
                 </div>
               ))}
             </div>
@@ -135,9 +138,9 @@ export default function ChatView({
             )}
             <div style={{padding:"12px 16px",display:"flex",gap:8,alignItems:"center"}}>
               {learnedIndicator && <div style={{fontSize:9,color:"#b8976a",letterSpacing:1.5,textTransform:"uppercase",flexShrink:0}}>✦ noted</div>}
-              <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(chatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
+              <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(safeChatHistory,setChatHistory);}}} placeholder="Ask about your wardrobe..." style={{...inputStyle,marginBottom:0,flex:1}} disabled={chatLoading}/>
               <button onClick={()=>imageInputRef.current?.click()} style={{background:"none",border:"none",color:"#666",fontSize:18,cursor:"pointer",padding:"0 4px",flexShrink:0,lineHeight:1}} title="Attach image">📎</button>
-              <button onClick={()=>sendChat(chatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
+              <button onClick={()=>sendChat(safeChatHistory,setChatHistory)} disabled={chatLoading||!chatInput.trim()} style={{background:chatInput.trim()&&!chatLoading?"#e8e2d8":"#1a1a1a",color:chatInput.trim()&&!chatLoading?"#111":"#444",border:"none",borderRadius:3,padding:"0 18px",fontSize:11,letterSpacing:1,cursor:chatInput.trim()&&!chatLoading?"pointer":"not-allowed",flexShrink:0,fontWeight:600}}>Send</button>
             </div>
           </div>
         </div>

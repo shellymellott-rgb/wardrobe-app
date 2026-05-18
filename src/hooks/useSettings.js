@@ -27,16 +27,20 @@ export function useSettings(user) {
 
   const [chatHistory, setChatHistory] = useState(() => {
     try {
-      return JSON.parse(
+      const parsed = JSON.parse(
         localStorage.getItem("wardrobe-chat-history") ||
         localStorage.getItem("wardrobe-chat") ||
         "[]"
       );
+      return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
   });
 
   const [styleNotes, setStyleNotes] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("wardrobe-style-notes") || "[]"); }
+    try {
+      const parsed = JSON.parse(localStorage.getItem("wardrobe-style-notes") || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    }
     catch { return []; }
   });
 
@@ -165,14 +169,16 @@ export function useSettings(user) {
   // ── Style notes (centralized) ──────────────────────────────────────────────
   // All three mutations (add / remove / clear) write React state + localStorage + Supabase.
   function addStyleNote(note) {
-    const next = [...styleNotes, note];
+    const safe = Array.isArray(styleNotes) ? styleNotes : [];
+    const next = [...safe, note];
     setStyleNotes(next);
     try { localStorage.setItem("wardrobe-style-notes", JSON.stringify(next)); } catch {}
     saveSettings({ styleNotes: next });
   }
 
   function removeStyleNote(idx) {
-    const next = styleNotes.filter((_, j) => j !== idx);
+    const safe = Array.isArray(styleNotes) ? styleNotes : [];
+    const next = safe.filter((_, j) => j !== idx);
     setStyleNotes(next);
     try { localStorage.setItem("wardrobe-style-notes", JSON.stringify(next)); } catch {}
     saveSettings({ styleNotes: next });
@@ -187,7 +193,8 @@ export function useSettings(user) {
   function editStyleNote(idx, newText) {
     const trimmed = newText.trim();
     if (!trimmed) return removeStyleNote(idx);
-    const next = styleNotes.map((n, j) => j === idx ? trimmed : n);
+    const safe = Array.isArray(styleNotes) ? styleNotes : [];
+    const next = safe.map((n, j) => j === idx ? trimmed : n);
     setStyleNotes(next);
     try { localStorage.setItem("wardrobe-style-notes", JSON.stringify(next)); } catch {}
     saveSettings({ styleNotes: next });
@@ -197,8 +204,9 @@ export function useSettings(user) {
   function buildStyleSystem() {
     const profile = styleProfile.trim() || DEFAULT_STYLE_SYSTEM;
     const parts = [profile];
-    if (styleNotes.length)
-      parts.push(`STYLE RULES (follow strictly, never violate):\n${styleNotes.map(n => `- ${n}`).join("\n")}`);
+    const safeNotes = Array.isArray(styleNotes) ? styleNotes : [];
+    if (safeNotes.length)
+      parts.push(`STYLE RULES (follow strictly, never violate):\n${safeNotes.map(n => `- ${n}`).join("\n")}`);
     if (extraInstructions.trim())
       parts.push(`Current instructions:\n${extraInstructions.trim()}`);
     return parts.join("\n\n");

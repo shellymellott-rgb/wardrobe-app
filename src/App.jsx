@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { Component, useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase, sbLoadOutfits, sbLoadJournalEntries, sbSaveJournalEntry, sbDeleteJournalEntry } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
@@ -30,6 +30,41 @@ const ChatView = lazy(() => import("./components/ChatView.jsx"));
 const ItemDetailModal = lazy(() => import("./components/ItemDetailModal.jsx"));
 const ItemChatModal = lazy(() => import("./components/ItemChatModal.jsx"));
 const SettingsModal = lazy(() => import("./components/SettingsModal.jsx"));
+
+class RouteErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error) {
+    console.error("[route error]", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{ padding: 28, color: T.ink, minHeight: 360 }}>
+        <div style={{ fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.hot, marginBottom: 12 }}>
+          This view hit an error
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2, lineHeight: 1.6, marginBottom: 18 }}>
+          The app caught it instead of going blank. Try going home, then reopen the view.
+        </div>
+        <button onClick={this.props.onHome} style={{ background: T.cobalt, color: "#fff", border: "none", padding: "10px 16px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer", marginRight: 10 }}>
+          Home
+        </button>
+        <button onClick={() => window.location.reload()} style={{ background: "transparent", color: T.ink2, border: `1px solid ${T.rule}`, padding: "10px 16px", fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", cursor: "pointer" }}>
+          Reload
+        </button>
+      </div>
+    );
+  }
+}
 
 // Read the cached Supabase user ID directly from localStorage so we can kick
 // off the data fetch before getSession() resolves its network token check.
@@ -254,6 +289,13 @@ export default function WardrobeApp() {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState(() => { try { return localStorage.getItem("wardrobe-view") || "home"; } catch { return "home"; } });
   function navigateTo(v) { setView(v); try { localStorage.setItem("wardrobe-view", v); } catch {} }
+  function journalPrefillFromCard(card) {
+    const date = card?.date || new Date().toISOString().split("T")[0];
+    const itemIds = Array.isArray(card?.itemIds) ? card.itemIds.map(String) : [];
+    setJournalPrefill({ date, itemIds, notes: card?.label || "" });
+    navigateTo("journal");
+    window.history.pushState({ view: "journal" }, "");
+  }
   const [showSettings, setShowSettings] = useState(false);
   const [journalPrefill, setJournalPrefill] = useState(null);
 
@@ -620,180 +662,182 @@ export default function WardrobeApp() {
         />
       )}
 
-      <Suspense fallback={null}>
-      {view==="outfits" && (
-        <OutfitsView
-          items={wardrobe.items}
-          inspoImage={styling.inspoImage} inspoResult={styling.inspoResult}
-          setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
-          loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
-          underloved={underloved} markWorn={markWorn} user={user}
-          savedOutfits={savedOutfits} outfitsLoading={outfitsLoading} onOutfitSaved={loadSavedOutfits}
-          wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}
-          setChatInput={styling.setChatInput} setView={navigateTo}
-        />
-      )}
+      <RouteErrorBoundary key={view} onHome={() => navigateTo("home")}>
+        <Suspense fallback={<div style={{ padding: 28, fontFamily: T.mono, fontSize: 10, letterSpacing: ".18em", textTransform: "uppercase", color: T.ink3 }}>Loading…</div>}>
+          {view==="outfits" && (
+            <OutfitsView
+              items={wardrobe.items}
+              inspoImage={styling.inspoImage} inspoResult={styling.inspoResult}
+              setInspoResult={styling.setInspoResult} setInspoImage={styling.setInspoImage}
+              loadingInspo={styling.loadingInspo} analyzeInspo={styling.analyzeInspo}
+              underloved={underloved} markWorn={markWorn} user={user}
+              savedOutfits={savedOutfits} outfitsLoading={outfitsLoading} onOutfitSaved={loadSavedOutfits}
+              wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}
+              setChatInput={styling.setChatInput} setView={navigateTo}
+            />
+          )}
 
-      {view==="wishlist" && (
-        <WishlistView wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist} onMoveToCloset={item => { setAddForm({ name: item.name||"", brand: item.brand||"", category: "", color: "", imageData: item.imageData||null, imageUrl: item.imageUrl||null, notes: item.description||"", price: item.currentPrice||"", tags: [], materials: [], season: "All Year", sleeveLength: "N/A", length: "N/A" }); navigateTo("add"); }}/>
-      )}
+          {view==="wishlist" && (
+            <WishlistView wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist} onMoveToCloset={item => { setAddForm({ name: item.name||"", brand: item.brand||"", category: "", color: "", imageData: item.imageData||null, imageUrl: item.imageUrl||null, notes: item.description||"", price: item.currentPrice||"", tags: [], materials: [], season: "All Year", sleeveLength: "N/A", length: "N/A" }); navigateTo("add"); }}/>
+          )}
 
-      {view==="journal" && (
-        <JournalView
-          ref={journalRef}
-          items={wardrobe.items}
-          user={user}
-          journalEntries={journalEntries}
-          journalLoading={journalLoading}
-          onEntrySaved={loadJournalEntries}
-          onEntryDeleted={loadJournalEntries}
-          markWorn={markWorn}
-          setChatInput={styling.setChatInput}
-          setView={navigateTo}
-          sbSaveJournalEntry={sbSaveJournalEntry}
-          sbDeleteJournalEntry={sbDeleteJournalEntry}
-          journalPrefill={journalPrefill}
-          onPrefillConsumed={() => setJournalPrefill(null)}
-          removeWornDate={removeWornDate}
-          onSelectItem={item => setSelectedItem(item)}
-        />
-      )}
+          {view==="journal" && (
+            <JournalView
+              ref={journalRef}
+              items={wardrobe.items}
+              user={user}
+              journalEntries={journalEntries}
+              journalLoading={journalLoading}
+              onEntrySaved={loadJournalEntries}
+              onEntryDeleted={loadJournalEntries}
+              markWorn={markWorn}
+              setChatInput={styling.setChatInput}
+              setView={navigateTo}
+              sbSaveJournalEntry={sbSaveJournalEntry}
+              sbDeleteJournalEntry={sbDeleteJournalEntry}
+              journalPrefill={journalPrefill}
+              onPrefillConsumed={() => setJournalPrefill(null)}
+              removeWornDate={removeWornDate}
+              onSelectItem={item => setSelectedItem(item)}
+            />
+          )}
 
-      {view==="trips" && (
-        <TripsView
-          trips={trips.trips} setTrips={trips.setTrips} activeTrip={trips.activeTrip} setActiveTrip={trips.setActiveTrip}
-          tripMessages={trips.tripMessages} tripInput={trips.tripInput} setTripInput={trips.setTripInput}
-          tripLoading={trips.tripLoading} tripEndRef={trips.tripEndRef}
-          showNewTripForm={trips.showNewTripForm} setShowNewTripForm={trips.setShowNewTripForm}
-          createTrip={trips.createTrip} openTrip={trips.openTrip}
-          deleteTrip={trips.deleteTrip} sendTripMessage={trips.sendTripMessage}
-          planCards={trips.planCards} setPlanCards={trips.setPlanCards}
-          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); navigateTo("journal"); }}
-          items={wardrobe.items}
-        />
-      )}
+          {view==="trips" && (
+            <TripsView
+              trips={trips.trips} setTrips={trips.setTrips} activeTrip={trips.activeTrip} setActiveTrip={trips.setActiveTrip}
+              tripMessages={trips.tripMessages} tripInput={trips.tripInput} setTripInput={trips.setTripInput}
+              tripLoading={trips.tripLoading} tripEndRef={trips.tripEndRef}
+              showNewTripForm={trips.showNewTripForm} setShowNewTripForm={trips.setShowNewTripForm}
+              createTrip={trips.createTrip} openTrip={trips.openTrip}
+              deleteTrip={trips.deleteTrip} sendTripMessage={trips.sendTripMessage}
+              planCards={trips.planCards} setPlanCards={trips.setPlanCards}
+              onApprovePlanDay={journalPrefillFromCard}
+              items={wardrobe.items}
+            />
+          )}
 
-      {view==="chat" && (
-        <ChatView
-          chatHistory={settings.chatHistory} setChatHistory={settings.setChatHistory}
-          chatInput={styling.chatInput} setChatInput={styling.setChatInput}
-          chatLoading={styling.chatLoading} chatEndRef={styling.chatEndRef}
-          styleNotes={settings.styleNotes}
-          removeStyleNote={settings.removeStyleNote}
-          clearStyleNotes={settings.clearStyleNotes}
-          learnedIndicator={styling.learnedIndicator}
-          correctingIdx={styling.correctingIdx} setCorrectingIdx={styling.setCorrectingIdx}
-          correctionInput={styling.correctionInput} setCorrectionInput={styling.setCorrectionInput}
-          sendChat={styling.sendChat} submitCorrection={styling.submitCorrection}
-          attachedImages={styling.attachedImages}
-          onImageAttach={file => readFile(file).then(data => styling.setAttachedImages(prev => [...prev, data]))}
-          onImageClear={i => styling.setAttachedImages(prev => prev.filter((_,idx) => idx !== i))}
-          planCards={styling.planCards}
-          setPlanCards={styling.setPlanCards}
-          items={wardrobe.items}
-          onApprovePlanDay={card => { setJournalPrefill({ date: card.date, itemIds: card.itemIds, notes: card.label }); navigateTo("journal"); }}
-          weather={currentWeather}
-          journalRef={journalRef}
-        />
-      )}
+          {view==="chat" && (
+            <ChatView
+              chatHistory={settings.chatHistory} setChatHistory={settings.setChatHistory}
+              chatInput={styling.chatInput} setChatInput={styling.setChatInput}
+              chatLoading={styling.chatLoading} chatEndRef={styling.chatEndRef}
+              styleNotes={settings.styleNotes}
+              removeStyleNote={settings.removeStyleNote}
+              clearStyleNotes={settings.clearStyleNotes}
+              learnedIndicator={styling.learnedIndicator}
+              correctingIdx={styling.correctingIdx} setCorrectingIdx={styling.setCorrectingIdx}
+              correctionInput={styling.correctionInput} setCorrectionInput={styling.setCorrectionInput}
+              sendChat={styling.sendChat} submitCorrection={styling.submitCorrection}
+              attachedImages={styling.attachedImages}
+              onImageAttach={file => readFile(file).then(data => styling.setAttachedImages(prev => [...prev, data]))}
+              onImageClear={i => styling.setAttachedImages(prev => prev.filter((_,idx) => idx !== i))}
+              planCards={styling.planCards}
+              setPlanCards={styling.setPlanCards}
+              items={wardrobe.items}
+              onApprovePlanDay={journalPrefillFromCard}
+              weather={currentWeather}
+              journalRef={journalRef}
+            />
+          )}
 
-      {view==="add" && (
-        <AddItemView
-          items={wardrobe.items} persist={wardrobe.persist}
-          addBrand={wardrobe.addBrand} brands={wardrobe.brands}
-          customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
-          customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
-          allCategories={allCategories} allCustomColors={allCustomColors}
-          addForm={addForm} setAddForm={setAddForm}
-          scanningImage={scanningImage}
-          openFilePicker={openFilePicker}
-          onImageDrop={file => handleImageFile(file, "add")}
-          setCropSrc={setCropSrc} setCropTarget={setCropTarget}
-          receiptImages={receiptImages} setReceiptImages={setReceiptImages}
-          setView={navigateTo}
-        />
-      )}
+          {view==="add" && (
+            <AddItemView
+              items={wardrobe.items} persist={wardrobe.persist}
+              addBrand={wardrobe.addBrand} brands={wardrobe.brands}
+              customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
+              customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
+              allCategories={allCategories} allCustomColors={allCustomColors}
+              addForm={addForm} setAddForm={setAddForm}
+              scanningImage={scanningImage}
+              openFilePicker={openFilePicker}
+              onImageDrop={file => handleImageFile(file, "add")}
+              setCropSrc={setCropSrc} setCropTarget={setCropTarget}
+              receiptImages={receiptImages} setReceiptImages={setReceiptImages}
+              setView={navigateTo}
+            />
+          )}
 
-      {/* Modals */}
-      {showSettings && (
-        <SettingsModal
-          onClose={()=>setShowSettings(false)}
-          customCategories={settings.customCategories}
-          addCustomCategory={settings.addCustomCategory}
-          removeCustomCategory={settings.removeCustomCategory}
-          styleProfile={settings.styleProfile} setStyleProfile={settings.setStyleProfile}
-          saveSettings={settings.saveSettings}
-          extraInstructions={settings.extraInstructions} setExtraInstructions={settings.setExtraInstructions}
-          styleNotes={settings.styleNotes}
-          removeStyleNote={settings.removeStyleNote}
-          clearStyleNotes={settings.clearStyleNotes}
-          editStyleNote={settings.editStyleNote}
-          weatherEnabled={settings.weatherEnabled} setWeatherEnabled={settings.setWeatherEnabled}
-          homeCity={settings.homeCity} setHomeCity={settings.setHomeCity}
-          exportWardrobe={exportWardrobe}
-          onImport={()=>importRef.current.click()}
-          user={user} signOut={signOut}
-          wardrobeProfile={styling.wardrobeProfile}
-          upsertProfile={styling.upsertProfile}
-          onProfileUpdated={() => styling.reloadProfile()}
-          seasonOverride={settings.seasonOverride}
-          setSeasonOverride={settings.setSeasonOverride}
-        />
-      )}
+          {/* Modals */}
+          {showSettings && (
+            <SettingsModal
+              onClose={()=>setShowSettings(false)}
+              customCategories={settings.customCategories}
+              addCustomCategory={settings.addCustomCategory}
+              removeCustomCategory={settings.removeCustomCategory}
+              styleProfile={settings.styleProfile} setStyleProfile={settings.setStyleProfile}
+              saveSettings={settings.saveSettings}
+              extraInstructions={settings.extraInstructions} setExtraInstructions={settings.setExtraInstructions}
+              styleNotes={settings.styleNotes}
+              removeStyleNote={settings.removeStyleNote}
+              clearStyleNotes={settings.clearStyleNotes}
+              editStyleNote={settings.editStyleNote}
+              weatherEnabled={settings.weatherEnabled} setWeatherEnabled={settings.setWeatherEnabled}
+              homeCity={settings.homeCity} setHomeCity={settings.setHomeCity}
+              exportWardrobe={exportWardrobe}
+              onImport={()=>importRef.current.click()}
+              user={user} signOut={signOut}
+              wardrobeProfile={styling.wardrobeProfile}
+              upsertProfile={styling.upsertProfile}
+              onProfileUpdated={() => styling.reloadProfile()}
+              seasonOverride={settings.seasonOverride}
+              setSeasonOverride={settings.setSeasonOverride}
+            />
+          )}
 
-      {selectedItem && (
-        <ItemDetailModal
-          selectedItem={selectedItem} setSelectedItem={setSelectedItem}
-          items={wardrobe.items} persist={wardrobe.persist}
-          itemEval={styling.itemEval} loadingEval={styling.loadingEval}
-          editing={editing} setEditing={setEditing}
-          editForm={editForm} setEditForm={setEditForm} saveEdit={saveEdit}
-          saving={saving} saveError={saveError}
-          itemNavList={itemNavList}
-          onNavigate={(item) => evaluateItem(item, itemNavList)}
-          markWorn={markWorn} removeWornDate={removeWornDate} removeItem={removeItem}
-          wornDateInput={wornDateInput} setWornDateInput={setWornDateInput}
-          setItemStatus={setItemStatus}
-          openItemChat={styling.openItemChat}
-          openFilePicker={openFilePicker} onImageDrop={file => handleImageFile(file, "edit")}
-          setCropSrc={setCropSrc} setCropTarget={setCropTarget}
-          outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
-          brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories} allCustomColors={allCustomColors}
-          customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
-          customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
-          stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
-        />
-      )}
+          {selectedItem && (
+            <ItemDetailModal
+              selectedItem={selectedItem} setSelectedItem={setSelectedItem}
+              items={wardrobe.items} persist={wardrobe.persist}
+              itemEval={styling.itemEval} loadingEval={styling.loadingEval}
+              editing={editing} setEditing={setEditing}
+              editForm={editForm} setEditForm={setEditForm} saveEdit={saveEdit}
+              saving={saving} saveError={saveError}
+              itemNavList={itemNavList}
+              onNavigate={(item) => evaluateItem(item, itemNavList)}
+              markWorn={markWorn} removeWornDate={removeWornDate} removeItem={removeItem}
+              wornDateInput={wornDateInput} setWornDateInput={setWornDateInput}
+              setItemStatus={setItemStatus}
+              openItemChat={styling.openItemChat}
+              openFilePicker={openFilePicker} onImageDrop={file => handleImageFile(file, "edit")}
+              setCropSrc={setCropSrc} setCropTarget={setCropTarget}
+              outfitPhotoRef={outfitPhotoRef} addOutfitPhoto={addOutfitPhoto}
+              brands={wardrobe.brands} addBrand={wardrobe.addBrand} allCategories={allCategories} allCustomColors={allCustomColors}
+              customCategories={wardrobe.customCategories} addCustomCategory={wardrobe.addCustomCategory}
+              customTags={settings.customTags} onAddCustomTag={settings.addCustomTag}
+              stylingNotesInput={stylingNotesInput} setStylingNotesInput={setStylingNotesInput}
+            />
+          )}
 
-      {/* FAB — Add Item */}
-      {!cropSrc && view!=="add" && view!=="trips" && !selectedItem && !showSettings && !styling.itemChatModal && (
-        <button
-          onClick={()=>{navigateTo("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
-          style={{
-            position:"fixed",bottom:28,right:28,
-            background:T.cobalt,color:"#fff",
-            border:"none",borderRadius:0,
-            padding:"12px 20px",
-            fontFamily:T.mono,fontSize:10,letterSpacing:".22em",textTransform:"uppercase",
-            cursor:"pointer",
-            boxShadow:"0 2px 16px rgba(42,74,214,0.35)",zIndex:50,
-          }}
-          aria-label="Add item"
-        >+ Add Item</button>
-      )}
+          {/* FAB — Add Item */}
+          {!cropSrc && view!=="add" && view!=="trips" && !selectedItem && !showSettings && !styling.itemChatModal && (
+            <button
+              onClick={()=>{navigateTo("add");setAddForm(emptyForm());window.history.pushState({view:"add"},"");}}
+              style={{
+                position:"fixed",bottom:28,right:28,
+                background:T.cobalt,color:"#fff",
+                border:"none",borderRadius:0,
+                padding:"12px 20px",
+                fontFamily:T.mono,fontSize:10,letterSpacing:".22em",textTransform:"uppercase",
+                cursor:"pointer",
+                boxShadow:"0 2px 16px rgba(42,74,214,0.35)",zIndex:50,
+              }}
+              aria-label="Add item"
+            >+ Add Item</button>
+          )}
 
-      {styling.itemChatModal && (
-        <ItemChatModal
-          itemChatModal={styling.itemChatModal} setItemChatModal={styling.setItemChatModal}
-          itemChatHistory={styling.itemChatHistory}
-          itemChatInput={styling.itemChatInput} setItemChatInput={styling.setItemChatInput}
-          itemChatLoading={styling.itemChatLoading}
-          itemChatEndRef={styling.itemChatEndRef}
-          learnedIndicator={styling.learnedIndicator}
-          sendItemChat={styling.sendItemChat}
-        />
-      )}
-      </Suspense>
+          {styling.itemChatModal && (
+            <ItemChatModal
+              itemChatModal={styling.itemChatModal} setItemChatModal={styling.setItemChatModal}
+              itemChatHistory={styling.itemChatHistory}
+              itemChatInput={styling.itemChatInput} setItemChatInput={styling.setItemChatInput}
+              itemChatLoading={styling.itemChatLoading}
+              itemChatEndRef={styling.itemChatEndRef}
+              learnedIndicator={styling.learnedIndicator}
+              sendItemChat={styling.sendItemChat}
+            />
+          )}
+        </Suspense>
+      </RouteErrorBoundary>
     </div>
     </div>
   );
