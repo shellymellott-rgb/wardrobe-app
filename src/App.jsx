@@ -635,7 +635,7 @@ export default function WardrobeApp() {
       )}
 
       {view==="wishlist" && (
-        <WishlistView wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist}/>
+        <WishlistView wishlist={wardrobe.wishlist} persistWishlist={wardrobe.persistWishlist} onMoveToCloset={item => { setAddForm({ name: item.name||"", brand: item.brand||"", category: "", color: "", imageData: item.imageData||null, imageUrl: item.imageUrl||null, notes: item.description||"", price: item.currentPrice||"", tags: [], materials: [], season: "All Year", sleeveLength: "N/A", length: "N/A" }); navigateTo("add"); }}/>
       )}
 
       {view==="journal" && (
