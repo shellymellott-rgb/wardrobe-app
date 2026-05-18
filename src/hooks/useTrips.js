@@ -11,6 +11,44 @@ function parseJsonArray(text) {
   } catch { return null; }
 }
 
+async function readClaudeResponse(res, label) {
+  const raw = await res.text();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    console.error(`[${label}] Claude API returned non-JSON:`, raw || `HTTP ${res.status}`);
+    throw new Error(raw || `HTTP ${res.status}`);
+  }
+  if (!res.ok || data.error) {
+    const message = typeof data.error === "object" ? data.error?.message : data.error;
+    console.error(`[${label}] Claude API failed:`, message || `HTTP ${res.status}`);
+    throw new Error(message || `HTTP ${res.status}`);
+  }
+  return data.content?.[0]?.text || "";
+}
+
+async function postClaudeWithRetry({ label, messages, system, fallbackSystem, maxTokens = 1000 }) {
+  const send = async (systemText) => {
+    const res = await fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, system: systemText, messages }),
+    });
+    return readClaudeResponse(res, label);
+  };
+
+  try {
+    return await send(system);
+  } catch (e) {
+    const message = String(e.message || "");
+    const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|413|400|529|overloaded/i.test(message);
+    if (!shouldRetry) throw e;
+    console.warn(`[${label}] retrying with smaller closet context after:`, message);
+    return send(fallbackSystem);
+  }
+}
+
 export function useTrips({ user, items, buildStyleSystem, weather, season, journalEntries }) {
   const { createSession, saveMessage } = useChatSessions();
   const [trips, setTrips] = useState([]);
@@ -43,8 +81,8 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
           messages: [{ role: "user", content: `Extract outfit(s) from this text. Return a JSON array where each entry is: { "date": "YYYY-MM-DD", "label": "brief occasion label", "itemNames": ["exact item names"] }. For single outfits use tomorrow's date: ${tomorrowStr}. For multi-day plans, infer dates from the trip context if dates are mentioned. Return []  if nothing clear.\n\nText:\n${reply}` }],
         }),
       });
-      const data = await res.json();
-      const parsed = parseJsonArray(data.content?.[0]?.text || "");
+      const text = await readClaudeResponse(res, "trip-extract-plan");
+      const parsed = parseJsonArray(text);
       if (!parsed?.length) return;
       const cards = parsed.map(entry => {
         const itemIds = (entry.itemNames || []).map(name => {
@@ -122,15 +160,16 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. Suggest outfits day by day. When suggesting outfits use the labeled format so they can be saved to the journal.`;
 
     try {
-      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, null) + tripContext;
+      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries) + tripContext;
+      const fallbackSystem = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }) + tripContext;
       const apiMessages = newHistory.map(m => ({ role: m.role, content: m.content }));
-      const res = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, system, messages: apiMessages }),
+      const reply = await postClaudeWithRetry({
+        label: "trip-chat",
+        messages: apiMessages,
+        system,
+        fallbackSystem,
+        maxTokens: 1500,
       });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, something went wrong.";
       const assistantMsg = { role: "assistant", content: reply };
       if (detectPlan(reply)) extractPlan(reply);
       const finalHistory = [...newHistory, assistantMsg];
@@ -142,7 +181,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
         await saveMessage(activeTrip.session_id, "assistant", reply);
       }
     } catch (e) {
-      setTripMessages([...newHistory, { role: "assistant", content: "Sorry, something went wrong." }]);
+      setTripMessages([...newHistory, { role: "assistant", content: `Error: ${e.message || "Try again."}` }]);
     }
     setTripLoading(false);
   }

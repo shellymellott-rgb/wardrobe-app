@@ -249,12 +249,12 @@ function compactItemLine(i) {
   return `- ${truncate(i.name, 70)}${i.category ? ` [${i.category}]` : ""}${i.itemType ? ` / ${truncate(i.itemType, 24)}` : ""}${i.brand ? ` / ${truncate(i.brand, 30)}` : ""}${i.color ? ` / ${truncate(i.color, 30)}` : ""}`;
 }
 
-function buildClosetContext(items, question) {
-  const { detailedItems, compactIndex, matchedCount, totalCount } = selectClosetContext(items, question);
+function buildClosetContext(items, question, options = {}) {
+  const { detailedItems, compactIndex, matchedCount, totalCount } = selectClosetContext(items, question, options);
   const detailLines = detailedItems.map(fmtItem).join("\n");
   const indexLines = compactIndex
     .filter(item => !detailedItems.some(d => String(d.id) === String(item.id)))
-    .slice(0, 45)
+    .slice(0, options.maxCompactIndex ?? 45)
     .map(compactItemLine)
     .join("\n");
   return [
@@ -267,9 +267,9 @@ function buildClosetContext(items, question) {
   ].filter(Boolean).join("\n\n");
 }
 
-export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14, journalEntries = null) {
+export function buildChatSystem(items, question, buildStyleSystem, profile = null, weather = null, season = "auto", rotationDays = 14, journalEntries = null, options = {}) {
   const stripped = items.map(stripForClaude);
-  const ctx = buildClosetContext(stripped, question);
+  const ctx = buildClosetContext(stripped, question, options);
   const today = new Date().toISOString().split("T")[0];
   const cutoff = new Date(Date.now() - rotationDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const recentlyWorn = stripped.filter(i => (i.wornDates || []).some(d => d >= cutoff && d <= today));

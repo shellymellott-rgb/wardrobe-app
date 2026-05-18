@@ -160,13 +160,40 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
   function flashLearned() { setLearnedIndicator(true); setTimeout(() => setLearnedIndicator(false), 2000); }
 
   async function readClaudeResponse(res, label) {
-    const data = await res.json();
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      console.error(`[${label}] Claude API returned non-JSON:`, raw || `HTTP ${res.status}`);
+      throw new Error(raw || `HTTP ${res.status}`);
+    }
     if (!res.ok || data.error) {
       const message = typeof data.error === "object" ? data.error?.message : data.error;
       console.error(`[${label}] Claude API failed:`, message || `HTTP ${res.status}`);
       throw new Error(message || `HTTP ${res.status}`);
     }
     return data.content?.[0]?.text || "";
+  }
+
+  async function postClaudeWithRetry({ label, messages, system, fallbackSystem, maxTokens = 1000 }) {
+    const send = async (systemText) => {
+      const res = await fetch("/api/claude", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTokens, system:systemText, messages }),
+      });
+      return readClaudeResponse(res, label);
+    };
+
+    try {
+      return await send(system);
+    } catch (e) {
+      const message = String(e.message || "");
+      const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|413|400|529|overloaded/i.test(message);
+      if (!shouldRetry) throw e;
+      console.warn(`[${label}] retrying with smaller closet context after:`, message);
+      return send(fallbackSystem);
+    }
   }
 
   function detectPlan(text) {
@@ -252,11 +279,12 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
           ]},
         ];
       }
-      const res = await fetch("/api/claude", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries), messages:apiMessages }),
+      const reply = await postClaudeWithRetry({
+        label: "chat",
+        messages: apiMessages,
+        system: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries),
+        fallbackSystem: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }),
       });
-      const reply = await readClaudeResponse(res, "chat");
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
       try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
