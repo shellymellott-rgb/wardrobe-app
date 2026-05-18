@@ -189,7 +189,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       return await send(system);
     } catch (e) {
       const message = String(e.message || "");
-      const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|413|400|529|overloaded/i.test(message);
+      const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|timeout|timed out|internal server error|413|400|500|504|529|overloaded/i.test(message);
       if (!shouldRetry) throw e;
       console.warn(`[${label}] retrying with smaller closet context after:`, message);
       return send(fallbackSystem);
@@ -282,8 +282,8 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       const reply = await postClaudeWithRetry({
         label: "chat",
         messages: apiMessages,
-        system: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries),
-        fallbackSystem: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }),
+        system: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries, { maxDetailed: 32, maxCompactIndex: 18 }),
+        fallbackSystem: buildChatSystem(items, msg, buildStyleSystem, wardrobeProfile, weather, season, rotationDays, journalEntries, { maxDetailed: 16, maxCompactIndex: 8 }),
       });
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
@@ -312,7 +312,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, correction, buildStyleSystem, null, weather, season, rotationDays, journalEntries), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, correction, buildStyleSystem, null, weather, season, rotationDays, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }), messages:buildContextHistory(newHistory) }),
       });
       const reply = await readClaudeResponse(res, "correction");
       const updated = [...newHistory, { role:"assistant", content:reply }];
@@ -340,7 +340,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, initialMsg, buildStyleSystem, null, weather, season, rotationDays, journalEntries)+itemFocusCtx(item), messages:newHistory }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, initialMsg, buildStyleSystem, null, weather, season, rotationDays, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 })+itemFocusCtx(item), messages:newHistory }),
       });
       const reply = await readClaudeResponse(res, "item-chat-open");
       setItemChatHistory([...newHistory, { role:"assistant", content:reply }]);
@@ -357,7 +357,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, null, weather, season, rotationDays, journalEntries)+itemFocusCtx(itemChatModal), messages:buildContextHistory(newHistory) }),
+        body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:buildChatSystem(items, msg, buildStyleSystem, null, weather, season, rotationDays, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 })+itemFocusCtx(itemChatModal), messages:buildContextHistory(newHistory) }),
       });
       const reply = await readClaudeResponse(res, "item-chat");
       setItemChatHistory(h => [...h, { role:"assistant", content:reply }]);

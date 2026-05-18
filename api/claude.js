@@ -269,12 +269,23 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(claudeBody),
+      signal: AbortSignal.timeout(45000),
     });
-    const data = await response.json();
+    const raw = await response.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      console.error('[api/claude] Anthropic returned non-JSON:', raw || `HTTP ${response.status}`);
+      return res.status(response.ok ? 502 : response.status).json({ error: raw || `HTTP ${response.status}` });
+    }
     if (data.error) console.error('[api/claude] Anthropic error:', data.error);
     res.status(response.ok ? 200 : response.status).json(data);
   } catch (err) {
     console.error('[api/claude] top-level error:', err.message);
+    if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      return res.status(504).json({ error: 'Claude request timed out' });
+    }
     res.status(500).json({ error: err.message });
   }
 }

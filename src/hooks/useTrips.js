@@ -42,7 +42,7 @@ async function postClaudeWithRetry({ label, messages, system, fallbackSystem, ma
     return await send(system);
   } catch (e) {
     const message = String(e.message || "");
-    const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|413|400|529|overloaded/i.test(message);
+    const shouldRetry = fallbackSystem && /too large|prompt|tokens|context|request|body|timeout|timed out|internal server error|413|400|500|504|529|overloaded/i.test(message);
     if (!shouldRetry) throw e;
     console.warn(`[${label}] retrying with smaller closet context after:`, message);
     return send(fallbackSystem);
@@ -160,8 +160,8 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. Suggest outfits day by day. When suggesting outfits use the labeled format so they can be saved to the journal.`;
 
     try {
-      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries) + tripContext;
-      const fallbackSystem = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 24, maxCompactIndex: 12 }) + tripContext;
+      const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 32, maxCompactIndex: 18 }) + tripContext;
+      const fallbackSystem = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 16, maxCompactIndex: 8 }) + tripContext;
       const apiMessages = buildContextHistory(newHistory).map(m => ({ role: m.role, content: m.content }));
       const reply = await postClaudeWithRetry({
         label: "trip-chat",
