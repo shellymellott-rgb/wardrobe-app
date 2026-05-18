@@ -79,7 +79,7 @@ export function buildChatSystem(items, question, buildStyleSystem, profile = nul
   const stripped = items.map(stripForClaude);
   const isOutfitQuery = question && /\b(wear|outfit|dress|tomorrow|today|suggest|what should)\b/i.test(question);
   let ctx;
-  if (stripped.length <= 200 || !question || isOutfitQuery) {
+  if (stripped.length <= 999 || !question || isOutfitQuery) {
     ctx = `Her complete wardrobe (${stripped.length} pieces):\n${stripped.map(fmtItem).join("\n")}`;
   } else {
     const rel = filterRelevantItems(stripped, question);
