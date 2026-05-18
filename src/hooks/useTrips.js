@@ -212,8 +212,9 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
       }
     } catch (e) {
       setTripMessages([...newHistory, { role: "assistant", content: `Error: ${e.message || "Try again."}` }]);
+    } finally {
+      setTripLoading(false);
     }
-    setTripLoading(false);
   }
 
   return {

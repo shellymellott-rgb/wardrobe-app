@@ -196,6 +196,11 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     }
   }
 
+  function persistChatHistory(history) {
+    try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(history)); } catch {}
+    saveSettings({ chatHistory: history.slice(-30) });
+  }
+
   function detectPlan(text) {
     const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bSeptember\s+\d/g];
     const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
@@ -255,15 +260,15 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     const msg = chatInput.trim(); if (!msg || chatLoading) return;
     const newHistory = [...chatHistory, { role:"user", content:msg }];
     setChatHistory(newHistory);
-    try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(newHistory)); } catch {}
+    persistChatHistory(newHistory);
     setChatInput("");
     const imagesToSend = attachedImages;
     setAttachedImages([]);
     setChatLoading(true);
-    if (!activeSessionId.current && user?.id) {
-      activeSessionId.current = await createSession(user.id);
-    }
     try {
+      if (!activeSessionId.current && user?.id) {
+        activeSessionId.current = await createSession(user.id);
+      }
       let apiMessages = buildContextHistory(newHistory);
       if (imagesToSend.length) {
         const imageBlocks = await Promise.all(imagesToSend.map(async (img) => {
@@ -287,8 +292,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       });
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
-      try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
-      saveSettings({ chatHistory: updated.slice(-30) });
+      persistChatHistory(updated);
       if (activeSessionId.current) {
         saveMessage(activeSessionId.current, "user", msg);
         saveMessage(activeSessionId.current, "assistant", reply);
@@ -296,9 +300,12 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       extractStyleNote(msg, reply).then(note => { if (note) { addStyleNote(note); flashLearned(); } });
       if (detectPlan(reply)) extractPlan(reply, items);
     } catch (e) {
-      setChatHistory(h => [...h, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
+      const errorHistory = [...newHistory, { role:"assistant", content:`Error: ${e.message || "Try again."}` }];
+      setChatHistory(errorHistory);
+      persistChatHistory(errorHistory);
+    } finally {
+      setChatLoading(false);
     }
-    setChatLoading(false);
   }
 
   async function submitCorrection(chatHistory, setChatHistory, idx) {
@@ -307,7 +314,7 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
     const correction = `That last response wasn't right. Correction: ${note}`;
     const newHistory = [...chatHistory, { role:"user", content:correction }];
     setChatHistory(newHistory);
-    try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(newHistory)); } catch {}
+    persistChatHistory(newHistory);
     setCorrectingIdx(null); setCorrectionInput(""); setChatLoading(true);
     try {
       const res = await fetch("/api/claude", {
@@ -317,12 +324,14 @@ export function useClaudeStyling({ items, buildStyleSystem, saveSettings, addSty
       const reply = await readClaudeResponse(res, "correction");
       const updated = [...newHistory, { role:"assistant", content:reply }];
       setChatHistory(updated);
-      try { localStorage.setItem("wardrobe-chat-history", JSON.stringify(updated)); } catch {}
-      saveSettings({ chatHistory: updated.slice(-30) });
+      persistChatHistory(updated);
     } catch (e) {
-      setChatHistory(h => [...h, { role:"assistant", content:`Error: ${e.message || "Try again."}` }]);
+      const errorHistory = [...newHistory, { role:"assistant", content:`Error: ${e.message || "Try again."}` }];
+      setChatHistory(errorHistory);
+      persistChatHistory(errorHistory);
+    } finally {
+      setChatLoading(false);
     }
-    setChatLoading(false);
   }
 
   // ── Item chat ──────────────────────────────────────────────────────────────
