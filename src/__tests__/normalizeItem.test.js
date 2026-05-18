@@ -6,6 +6,7 @@ import {
   buildItem,
   emptyForm,
 } from "../utils/normalizeItem.js";
+import { canonicalizeBrand, normalizeBrandList } from "../utils/normalizeBrand.js";
 
 // ── getMaterials ──────────────────────────────────────────────────────────────
 
@@ -117,6 +118,28 @@ describe("normalizeItem", () => {
     const original = { id: 8, name: "Skirt", material: "Cotton", tags: [] };
     normalizeItem(original);
     expect(original).toHaveProperty("material", "Cotton");
+  });
+
+  it("canonicalizes brand variants", () => {
+    expect(normalizeItem({ id: 9, name: "Blazer", brand: "J Crew" }).brand).toBe("J.Crew");
+  });
+});
+
+// ── brand normalization ──────────────────────────────────────────────────────
+
+describe("brand normalization", () => {
+  it("maps common aliases and typos to canonical brand names", () => {
+    expect(canonicalizeBrand("J. Crew")).toBe("J.Crew");
+    expect(canonicalizeBrand("BR (Banana Republic)")).toBe("Banana Republic");
+    expect(canonicalizeBrand("OLAKAI")).toBe("Olukai");
+    expect(canonicalizeBrand("WHBM")).toBe("White House Black Market");
+  });
+
+  it("dedupes brand lists by normalized key", () => {
+    expect(normalizeBrandList(["J Crew", "J.Crew", "j. crew", "Banana Republic", "BR (Banana Republic)"])).toEqual([
+      "Banana Republic",
+      "J.Crew",
+    ]);
   });
 });
 

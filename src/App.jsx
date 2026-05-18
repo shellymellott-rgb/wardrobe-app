@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase, sbLoadOutfits, sbLoadJournalEntries, sbSaveJournalEntry, sbDeleteJournalEntry } from "./supabase.js";
 import { CATEGORIES, COLORS } from "./constants.js";
 import { normalizeItem, emptyForm } from "./utils/normalizeItem.js";
+import { canonicalizeBrand } from "./utils/normalizeBrand.js";
 import { readFile, compressImage, generateImageVersions } from "./utils/imageUtils.js";
 import { IMAGE_SCAN_PROMPT, WEATHER_OUTFIT_PROMPT } from "./constants.js";
 import { callClaude } from "./utils/callClaude.js";
@@ -346,7 +347,7 @@ export default function WardrobeApp() {
         setAddForm(f => ({
           ...f,
           name: parsed.name || f.name,
-          brand: parsed.brand || f.brand,
+          brand: canonicalizeBrand(parsed.brand) || f.brand,
           color: parsed.color || f.color,
           materials: parsed.material && !f.materials.length ? [parsed.material] : f.materials,
           category: parsed.category || f.category,

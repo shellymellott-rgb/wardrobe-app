@@ -1,3 +1,5 @@
+import { canonicalizeBrand } from "./normalizeBrand.js";
+
 /**
  * Return materials as an array regardless of whether the raw item has
  * the legacy singular `material` string or the current `materials` array.
@@ -24,6 +26,7 @@ export function normalizeItem(raw) {
   const { material, ...rest } = raw; // drop legacy singular field
   return {
     ...rest,
+    brand: canonicalizeBrand(raw.brand),
     materials,
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     wornDates: Array.isArray(raw.wornDates) ? raw.wornDates : [],
@@ -57,7 +60,7 @@ export function buildItem(form) {
   return {
     id: Date.now() + Math.random(),
     name: form.name,
-    brand: form.brand || "",
+    brand: canonicalizeBrand(form.brand),
     category: form.category,
     color: form.color === "Other" ? (form.customColor || "") : form.color,
     materials: Array.isArray(form.materials) ? form.materials : [],

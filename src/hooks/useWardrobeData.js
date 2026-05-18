@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { sbDel, sbUpsert, sbLoad, sbLoadSettings, sbUploadImage, sbGetSignedUrls, sbUploadImageAndGetPath } from "../supabase.js";
 import { normalizeItem } from "../utils/normalizeItem.js";
+import { canonicalizeBrand, normalizeBrandList } from "../utils/normalizeBrand.js";
 import { STORAGE_KEY, WISHLIST_KEY, IMAGE_CACHE_KEY } from "../constants.js";
 
 // Strip transient/binary image fields before writing to Supabase DB.
@@ -133,7 +134,7 @@ export function useWardrobeData(user) {
   const [items, setItems] = useState(() => loadFromStorage().map(normalizeItem));
   const [wishlist, setWishlist] = useState(() => loadWishlistFromStorage());
   const [brands, setBrands] = useState(() => {
-    try { const b = localStorage.getItem("wardrobe-brands"); return b ? JSON.parse(b) : []; }
+    try { const b = localStorage.getItem("wardrobe-brands"); return b ? normalizeBrandList(JSON.parse(b)) : []; }
     catch { return []; }
   });
   const [customCategories, setCustomCategories] = useState(() => {
@@ -154,6 +155,7 @@ export function useWardrobeData(user) {
    * selectedItem or other derived state without a stale reference.
    */
   async function persist(newItems) {
+    newItems = newItems.map(normalizeItem).filter(Boolean);
     const uid = user?.id;
     const prevItems = items;
 
@@ -248,10 +250,12 @@ export function useWardrobeData(user) {
   }
 
   function addBrand(brand) {
-    if (!brand || brands.includes(brand)) return;
-    const updated = [...brands, brand].sort();
+    const canonical = canonicalizeBrand(brand);
+    if (!canonical) return canonical;
+    const updated = normalizeBrandList([...brands, canonical]);
     setBrands(updated);
     try { localStorage.setItem("wardrobe-brands", JSON.stringify(updated)); } catch {}
+    return canonical;
   }
 
   function addCustomCategory(cat) {

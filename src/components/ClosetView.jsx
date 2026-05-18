@@ -38,6 +38,26 @@ export default function ClosetView({
     });
   }
 
+  function setSingleFilter(key, value) {
+    setActiveFilters(f => {
+      const current = Array.isArray(f[key]) ? f[key] : (f[key] ? [f[key]] : []);
+      if (current.length === 1 && current[0] === value) {
+        const { [key]: _, ...rest } = f;
+        return rest;
+      }
+      return { ...f, [key]: [value] };
+    });
+  }
+
+  function selectCategory(cat) {
+    setActiveCategory(cat);
+    setActiveFilters(f => {
+      if (!f.itemType) return f;
+      const { itemType, ...rest } = f;
+      return rest;
+    });
+  }
+
   function isActive(key, value) {
     const v = activeFilters[key];
     if (Array.isArray(v)) return v.includes(value);
@@ -73,7 +93,7 @@ export default function ClosetView({
       <div style={{ borderBottom: `1px solid ${T.rule}`, padding: "0 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 22, overflowX: "auto", scrollbarWidth: "none" }}>
           {cats.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)} style={tabStyle(activeCategory === cat)}>
+            <button key={cat} onClick={() => selectCategory(cat)} style={tabStyle(activeCategory === cat)}>
               {cat}
             </button>
           ))}
@@ -85,7 +105,7 @@ export default function ClosetView({
       {ITEM_TYPES[activeCategory] && (
         <div style={{ padding: "0 28px", borderBottom: `1px solid ${T.rule}`, display: "flex", gap: 18, overflowX: "auto", scrollbarWidth: "none" }}>
           {ITEM_TYPES[activeCategory].map(t => (
-            <button key={t} onClick={() => toggleFilter("itemType", t)} style={tabStyle(isActive("itemType", t))}>
+            <button key={t} onClick={() => setSingleFilter("itemType", t)} style={tabStyle(isActive("itemType", t))}>
               {t}
             </button>
           ))}

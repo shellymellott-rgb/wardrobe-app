@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { COLORS, PRESET_TAGS, URL_PROMPT, RECEIPT_PROMPT } from "../constants.js";
 import { inputStyle, labelStyle, chipStyle, ghostBtn, navBtn } from "../styles.js";
 import { buildItem, emptyForm } from "../utils/normalizeItem.js";
+import { canonicalizeBrand } from "../utils/normalizeBrand.js";
 import { parseJsonObject } from "../utils/parseJson.js";
 import { readFile } from "../utils/imageUtils.js";
 import { callClaude } from "../utils/callClaude.js";
@@ -40,7 +41,7 @@ export default function AddItemView({
       setAddForm(f => ({
         ...f,
         name: parsed.name || f.name,
-        brand: parsed.brand || f.brand,
+        brand: canonicalizeBrand(parsed.brand) || f.brand,
         color: parsed.color || f.color,
         materials: parsed.material && !f.materials.length ? [parsed.material] : f.materials,
         category: parsed.category || f.category,
@@ -62,7 +63,7 @@ export default function AddItemView({
               const text2 = await callClaude(URL_PROMPT, [{ type:"text", text:`Extract product details from this webpage content:\n\n${pageData.pageText}` }], 500);
               const p2 = parseJsonObject(text2);
               if (p2.name)    updates.name    = p2.name;
-              if (p2.brand)   { updates.brand = p2.brand; addBrand(p2.brand); }
+              if (p2.brand)   { updates.brand = canonicalizeBrand(p2.brand); addBrand(p2.brand); }
               if (p2.color)   updates.color   = p2.color;
               if (p2.material) updates.materials = [p2.material];
               if (p2.category) updates.category = p2.category;
@@ -109,7 +110,7 @@ export default function AddItemView({
   async function addReceiptItems() {
     const newItems = receiptData.map(item => ({
       id: Date.now()+item.tempId+Math.random(),
-      name: item.name, brand: item.brand||"", category: item.category,
+      name: item.name, brand: canonicalizeBrand(item.brand), category: item.category,
       color: item.color||"", materials: Array.isArray(item.materials)?item.materials:[],
       season: item.season||"All Year", sleeveLength: item.sleeveLength||"N/A", length: item.length||"N/A",
       tags: item.tags||[], comments: item.comments||"",

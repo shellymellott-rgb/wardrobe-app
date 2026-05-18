@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { COLORS, SEASONS, SLEEVE_LENGTHS, LENGTHS, MATERIALS, PRESET_TAGS, ITEM_TYPES } from "../constants.js";
 import { chipStyle, inputStyle, labelStyle, ghostBtn } from "../styles.js";
+import { canonicalizeBrand, sameBrand } from "../utils/normalizeBrand.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -54,8 +55,15 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
     else setForm(f => ({ ...f, customTag: "" }));
     if (onAddCustomTag) onAddCustomTag(tag);
   }
+  function commitBrand() {
+    const canonical = canonicalizeBrand(form.brand);
+    if (!canonical) return;
+    setForm(f => ({ ...f, brand: canonical }));
+    if (onAddBrand) onAddBrand(canonical);
+  }
 
   const mats = Array.isArray(form.materials) ? form.materials : (form.material ? [form.material] : []);
+  const brandExists = brands.some(b => sameBrand(b, form.brand));
 
   return (
     <div>
@@ -108,8 +116,8 @@ export default function FormFields({ form, setForm, onImageClick, onImageDrop, o
       <label style={labelStyle}>Brand</label>
       {brands.length > 0 && <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>{brands.map(b=><button key={b} onClick={()=>setForm(f=>({...f,brand:f.brand===b?"":b}))} style={{...chipStyle(form.brand===b),fontSize:10}}>{b}</button>)}</div>}
       <div style={{display:"flex",gap:8,marginBottom:10}}>
-        <input value={form.brand} onChange={e=>setForm(f=>({...f,brand:e.target.value}))} placeholder={brands.length>0?"Or type new brand...":"e.g. Everlane, Madewell"} style={{...inputStyle,marginBottom:0,flex:1}} onKeyDown={e=>{if(e.key==="Enter"&&form.brand.trim()&&onAddBrand)onAddBrand(form.brand.trim())}}/>
-        {form.brand && !brands.includes(form.brand) && onAddBrand && <button onClick={()=>onAddBrand(form.brand.trim())} style={{...chipStyle(false),padding:"4px 12px",flexShrink:0}}>Save</button>}
+        <input value={form.brand} onChange={e=>setForm(f=>({...f,brand:e.target.value}))} onBlur={commitBrand} placeholder={brands.length>0?"Or type new brand...":"e.g. Everlane, Madewell"} style={{...inputStyle,marginBottom:0,flex:1}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();commitBrand();}}}/>
+        {form.brand && !brandExists && onAddBrand && <button onClick={commitBrand} style={{...chipStyle(false),padding:"4px 12px",flexShrink:0}}>Save</button>}
       </div>
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,marginBottom:5}}><label style={{...labelStyle,marginTop:0,marginBottom:0}}>Category</label></div>
