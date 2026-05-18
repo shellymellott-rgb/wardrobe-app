@@ -20,6 +20,17 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
+function itemChatLine(item) {
+  const details = [
+    item.brand,
+    item.category,
+    item.color,
+    Array.isArray(item.tags) && item.tags.length ? `Tags: ${item.tags.join(", ")}` : "",
+    item.stylingNotes ? `Styling notes: ${item.stylingNotes}` : "",
+  ].filter(Boolean);
+  return `- ${item.name}${details.length ? ` (${details.join("; ")})` : ""}`;
+}
+
 const JournalView = forwardRef(function JournalView({ items, user, journalEntries, journalLoading, onEntrySaved, onEntryDeleted, markWorn, removeWornDate, setChatInput, setView, sbSaveJournalEntry, sbDeleteJournalEntry, journalPrefill, onPrefillConsumed, onSelectItem }, ref) {
   const [calView, setCalView] = useState("month");
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -181,7 +192,15 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     (e.item_ids || []).map(id => items.find(i => String(i.id) === String(id))).filter(Boolean)
   );
   const allDisplayItems = entriesForDate.length > 0 ? allEntryItems : wornMapItems;
-  const chatLabel = `Let's talk about my outfit on ${formatDate(selectedDate)}${allDisplayItems.length > 0 ? `: ${allDisplayItems.map(d => d.name).join(", ")}` : ""}`;
+  const allEntryNotes = entriesForDate
+    .map(e => e.notes?.trim())
+    .filter(Boolean);
+  const chatLabel = [
+    `Let's talk about my outfit on ${formatDate(selectedDate)}.`,
+    allDisplayItems.length > 0 ? `Items:\n${allDisplayItems.map(itemChatLine).join("\n")}` : "",
+    allEntryNotes.length > 0 ? `Journal notes / style context from this day:\n${allEntryNotes.map(n => `- ${n}`).join("\n")}` : "",
+    "Use the item styling notes and journal notes when giving advice.",
+  ].filter(Boolean).join("\n\n");
 
   // 2×2 collage helper for calendar cells
   function renderCollage(thumbItems) {
