@@ -11,6 +11,35 @@ function parseJsonArray(text) {
   } catch { return null; }
 }
 
+function normalizeMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function findItemByName(items, name) {
+  const query = normalizeMatchText(name);
+  if (!query) return null;
+  const scored = items.map(item => {
+    const itemName = normalizeMatchText(item.name);
+    const brand = normalizeMatchText(item.brand);
+    const color = normalizeMatchText(item.color);
+    const haystack = [itemName, brand, color].filter(Boolean).join(" ");
+    const queryTokens = query.split(/\s+/).filter(token => token.length > 2);
+    const itemTokens = new Set(haystack.split(/\s+/).filter(token => token.length > 2));
+    const overlap = queryTokens.filter(token => itemTokens.has(token)).length;
+    let score = overlap;
+    if (itemName === query) score += 100;
+    if (itemName.includes(query) || query.includes(itemName)) score += 45;
+    if (brand && query.includes(brand)) score += 8;
+    if (color && query.includes(color)) score += 5;
+    return { item, score };
+  }).sort((a, b) => b.score - a.score);
+  return scored[0]?.score >= 2 ? scored[0].item : null;
+}
+
 async function readClaudeResponse(res, label) {
   const raw = await res.text();
   let data = {};
@@ -61,16 +90,19 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
   const tripEndRef = useRef(null);
 
   function detectPlan(text) {
-    const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g];
+    const multiDay = [/## /g, /\bDAY\b/gi, /\bMay\s+\d/g, /\bJune\s+\d/g, /\bJuly\s+\d/g, /\bAugust\s+\d/g, /\bDate:\*{0,2}/gi];
     const multiDayCount = multiDay.reduce((acc, p) => acc + (text.match(p)?.length || 0), 0);
     if (multiDayCount >= 3) return true;
-    const outfitLabels = [/\*{0,2}Top:\*{0,2}/i, /\*{0,2}Bottom:\*{0,2}/i, /\*{0,2}Pants:\*{0,2}/i, /\*{0,2}Shoes:\*{0,2}/i, /\*{0,2}Dress:\*{0,2}/i, /\*{0,2}Accessories:\*{0,2}/i];
+    const outfitLabels = [/\*{0,2}Top:\*{0,2}/i, /\*{0,2}Bottoms?:\*{0,2}/i, /\*{0,2}Pants:\*{0,2}/i, /\*{0,2}Shoes:\*{0,2}/i, /\*{0,2}Dress:\*{0,2}/i, /\*{0,2}Accessories:\*{0,2}/i, /\*{0,2}Item:\*{0,2}/i];
     const outfitCount = outfitLabels.reduce((acc, p) => acc + (p.test(text) ? 1 : 0), 0);
     return outfitCount >= 2;
   }
 
-  async function extractPlan(reply) {
+  async function extractPlan(historyOrReply) {
     try {
+      const convo = typeof historyOrReply === "string"
+        ? historyOrReply
+        : historyOrReply.slice(-12).map(m => `${m.role}: ${m.content}`).join("\n");
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowStr = tomorrow.toISOString().split("T")[0];
       const res = await fetch("/api/claude", {
@@ -78,7 +110,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
         body: JSON.stringify({
           model: "claude-sonnet-4-6", max_tokens: 800,
           system: "You extract structured outfit plans from conversations. Return ONLY a JSON array, no markdown, no explanation.",
-          messages: [{ role: "user", content: `Extract outfit(s) from this text. Return a JSON array where each entry is: { "date": "YYYY-MM-DD", "label": "brief occasion label", "itemNames": ["exact item names"] }. For single outfits use tomorrow's date: ${tomorrowStr}. For multi-day plans, infer dates from the trip context if dates are mentioned. Return []  if nothing clear.\n\nText:\n${reply}` }],
+          messages: [{ role: "user", content: `Extract outfit(s) from this trip chat. Look at the recent conversation, not only the last assistant message. Return a JSON array where each entry is: { "date": "YYYY-MM-DD", "label": "brief occasion label", "itemNames": ["exact item names"], "notes": "activity/weather notes if present" }. For single outfits use tomorrow's date only if no date is mentioned: ${tomorrowStr}. For multi-day plans, infer dates from the trip context if dates are mentioned. Include item names from Top/Bottoms/Shoes/Accessories/Item labels. Return [] if nothing clear.\n\nConversation:\n${convo}` }],
         }),
       });
       const text = await readClaudeResponse(res, "trip-extract-plan");
@@ -86,13 +118,11 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
       if (!parsed?.length) return;
       const cards = parsed.map(entry => {
         const itemIds = (entry.itemNames || []).map(name => {
-          const lc = name.toLowerCase();
-          const exact = items.find(i => i.name.toLowerCase() === lc);
-          const contains = items.find(i => i.name.toLowerCase().includes(lc));
-          const match = exact || contains;
+          const match = findItemByName(items, name);
           return match ? String(match.id) : null;
         }).filter(Boolean);
-        return { date: entry.date, label: entry.label || "", itemIds, itemNames: entry.itemNames || [] };
+        const label = [entry.label, entry.notes].filter(Boolean).join(" - ");
+        return { date: entry.date, label, itemIds, itemNames: entry.itemNames || [] };
       }).filter(c => c.date && c.itemIds.length > 0);
       if (cards.length) setPlanCards(prev => [...prev, ...cards]);
     } catch (e) { console.error("[trip extractPlan] failed:", e.message); }
@@ -157,7 +187,7 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
     setTripInput("");
     setTripLoading(true);
 
-    const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. Suggest outfits day by day. When suggesting outfits use the labeled format so they can be saved to the journal.`;
+    const tripContext = `\n\nTRIP CONTEXT:\nTrip: ${activeTrip.name}${activeTrip.destination ? ` to ${activeTrip.destination}` : ""}${activeTrip.start_date ? ` (${activeTrip.start_date} to ${activeTrip.end_date || "?"})` : ""}\n${activeTrip.itinerary ? `Itinerary:\n${activeTrip.itinerary}\n` : ""}${activeTrip.weather_notes ? `Weather: ${activeTrip.weather_notes}\n` : ""}\nYou are helping plan outfits for this specific trip. Reference the itinerary for each day's activities. When suggesting outfits, use labeled lines like **Top:**, **Bottoms:**, **Shoes:**, **Accessories:**, **Date:**, and **Notes:** so the app can create save-to-journal cards. If the user asks for cards or asks to add/save to journal, restate the outfit in that labeled format using exact closet item names. Do not say you cannot create cards or cannot see the journal; the app handles cards and passes planned journal context in your system prompt.`;
 
     try {
       const system = buildChatSystem(items, msg, buildStyleSystem, null, weather, season, 14, journalEntries, { maxDetailed: 32, maxCompactIndex: 18 }) + tripContext;
@@ -171,8 +201,8 @@ export function useTrips({ user, items, buildStyleSystem, weather, season, journ
         maxTokens: 1500,
       });
       const assistantMsg = { role: "assistant", content: reply };
-      if (detectPlan(reply)) extractPlan(reply);
       const finalHistory = [...newHistory, assistantMsg];
+      if (detectPlan(reply) || /\b(card|cards|save|journal|add)\b/i.test(msg)) extractPlan(finalHistory);
       setTripMessages(finalHistory);
 
       // Save messages to DB
