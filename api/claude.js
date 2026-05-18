@@ -166,6 +166,14 @@ function validateClaudeBody(body) {
   return null;
 }
 
+function trimClaudeMessages(body, maxMessages = 30) {
+  if (!Array.isArray(body?.messages) || body.messages.length <= maxMessages) return body;
+  return {
+    ...body,
+    messages: body.messages.slice(-maxMessages),
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   try {
@@ -173,7 +181,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'invalid request body' });
     }
 
-    const { fetchUrl, ...claudeBody } = req.body;
+    const { fetchUrl, ...rawClaudeBody } = req.body;
+    const claudeBody = trimClaudeMessages(rawClaudeBody);
 
     if (fetchUrl) {
       const safeUrl = await validateFetchUrl(fetchUrl);
