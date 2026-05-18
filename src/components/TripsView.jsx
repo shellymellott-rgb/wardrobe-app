@@ -11,7 +11,7 @@ export default function TripsView({
   showNewTripForm, setShowNewTripForm,
   createTrip, openTrip, deleteTrip, sendTripMessage,
   planCards = [], setPlanCards, onApprovePlanDay,
-  journalPrefill, onPrefillConsumed,
+  items = [],
 }) {
   const [form, setForm] = useState({ name: "", destination: "", startDate: "", endDate: "", itinerary: "", weatherNotes: "" });
   const [showContext, setShowContext] = useState(false);
@@ -70,8 +70,8 @@ export default function TripsView({
                   <div style={{ fontSize: 10, color: "#888" }}>{card.label}</div>
                 </div>
                 <div style={{ display: "flex", gap: 4, flex: 1, overflowX: "auto" }}>
-                  {card.itemIds.slice(0, 5).map((id, ii) => {
-                    const item = items?.find(i => String(i.id) === id);
+                  {(card.itemIds || []).slice(0, 5).map((id, ii) => {
+                    const item = items?.find(i => String(i.id) === String(id));
                     return item ? (
                       <div key={ii} style={{ width: 40, height: 54, flexShrink: 0, background: "#222", borderRadius: 2, overflow: "hidden" }}>
                         {(item.imageThumb || item.imageData) && <img src={item.imageThumb ?? item.imageData} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}

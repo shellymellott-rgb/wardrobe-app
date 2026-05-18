@@ -33,7 +33,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     prefillEntry(date, itemIds, notes) {
       setSelectedDate(date);
       setEditingEntryId(null);
-      setEntryItemIds(itemIds);
+      setEntryItemIds((itemIds || []).map(String));
       setEntryNotes(notes || "");
       setShowEntryForm(true);
     },
@@ -43,7 +43,7 @@ const JournalView = forwardRef(function JournalView({ items, user, journalEntrie
     if (!journalPrefill) return;
     setSelectedDate(journalPrefill.date);
     setEditingEntryId(null);
-    setEntryItemIds(journalPrefill.itemIds);
+    setEntryItemIds((journalPrefill.itemIds || []).map(String));
     setEntryNotes(journalPrefill.notes || "");
     setShowEntryForm(true);
     onPrefillConsumed?.();

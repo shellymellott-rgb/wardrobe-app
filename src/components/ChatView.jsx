@@ -106,8 +106,8 @@ export default function ChatView({
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:10,color:"#e8e2d8",marginBottom:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{card.date}{card.label?` · ${card.label}`:""}</div>
                     <div style={{display:"flex",gap:4}}>
-                      {card.itemIds.slice(0,5).map(id=>{
-                        const item=items?.find(i=>String(i.id)===id);
+                      {(card.itemIds || []).slice(0,5).map(id=>{
+                        const item=items?.find(i=>String(i.id)===String(id));
                         return item?(
                           <div key={id} style={{width:56,height:75,background:"#1a1a1a",borderRadius:2,overflow:"hidden",flexShrink:0}}>
                             {(item.imageThumb||item.imageData)&&<img src={item.imageThumb??item.imageData} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
